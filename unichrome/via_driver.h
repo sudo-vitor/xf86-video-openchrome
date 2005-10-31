@@ -64,6 +64,7 @@
 #include "via_bios.h"
 #include "via_priv.h"
 #include "via_swov.h"
+#include "via_dmabuffer.h"
 
 #ifdef XF86DRI
 #define _XF86DRI_SERVER_
@@ -148,6 +149,17 @@ typedef struct {
 
 typedef struct _twodContext {
     CARD32 mode;
+    CARD32 cmd;
+    CARD32 fgColor;
+    CARD32 bgColor;
+    CARD32 pattern0;
+    CARD32 pattern1;
+    CARD32 patternAddr;
+    Bool clipping;
+    int clipX1;
+    int clipX2;
+    int clipY1;
+    int clipY2;
 } ViaTwodContext;
 
 typedef struct{
@@ -226,17 +238,11 @@ typedef struct _VIA {
 
     /* Support for XAA acceleration */
     XAAInfoRecPtr       AccelInfoRec;
-    xRectangle          Rect;
-    CARD32              SavedCmd;
-    CARD32              SavedFgColor;
-    CARD32              SavedBgColor;
-    CARD32              SavedPattern0;
-    CARD32              SavedPattern1;
-    CARD32              SavedPatternAddr;
-    int                 justSetup;
     ViaTwodContext      td;
-    ViaCBuffer          cBuf;
-  
+    ViaCommandBuffer    cb;
+    CARD32              markerOffset;
+    CARD32             *markerBuf;
+
     /* BIOS Info Ptr */
     VIABIOSInfoPtr      pBIOSInfo;
     struct ViaCardIdStruct* Id;

@@ -1442,7 +1442,7 @@ static Bool VIAPreInit(ScrnInfoPtr pScrn, int flags)
     
     /* Set up screen parameters. */
     pVia->Bpp = pScrn->bitsPerPixel >> 3;
-    pVia->Bpl = pScrn->displayWidth * pVia->Bpp;
+    pVia->Bpl = pScrn->virtualX * pVia->Bpp;
 
     xf86SetCrtcForModes(pScrn, INTERLACE_HALVE_V);
     pScrn->currentMode = pScrn->modes;

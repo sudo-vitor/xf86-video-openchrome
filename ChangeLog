@@ -1,3 +1,41 @@
+2005-10-31  Thomas Hellström <unichrome-at-shipmail-dot-org>
+
+	* unichrome/Imakefile:
+	* unichrome/via_accel.c: (VIAInitAccel), (viaAccelClippingHelper),
+	(viaAccelSolidHelper), (viaAccelTransparentHelper),
+	(viaAccelCopyHelper), (VIASetupForScreenToScreenCopy),
+	(VIASubsequentScreenToScreenCopy), (VIASetupForSolidFill),
+	(VIASubsequentSolidFillRect), (VIASetupForMono8x8PatternFill),
+	(VIASubsequentMono8x8PatternFillRect),
+	(VIASetupForColor8x8PatternFill),
+	(VIASubsequentColor8x8PatternFillRect),
+	(VIASetupForCPUToScreenColorExpandFill),
+	(VIASubsequentScanlineCPUToScreenColorExpandFill),
+	(VIASetupForImageWrite), (VIASubsequentImageWriteRect),
+	(VIASetupForSolidLine), (VIASubsequentSolidTwoPointLine),
+	(VIASubsequentSolidHorVertLine), (VIASetupForDashedLine),
+	(VIASubsequentDashedTwoPointLine), (VIASetClippingRectangle),
+	(VIADisableClipping):
+	* unichrome/via_dmabuffer.c: (viaFlushPCI), (viaFlushDma),
+	(viaSetupCBuffer), (viaTearDownCBuffer):
+	* unichrome/via_dmabuffer.h:
+	* unichrome/via_driver.c: (VIAPreInit):
+	* unichrome/via_driver.h:
+
+	-Moved accel command stream handling over to the same way it is
+	 handled in the 3D and XvMC drivers.
+	-First shot at cleaning up via_accel.c. Split up a number of helper
+	 functions that will be used with EXA as well as XAA.
+	-Worked around the VIA 2048 line blitter limit. The pixmap cache should
+	 now be able to be unlimited in size.
+	-Added dependence on fbOffset for future secondary accel.
+	-Virtual correctness fixes (?).
+	-The new files, via_dmabuffer.[ch] might be removed later.
+	-Removed ScreenToScreenColorexpand since we don't have any info on how to
+	 get it working.
+	
+	 I might have broken some accel functions. Non-DRI builds are temprarily broken.
+	
 2005-10-31  Thomas Hellström  <unichrome-at-shipmail-dot-org>
 
 	* unichrome/via_accel.c: (VIAInitAccel):

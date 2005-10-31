@@ -37,6 +37,7 @@
 #include "via_driver.h"
 #include "via_regs.h"
 #include "via_id.h"
+#include "via_dmabuffer.h"
 
 /* Forward declaration of functions used in the driver */
 
@@ -120,26 +121,6 @@ static void VIASubsequentScanlineCPUToScreenColorExpandFill(
     int h,
     int skipleft);
 
-#if 0 /* Buggy. Temporarily disabled 2005-01-23 */
-static void VIASetupForScreenToScreenColorExpand(
-    ScrnInfoPtr pScrn,
-    int bg,
-    int fg,
-    int rop,
-    unsigned planemask);
-
-static void VIASubsequentScreenToScreenColorExpand(
-    ScrnInfoPtr pScrn,
-    int x,
-    int y,
-    int w,
-    int h,
-    int srcx,
-    int srcy,
-    int offset);
-#endif
-
-
 static void VIASetupForImageWrite(
     ScrnInfoPtr pScrn,
     int rop,
@@ -199,6 +180,7 @@ VIASubsequentDashedTwoPointLine(
     int y2,
     int flags,
     int phase);
+
 
 static void VIASetClippingRectangle(
     ScrnInfoPtr pScrn,
@@ -313,76 +295,6 @@ VIAInitialize2DEngine(ScrnInfoPtr pScrn)
 }
 
 
-#define CLEAR_CBUFFER(buf, pVia) \
-    (buf)->curPos = 0;		 \
-    (pVia)->justSetup = 1;
-
-#define COND_CLEAR_CBUFFER(buf, pVia)			\
-    if ((pVia)->justSetup == 1) { 			\
-	(pVia)->justSetup = 0;				\
-    } else  {						\
-	(buf)->curPos = 0;				\
-    }
-
-#define CBUFFER(buf,offset,value)			\
-    (buf)->buffer[(buf)->curPos++] = ((offset) >> 2) | 0xF0000000;	\
-    (buf)->buffer[(buf)->curPos++] = (value);				\
-    
-
-static void dispatchCBuffer(VIAPtr pVia, ViaCBuffer *buf)
-{
-    unsigned size = buf->curPos >> 1;
-    int i;
-    register CARD32 *bp = buf->buffer;
-    unsigned loop = 0;
-    register unsigned offset;
-    register unsigned value;
-    
-    /*
-     * Not doing this wait will probably stall the processor
-     * for an unacceptable amount of time in VIASETREG while other high
-     * priority interrupts may be pending.
-     */
-    
-    mem_barrier();
-
-    while (!(VIAGETREG(VIA_REG_STATUS) & VIA_VR_QUEUE_BUSY) && (loop++ < MAXLOOP));
-    while ((VIAGETREG(VIA_REG_STATUS) &
-	    (VIA_CMD_RGTR_BUSY | VIA_2D_ENG_BUSY )) &&
-	   (loop++ < MAXLOOP));
-    
-    for(i=0; i<size; ++i) {
-	offset = (*bp++ & 0x0FFFFFFF) << 2;
-	value = *bp++;
-	VIASETREG( offset , value);
-    }
-}
-
-static void dispatchCBufferAGP(VIAPtr pVia, ViaCBuffer *buf) 
-{
-#ifdef XF86DRI
-    drm_via_cmdbuffer_t b;
-    
-    b.buf = (char *)(buf->buffer);
-    b.size = buf->curPos*sizeof(CARD32);
-
-    if (pVia->directRenderingEnabled && pVia->agpEnable && pVia->dma2d) {    
-	VIADRIPtr pVIADRI =  pVia->pDRIInfo->devPrivate;
-	if (pVIADRI->ringBufActive) {
-	    if (drmCommandWrite(pVia->drmFD,DRM_VIA_CMDBUFFER,&b,sizeof(b)))
-		dispatchCBuffer(pVia,buf); /* No success using AGP. Try PCI instead. */
-	    return;
-	}
-    }
-#endif
-    /*
-     * No AGP ringbuffer or no DRI.
-     */
-
-    dispatchCBuffer(pVia,buf);
-}
-
-
 /* Acceleration init function, sets up pointers to our accelerated functions */
 Bool
 VIAInitAccel(ScreenPtr pScreen)
@@ -402,12 +314,21 @@ VIAInitAccel(ScreenPtr pScreen)
         pVia->VQStart = pVia->FBFreeEnd - VIA_VQ_SIZE;
         pVia->VQEnd = pVia->VQStart + VIA_VQ_SIZE - 1;
         pVia->FBFreeEnd -= VIA_VQ_SIZE;
-    }
+    } /* FIXME: Else disable VQ */
+    
     if (pVia->hwcursor) {
 	pVia->FBFreeEnd -= VIA_CURSOR_SIZE;
 	pVia->CursorStart = pVia->FBFreeEnd;
-    }
+    } /* FIXME: Else disable hwcursor */
+    
+    /*
+     * Sync marker code.
+     */
 
+    pVia->FBFreeEnd -= 64;
+    pVia->markerOffset = (pVia->FBFreeEnd + 31) & 31;
+    pVia->markerBuf = (CARD32 *) pVia->FBBase + (pVia->markerOffset >> 2);
+    
     VIAInitialize2DEngine(pScrn);
 
     if (pScrn->depth == 8) {
@@ -480,19 +401,6 @@ VIAInitAccel(ScreenPtr pScreen)
 	HARDWARE_PATTERN_PROGRAMMED_ORIGIN |
 	0;
 
-#if 0 /* Buggy. Temporarily disabled 2005-01-23 */
-
-    /* Screen to Screen color expansion. */
-    xaaptr->SetupForScreenToScreenColorExpandFill =
-	VIASetupForScreenToScreenColorExpand;
-    xaaptr->SubsequentScreenToScreenColorExpandFill =
-	VIASubsequentScreenToScreenColorExpand;
-    xaaptr->ScreenToScreenColorExpandFillFlags = NO_PLANEMASK |
-	BIT_ORDER_IN_BYTE_MSBFIRST |
-	ROP_NEEDS_SOURCE |
-	0;
-#endif
-
     /* Solid lines */
     xaaptr->SetupForSolidLine = VIASetupForSolidLine;
     xaaptr->SubsequentSolidTwoPointLine = VIASubsequentSolidTwoPointLine;
@@ -519,9 +427,9 @@ VIAInitAccel(ScreenPtr pScreen)
 	ROP_NEEDS_SOURCE |
 	0;
 
-    xaaptr->SetupForScanlineCPUToScreenColorExpandFill =
+    xaaptr->SetupForScanlineCPUToScreenColorExpandFill = 
 	VIASetupForCPUToScreenColorExpandFill;
-    xaaptr->SubsequentScanlineCPUToScreenColorExpandFill =
+	xaaptr->SubsequentScanlineCPUToScreenColorExpandFill = 
 	VIASubsequentScanlineCPUToScreenColorExpandFill;
     xaaptr->ColorExpandBase = pVia->BltBase;
     xaaptr->ColorExpandRange = VIA_MMIO_BLTSIZE;
@@ -578,7 +486,7 @@ VIAInitAccel(ScreenPtr pScreen)
 
     AvailFBArea.x1 = 0;
     AvailFBArea.y1 = 0;
-    AvailFBArea.x2 = pScrn->displayWidth;
+    AvailFBArea.x2 = pScrn->virtualX;
     AvailFBArea.y2 = cacheEnd;
 
     xf86InitFBManager(pScreen, &AvailFBArea);
@@ -586,7 +494,8 @@ VIAInitAccel(ScreenPtr pScreen)
 		     "Using %d lines for offscreen memory.\n",
 		     AvailFBArea.y2 - pScrn->virtualY ));
 
-    pVia->justSetup = 0;
+    viaSetupCBuffer(pScrn, &pVia->cb, 0);
+
     return XAAInit(pScreen, xaaptr);
 }
 
@@ -610,6 +519,87 @@ VIAAccelSync(ScrnInfoPtr pScrn)
         ;
 }
 
+#ifdef X_HAVE_XAAGETROP			
+#define VIAACCELPATTERNROP(vRop) (XAAGetPatternROP(vRop) << 24)
+#define VIAACCELCOPYROP(vRop) (XAAGetCopyROP(vRop) << 24)
+#else
+#define VIAACCELPATTERNROP(vRop) (XAAPatternROP[vRop] << 24)
+#define VIAACCELCOPYROP(vRop) (XAACopyROP[vRop] << 24)
+#endif
+
+
+static void
+viaAccelClippingHelper(ViaCommandBuffer *cb, int refY, ViaTwodContext *tdc)
+{   
+    if (tdc->clipping) {
+	tdc->cmd |= VIA_GEC_CLIP_ENABLE;
+	BEGIN_RING_AGP(cb, 4);
+	OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_CLIPTL), ((tdc->clipY1 - refY) << 16) | tdc->clipX1);
+	OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_CLIPBR), ((tdc->clipY2 - refY) << 16) | tdc->clipX2);
+    } else {
+	tdc->cmd &= ~VIA_GEC_CLIP_ENABLE;
+    }
+}
+
+static void 
+viaAccelSolidHelper(ViaCommandBuffer *cb, int x, int y, int w, int h,
+		    unsigned fbBase, CARD32 mode, unsigned pitch, CARD32 fg,
+		    CARD32 cmd)
+{
+    unsigned
+	dstBase  = fbBase + pitch * y;
+
+    BEGIN_RING_AGP(cb, 14); 
+    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_GEMODE), mode);
+    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_DSTBASE), dstBase >> 3);
+    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_PITCH), (pitch >> 3) << 16);
+    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_DSTPOS), x);
+    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_DIMENSION), ((h - 1) << 16) | (w - 1));
+    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_FGCOLOR), fg);
+    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_GECMD), cmd);
+}
+
+static void
+viaAccelTransparentHelper(ViaCommandBuffer *cb, CARD32 keyControl, 
+			  CARD32 transColor)
+{
+    BEGIN_RING_AGP(cb, 4);
+    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_KEYCONTROL), keyControl);
+    if (keyControl) {
+	OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_SRCCOLORKEY), transColor);
+    }
+}
+
+static void 
+viaAccelCopyHelper(ViaCommandBuffer *cb, int xs, int ys, int xd, int yd,
+		   int w, int h, unsigned srcFbBase, unsigned dstFbBase, CARD32 mode, 
+		   unsigned srcPitch, unsigned dstPitch, CARD32 cmd)
+{
+    unsigned
+	srcBase = srcFbBase + srcPitch*ys,
+	dstBase = dstFbBase + dstPitch*yd;
+
+    ys = (cmd & VIA_GEC_DECY) ? (h-1) : 0;
+    yd = ys;
+
+    if (cmd & VIA_GEC_DECX) {
+	xs += (w - 1);
+	xd += (w - 1);
+    }
+    
+    BEGIN_RING_AGP(cb, 16);
+    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_GEMODE), mode);
+    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_SRCBASE), srcBase >> 3);    
+    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_DSTBASE), dstBase >> 3);
+    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_PITCH), ((dstPitch >> 3) << 16) | (srcPitch >> 3));
+    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_SRCPOS), (ys << 16) | xs);
+    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_DSTPOS), (yd << 16) | xd);
+    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_DIMENSION), ((h - 1) << 16) | (w - 1));
+    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_GECMD), cmd);
+}
+    
+
+
 /* These are the ScreenToScreen bitblt functions. We support all ROPs, all
  * directions.
  *
@@ -625,15 +615,11 @@ VIASetupForScreenToScreenCopy(
     int trans_color)
 {
     VIAPtr  pVia = VIAPTR(pScrn);
-    int     cmd;
-    ViaCBuffer *buf = &pVia->cBuf;
+    CARD32 cmd;
+    ViaCommandBuffer *cb = &pVia->cb;
     ViaTwodContext *tdc = &pVia->td;
 
-#ifdef X_HAVE_XAAGETROP
-    cmd = VIA_GEC_BLT | (XAAGetCopyROP(rop) << 24);
-#else
-    cmd = VIA_GEC_BLT | (XAACopyROP[rop] << 24);
-#endif
+    cmd = VIA_GEC_BLT | VIAACCELCOPYROP(rop);
 
     if (xdir < 0)
         cmd |= VIA_GEC_DECX;
@@ -641,19 +627,9 @@ VIASetupForScreenToScreenCopy(
     if (ydir < 0)
         cmd |= VIA_GEC_DECY;
 
-    pVia->SavedCmd = cmd;
-
-    CLEAR_CBUFFER( buf, pVia);
-    CBUFFER(buf,VIA_REG_GEMODE, tdc->mode);
-    if (trans_color != -1) {
-        /* Transparent Bitblt */
-	CBUFFER(buf,VIA_REG_SRCCOLORKEY, trans_color);
-	CBUFFER(buf,VIA_REG_KEYCONTROL, 0x4000);
-    }
-    else {
-        /* Disable Transparent Bitblt */
-        CBUFFER(buf,VIA_REG_KEYCONTROL, 0x0);
-    }
+    tdc->cmd = cmd;
+    viaAccelTransparentHelper(cb, (trans_color != -1) ? 0x4000 : 0x0000, 
+			      trans_color);
 }
 
 static void
@@ -667,57 +643,16 @@ VIASubsequentScreenToScreenCopy(
     int h)
 {
     VIAPtr pVia = VIAPTR(pScrn);
-    ViaCBuffer *buf = &pVia->cBuf;
+    ViaCommandBuffer *cb = &pVia->cb;
     ViaTwodContext *tdc = &pVia->td;
-    CARD32 srcBase, dstBase;
 
     if (!w || !h)
         return;
 
-    srcBase = y1*pVia->Bpl + x1*pVia->Bpp;
-    dstBase = y2*pVia->Bpl + x2*pVia->Bpp;
-
-    x1 = (srcBase & 31);
-    x2 = (dstBase & 31);
-
-    switch (pScrn->bitsPerPixel) {
-    case 16:
-	x1 >>= 1;
-	x2 >>= 1;
-        break;
-    case 32:
-	x1 >>= 2;
-	x2 >>= 2;
-	break;
-    default:
-        break;
-    }
-
-    y1 = 0;
-    y2 = 0;
-
-    if (pVia->SavedCmd & VIA_GEC_DECX) {
-        x1 += (w - 1);
-        x2 += (w - 1);
-    }
-
-    if (pVia->SavedCmd & VIA_GEC_DECY) {
-        y1 += (h - 1);
-        y2 += (h - 1);
-    }
-
-    COND_CLEAR_CBUFFER( buf, pVia);
-    CBUFFER(buf,VIA_REG_GEMODE, tdc->mode );
-    /* Set Src and Dst base address and pitch, pitch is qword */
-    CBUFFER(buf,VIA_REG_SRCBASE, (srcBase & ~31) >> 3);
-    CBUFFER(buf,VIA_REG_DSTBASE, (dstBase & ~31) >> 3);
-    CBUFFER(buf,VIA_REG_PITCH, VIA_PITCH_ENABLE |
-	    (pVia->Bpl >> 3) | ((pVia->Bpl >> 3) << 16));
-    CBUFFER(buf,VIA_REG_SRCPOS, ((y1 << 16) | x1));
-    CBUFFER(buf,VIA_REG_DSTPOS, ((y2 << 16) | x2));
-    CBUFFER(buf,VIA_REG_DIMENSION, (((h - 1) << 16) | (w - 1)));
-    CBUFFER(buf,VIA_REG_GECMD, pVia->SavedCmd);
-    dispatchCBufferAGP(pVia, buf);
+    viaAccelClippingHelper(cb, y2, tdc);
+    viaAccelCopyHelper(cb, x1, y1, x2, y2, w, h, pScrn->fbOffset, pScrn->fbOffset, tdc->mode,
+		       pVia->Bpl, pVia->Bpl, tdc->cmd);
+    cb->flushFunc(cb);
 }
 
 
@@ -733,17 +668,11 @@ VIASetupForSolidFill(
     unsigned planemask)
 {
     VIAPtr  pVia = VIAPTR(pScrn);
-    int     cmd;
+    ViaTwodContext *tdc = &pVia->td;
 
-    cmd = VIA_GEC_BLT | VIA_GEC_FIXCOLOR_PAT | 
-#ifdef X_HAVE_XAAGETROP
-	(XAAGetPatternROP(rop) << 24);
-#else
-    (XAAPatternROP[rop] << 24);
-#endif
-
-    pVia->SavedCmd = cmd;
-    pVia->SavedFgColor = color;
+    tdc->cmd = VIA_GEC_BLT | VIA_GEC_FIXCOLOR_PAT | 
+      VIAACCELPATTERNROP(rop);
+    tdc->fgColor = color;
 }
 
 
@@ -756,27 +685,16 @@ VIASubsequentSolidFillRect(
     int h)
 {
     VIAPtr pVia = VIAPTR(pScrn);
-    ViaCBuffer *buf = &pVia->cBuf;
+    ViaCommandBuffer *cb = &pVia->cb;
     ViaTwodContext *tdc = &pVia->td;
 
     if (!w || !h)
         return;
 
-    COND_CLEAR_CBUFFER( buf, pVia);
-    CBUFFER(buf,VIA_REG_GEMODE, tdc->mode);
-    /* Set Src and Dst base address and pitch, pitch is qword */
-    CBUFFER(buf,VIA_REG_SRCBASE, 0x0);
-    CBUFFER(buf,VIA_REG_DSTBASE, 0x0);
-    CBUFFER(buf,VIA_REG_PITCH, VIA_PITCH_ENABLE |
-	    ((pScrn->displayWidth * pScrn->bitsPerPixel >> 3) >> 3) |
-	    (((pScrn->displayWidth * pScrn->bitsPerPixel >> 3) >> 3) << 16));
-
-    CBUFFER(buf,VIA_REG_DSTPOS, ((y << 16) | x));
-    CBUFFER(buf,VIA_REG_DIMENSION, (((h - 1) << 16) | (w - 1)));
-    CBUFFER(buf,VIA_REG_FGCOLOR, pVia->SavedFgColor);
-    CBUFFER(buf,VIA_REG_GECMD, pVia->SavedCmd);
-    dispatchCBufferAGP(pVia, buf);
-
+    viaAccelClippingHelper(cb, y, tdc);
+    viaAccelSolidHelper(cb, x, y, w, h, pScrn->fbOffset, tdc->mode,
+			pVia->Bpl, tdc->fgColor, tdc->cmd);
+    cb->flushFunc(cb);
 }
 
 
@@ -804,24 +722,20 @@ VIASetupForMono8x8PatternFill(
 {
     VIAPtr  pVia = VIAPTR(pScrn);
     int     cmd;
+    ViaTwodContext *tdc = &pVia->td;
 
     cmd = VIA_GEC_BLT | VIA_GEC_PAT_REG | VIA_GEC_PAT_MONO |
-#ifdef X_HAVE_XAAGETROP
-	(XAAGetPatternROP(rop) << 24);
-#else
-    (XAAPatternROP[rop] << 24);
-#endif
+	VIAACCELPATTERNROP(rop);
 
     if (bg == -1) {
-        /* transparent mono pattern */
         cmd |= VIA_GEC_MPAT_TRANS;
     }
 
-    pVia->SavedCmd = cmd;
-    pVia->SavedFgColor = fg;
-    pVia->SavedBgColor = bg;
-    pVia->SavedPattern0 = pattern0;
-    pVia->SavedPattern1 = pattern1;
+    tdc->cmd = cmd;
+    tdc->fgColor = fg;
+    tdc->bgColor = bg;
+    tdc->pattern0 = pattern0;
+    tdc->pattern1 = pattern1;
 }
 
 
@@ -836,34 +750,32 @@ VIASubsequentMono8x8PatternFillRect(
     int h)
 {
     VIAPtr  pVia = VIAPTR(pScrn);
-    CARD32  dwPatOffset;
-    ViaCBuffer *buf = &pVia->cBuf;
+    CARD32  patOffset;
+    ViaCommandBuffer *cb = &pVia->cb;
     ViaTwodContext *tdc = &pVia->td;
+    CARD32 dstBase;
 
     if (!w || !h)
         return;
 
-    dwPatOffset = ((patOffy & 0x7)  << 29) | ((patOffx & 0x7) << 26);
-
-    COND_CLEAR_CBUFFER( buf, pVia);
-    CBUFFER(buf,VIA_REG_GEMODE, tdc->mode);
-    /* Set Src and Dst base address and pitch, pitch is qword */
-    CBUFFER(buf,VIA_REG_SRCBASE, 0x0);
-    CBUFFER(buf,VIA_REG_DSTBASE, 0x0);
-    CBUFFER(buf,VIA_REG_PITCH, VIA_PITCH_ENABLE |
-	    ((pScrn->displayWidth * pScrn->bitsPerPixel >> 3) >> 3) |
-	    (((pScrn->displayWidth * pScrn->bitsPerPixel >> 3) >> 3) << 16));
-
-    CBUFFER(buf,VIA_REG_DSTPOS, ((y << 16) | x));
-    CBUFFER(buf,VIA_REG_DIMENSION, (((h - 1) << 16) | (w - 1)));
-    CBUFFER(buf,VIA_REG_PATADDR, dwPatOffset);
-    CBUFFER(buf,VIA_REG_FGCOLOR, pVia->SavedFgColor);
-    CBUFFER(buf,VIA_REG_BGCOLOR, pVia->SavedBgColor);
-    CBUFFER(buf,VIA_REG_MONOPAT0, pVia->SavedPattern0);
-    CBUFFER(buf,VIA_REG_MONOPAT1, pVia->SavedPattern1);
-    CBUFFER(buf,VIA_REG_GECMD, pVia->SavedCmd);
-    dispatchCBufferAGP(pVia, buf);
-
+    patOffset = ((patOffy & 0x7)  << 29) | ((patOffx & 0x7) << 26);
+    dstBase = pScrn->fbOffset + y*pVia->Bpl;
+    
+    viaAccelClippingHelper(cb, y, tdc);
+    BEGIN_RING_AGP(cb,11);
+    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_GEMODE), tdc->mode);
+    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_DSTBASE), dstBase >> 3);
+    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_PITCH), VIA_PITCH_ENABLE |
+	    ((pVia->Bpl >> 3) << 16));
+    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_DSTPOS), x);
+    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_DIMENSION), (((h - 1) << 16) | (w - 1)));
+    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_PATADDR), patOffset);
+    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_FGCOLOR), tdc->fgColor);
+    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_BGCOLOR), tdc->bgColor);
+    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_MONOPAT0), tdc->pattern0);
+    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_MONOPAT1), tdc->pattern1);
+    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_GECMD), tdc->cmd);
+    cb->flushFunc(cb);
 }
 
 static void
@@ -876,16 +788,10 @@ VIASetupForColor8x8PatternFill(
     int trans_color)
 {
     VIAPtr  pVia = VIAPTR(pScrn);
-    int     cmd;
+    ViaTwodContext *tdc = &pVia->td;
 
-#ifdef X_HAVE_XAAGETROP
-    cmd = VIA_GEC_BLT | (XAAGetPatternROP(rop) << 24);
-#else
-    cmd = VIA_GEC_BLT | (XAAPatternROP[rop] << 24);
-#endif
-
-    pVia->SavedCmd = cmd;
-    pVia->SavedPatternAddr = (patternx * pVia->Bpp + patterny * pVia->Bpl);
+    tdc->cmd = VIA_GEC_BLT | VIAACCELPATTERNROP(rop);
+    tdc->patternAddr = (patternx * pVia->Bpp + patterny * pVia->Bpl);
 }
 
 
@@ -900,31 +806,28 @@ VIASubsequentColor8x8PatternFillRect(
     int h)
 {
     VIAPtr  pVia = VIAPTR(pScrn);
-    CARD32  dwPatAddr;
-    ViaCBuffer *buf = &pVia->cBuf;
+    CARD32  patAddr;
+    ViaCommandBuffer *cb = &pVia->cb;
     ViaTwodContext *tdc = &pVia->td;
+    CARD32 dstBase;
 
     if (!w || !h)
         return;
 
-    dwPatAddr = (pVia->SavedPatternAddr >> 3) |
+    patAddr = (tdc->patternAddr >> 3) |
 	((patOffy & 0x7)  << 29) | ((patOffx & 0x7) << 26);
+    dstBase = pScrn->fbOffset + y*pVia->Bpl;
 
-    /* Set Src and Dst base address and pitch, pitch is qword */
-    COND_CLEAR_CBUFFER( buf, pVia);
-    CBUFFER(buf,VIA_REG_GEMODE, tdc->mode);
-    CBUFFER(buf,VIA_REG_SRCBASE, 0x0);
-    CBUFFER(buf,VIA_REG_DSTBASE, 0x0);
-    CBUFFER(buf,VIA_REG_PITCH, VIA_PITCH_ENABLE |
-	    ((pScrn->displayWidth * pScrn->bitsPerPixel >> 3) >> 3) |
-	    (((pScrn->displayWidth * pScrn->bitsPerPixel >> 3) >> 3) << 16));
-
-    CBUFFER(buf,VIA_REG_DSTPOS, ((y << 16) | x));
-    CBUFFER(buf,VIA_REG_DIMENSION, (((h - 1) << 16) | (w - 1)));
-    CBUFFER(buf,VIA_REG_PATADDR, dwPatAddr);
-    CBUFFER(buf,VIA_REG_GECMD, pVia->SavedCmd);
-    dispatchCBufferAGP(pVia, buf);
-
+    viaAccelClippingHelper(cb, y, tdc);
+    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_GEMODE), tdc->mode);
+    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_DSTBASE), dstBase >> 3);
+    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_PITCH), VIA_PITCH_ENABLE |
+	    ((pVia->Bpl >> 3) << 16));
+    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_DSTPOS), x);
+    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_DIMENSION), (((h - 1) << 16) | (w - 1)));
+    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_PATADDR), patAddr);
+    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_GECMD), tdc->cmd);
+    cb->flushFunc(cb);
 }
 
 static void
@@ -937,28 +840,23 @@ VIASetupForCPUToScreenColorExpandFill(
 {
     VIAPtr  pVia = VIAPTR(pScrn);
     int     cmd;
-    ViaCBuffer *buf = &pVia->cBuf;
+    ViaCommandBuffer *cb = &pVia->cb;
     ViaTwodContext *tdc = &pVia->td;
 
     cmd = VIA_GEC_BLT | VIA_GEC_SRC_SYS | VIA_GEC_SRC_MONO |
-#ifdef X_HAVE_XAAGETROP
-	(XAAGetCopyROP(rop) << 24);
-#else
-    (XAACopyROP[rop] << 24);
-#endif
+      VIAACCELCOPYROP(rop);
 
     if (bg == -1) {
         cmd |= VIA_GEC_MSRC_TRANS;
     }
 
-    pVia->SavedCmd = cmd;
-    pVia->SavedFgColor = fg;
-    pVia->SavedBgColor = bg;
+    tdc->cmd = cmd;
+    tdc->fgColor = fg;
+    tdc->bgColor = bg;
 
+    cb->flushFunc(cb);
     /* Disable Transparent Bitblt */
-    CLEAR_CBUFFER( buf, pVia);
-    CBUFFER(buf,VIA_REG_GEMODE, tdc->mode);
-    CBUFFER(buf,VIA_REG_KEYCONTROL, 0x0);
+    viaAccelTransparentHelper(cb, 0x0, 0x0);
 }
 
 
@@ -972,124 +870,26 @@ VIASubsequentScanlineCPUToScreenColorExpandFill(
     int skipleft)
 {
     VIAPtr pVia = VIAPTR(pScrn);
-    ViaCBuffer *buf = &pVia->cBuf;
+    ViaCommandBuffer *cb = &pVia->cb;
     ViaTwodContext *tdc = &pVia->td;
-
-    /* XAA will be sending bitmap data next.  */
-    /* We should probably wait for empty/idle here. */
 
     if (skipleft) {
         VIASetClippingRectangle(pScrn, (x + skipleft), y, (x + w - 1), (y + h -1));
     }
 
-    /* Set Src and Dst base address and pitch, pitch is qword */
-    COND_CLEAR_CBUFFER( buf, pVia);
-    CBUFFER(buf,VIA_REG_GEMODE, tdc->mode);
-    CBUFFER(buf,VIA_REG_SRCBASE, 0x0);
-    CBUFFER(buf,VIA_REG_DSTBASE, 0x0);
-    CBUFFER(buf,VIA_REG_PITCH, VIA_PITCH_ENABLE |
-	    ((pScrn->displayWidth * pScrn->bitsPerPixel >> 3) >> 3) |
-	    (((pScrn->displayWidth * pScrn->bitsPerPixel >> 3) >> 3) << 16));
+    viaAccelClippingHelper(cb, y, tdc);
+    BEGIN_RING_AGP(cb, 4); 
+    OUT_RING_QW_AGP(cb,H1_ADDR(VIA_REG_BGCOLOR), tdc->bgColor);
+    OUT_RING_QW_AGP(cb,H1_ADDR(VIA_REG_FGCOLOR), tdc->bgColor);
+    viaAccelCopyHelper(cb, 0, 0, x, y, w, h, 0, pScrn->fbOffset, tdc->mode, pVia->Bpl,
+		       pVia->Bpl, tdc->cmd);
 
-    CBUFFER(buf,VIA_REG_SRCPOS, 0);
-    CBUFFER(buf,VIA_REG_DSTPOS, ((y << 16) | x));
-    CBUFFER(buf,VIA_REG_DIMENSION, (((h - 1) << 16) | (w - 1)));
-    CBUFFER(buf,VIA_REG_FGCOLOR, pVia->SavedFgColor);
-    CBUFFER(buf,VIA_REG_BGCOLOR, pVia->SavedBgColor);
-    CBUFFER(buf,VIA_REG_GECMD, pVia->SavedCmd);
-    dispatchCBuffer(pVia, buf);
+    /*
+     * Can't use AGP for CPU to screen actions.
+     */
 
+    viaFlushPCI(cb);
 }
-
-#if 0 /* Buggy. Temporarily disabled 2005-01-23 */
-static void
-VIASetupForScreenToScreenColorExpand(
-    ScrnInfoPtr pScrn,
-    int fg,
-    int bg,
-    int rop,
-    unsigned int planemask)
-{
-    VIAPtr  pVia = VIAPTR(pScrn);
-    int     cmd;
-    ViaCBuffer *buf = &pVia->cBuf;
-
-#ifdef X_HAVE_XAAGETROP
-    cmd = VIA_GEC_BLT | VIA_GEC_SRC_MONO | (XAAGetCopyROP(rop) << 24);
-#else
-    cmd = VIA_GEC_BLT | VIA_GEC_SRC_MONO | (XAACopyROP[rop] << 24);
-#endif
-
-    if (bg == -1) {
-        cmd |= VIA_GEC_MSRC_TRANS;
-    }
-
-    pVia->SavedCmd = cmd;
-    pVia->SavedFgColor = fg;
-    pVia->SavedBgColor = bg;
-
-    /* Disable Transparent Bitblt */
-    CLEAR_CBUFFER( buf, pVia);
-    CBUFFER(buf,VIA_REG_KEYCONTROL, 0x0);
-}
-
-
-static void
-VIASubsequentScreenToScreenColorExpand(
-    ScrnInfoPtr pScrn,
-    int x,
-    int y,
-    int w,
-    int h,
-    int srcx,
-    int srcy,
-    int offset)
-{
-    VIAPtr pVia = VIAPTR(pScrn);
-    ViaCBuffer *buf = &pVia->cBuf;
-    ViaTwodContext *tdc = &pVia->td;
-    CARD32 srcBase,dstBase;
-
-    srcBase = srcy*pVia->Bpl + srcx*pVia->Bpp;
-    dstBase = y*pVia->Bpl + x*pVia->Bpp;
-
-    x = (dstBase & 31);
-    srcx = srcBase & 7;
-
-    switch (pScrn->bitsPerPixel) {
-    case 16:
-	x >>= 1;
-        break;
-    case 32:
-	x >>= 2;
-	break;
-    default:
-        break;
-    }
-
-    srcy = 0;
-    y = 0;
-
-    /* Set Src and Dst base address and pitch, pitch is qword */
-    COND_CLEAR_CBUFFER( buf, pVia);
-    CBUFFER(buf,VIA_REG_GEMODE, tdc->mode);
-    CBUFFER(buf,VIA_REG_KEYCONTROL, 0x0);
-    CBUFFER(buf,VIA_REG_SRCBASE, (srcBase & ~7) >> 3);
-    CBUFFER(buf,VIA_REG_DSTBASE, (dstBase & ~31) >> 3);
-    CBUFFER(buf,VIA_REG_PITCH, VIA_PITCH_ENABLE |
-	    ((pScrn->displayWidth * pScrn->bitsPerPixel >> 3) >> 3) |
-	    (((pScrn->displayWidth * pScrn->bitsPerPixel >> 3) >> 3) << 16));
-    CBUFFER(buf,VIA_REG_SRCPOS, (srcx << 6) | offset);
-    CBUFFER(buf,VIA_REG_DSTPOS, ((y << 16) | x));
-    CBUFFER(buf,VIA_REG_DIMENSION, (((h - 1) << 16) | (w - 1)));
-    CBUFFER(buf,VIA_REG_FGCOLOR, pVia->SavedFgColor);
-    CBUFFER(buf,VIA_REG_BGCOLOR, pVia->SavedBgColor);
-    CBUFFER(buf,VIA_REG_GECMD, pVia->SavedCmd);
-
-    dispatchCBufferAGP(pVia, buf);
-}
-
-#endif
 
 static void
 VIASetupForImageWrite(
@@ -1101,32 +901,13 @@ VIASetupForImageWrite(
     int depth)
 {
     VIAPtr  pVia = VIAPTR(pScrn);
-    int     cmd;
-    ViaCBuffer *buf = &pVia->cBuf;
+    ViaCommandBuffer *cb = &pVia->cb;
     ViaTwodContext *tdc = &pVia->td;
 
-    /* We don't record bpp and depth because we assume bpp is equal to
-       bpp of screen. Is this assume correct ? */
-
-#ifdef X_HAVE_XAAGETROP
-    cmd = VIA_GEC_BLT | VIA_GEC_SRC_SYS | (XAAGetCopyROP(rop) << 24);
-#else
-    cmd = VIA_GEC_BLT | VIA_GEC_SRC_SYS | (XAACopyROP[rop] << 24);
-#endif
-
-    pVia->SavedCmd = cmd;
-
-    CLEAR_CBUFFER( buf, pVia);
-    CBUFFER(buf,VIA_REG_GEMODE, tdc->mode);
-    if (trans_color != -1) {
-        /* Transparent Bitblt */
-        CBUFFER(buf,VIA_REG_SRCCOLORKEY, trans_color);
-        CBUFFER(buf,VIA_REG_KEYCONTROL, 0x4000);
-    }
-    else {
-        /* Disable Transparent Bitblt */
-        CBUFFER(buf,VIA_REG_KEYCONTROL, 0x0);
-    }
+    tdc->cmd = VIA_GEC_BLT | VIA_GEC_SRC_SYS | VIAACCELCOPYROP(rop);
+    cb->flushFunc(cb);
+    viaAccelTransparentHelper(cb, (trans_color != -1) ? 0x4000 : 0x0000, 
+			      trans_color);
 }
 
 
@@ -1140,28 +921,21 @@ VIASubsequentImageWriteRect(
     int skipleft)
 {
     VIAPtr  pVia = VIAPTR(pScrn);
-    ViaCBuffer *buf = &pVia->cBuf;
+    ViaCommandBuffer *cb = &pVia->cb;
     ViaTwodContext *tdc = &pVia->td;
 
     if (skipleft) {
         VIASetClippingRectangle(pScrn, (x + skipleft), y, (x + w - 1), (y + h -1));
     }
 
-    /* Set Src and Dst base address and pitch, pitch is qword */
-    COND_CLEAR_CBUFFER( buf, pVia);
-    CBUFFER(buf,VIA_REG_GEMODE, tdc->mode);
-    CBUFFER(buf,VIA_REG_SRCBASE, 0x0);
-    CBUFFER(buf,VIA_REG_DSTBASE, 0x0);
-    CBUFFER(buf,VIA_REG_PITCH, VIA_PITCH_ENABLE |
-	    ((pScrn->displayWidth * pScrn->bitsPerPixel >> 3) >> 3) |
-	    (((pScrn->displayWidth * pScrn->bitsPerPixel >> 3) >> 3) << 16));
+    viaAccelClippingHelper(cb, y, tdc);
+    viaAccelCopyHelper(cb, 0, 0, x, y, w, h, 0, pScrn->fbOffset, tdc->mode, pVia->Bpl,
+		       pVia->Bpl, tdc->cmd);
+    /*
+     * Can't use AGP for CPU to screen actions.
+     */
 
-    CBUFFER(buf,VIA_REG_SRCPOS, 0);
-    CBUFFER(buf,VIA_REG_DSTPOS, ((y << 16) | x));
-    CBUFFER(buf,VIA_REG_DIMENSION, (((h - 1) << 16) | (w - 1)));
-    CBUFFER(buf,VIA_REG_GECMD, pVia->SavedCmd);
-    dispatchCBuffer(pVia, buf);
-
+    viaFlushPCI(cb);
 }
 
 
@@ -1174,26 +948,16 @@ VIASetupForSolidLine(
     unsigned int planemask)
 {
     VIAPtr  pVia = VIAPTR(pScrn);
-    int     cmd;
-    ViaCBuffer *buf = &pVia->cBuf;
+    ViaCommandBuffer *cb = &pVia->cb;
     ViaTwodContext *tdc = &pVia->td;
 
-    CLEAR_CBUFFER( buf, pVia);
-    CBUFFER(buf,VIA_REG_GEMODE, tdc->mode);
-    /* we move VIA_GEC_LINE from here to the place firing command */
-#ifdef X_HAVE_XAAGETROP
-    cmd = VIA_GEC_FIXCOLOR_PAT | (XAAGetPatternROP(rop) << 24);
-#else
-    cmd = VIA_GEC_FIXCOLOR_PAT | (XAAPatternROP[rop] << 24);
-#endif
+    tdc->cmd = VIA_GEC_FIXCOLOR_PAT | VIAACCELPATTERNROP(rop);
+    tdc->fgColor = color;
 
-    pVia->SavedCmd = cmd;
-    pVia->SavedFgColor = color;
-
-    /* set solid line pattern */
-    CBUFFER(buf,VIA_REG_MONOPAT0, 0xFF);
-    CBUFFER(buf,VIA_REG_FGCOLOR, pVia->SavedFgColor);
-
+    BEGIN_RING_AGP(cb,6);
+    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_GEMODE), tdc->mode);
+    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_MONOPAT0), 0xFF);
+    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_FGCOLOR), tdc->fgColor);
 }
 
 
@@ -1208,13 +972,11 @@ VIASubsequentSolidTwoPointLine(
 {
     VIAPtr  pVia = VIAPTR(pScrn);
     int     dx, dy, cmd, tmp, error = 1;
-    ViaCBuffer *buf = &pVia->cBuf;
+    ViaCommandBuffer *cb = &pVia->cb;
     ViaTwodContext *tdc = &pVia->td;
+    CARD32 dstBase;
 
-    COND_CLEAR_CBUFFER( buf, pVia);
-    CBUFFER(buf,VIA_REG_GEMODE, tdc->mode);
-    CBUFFER(buf,VIA_REG_FGCOLOR, pVia->SavedFgColor);
-    cmd = pVia->SavedCmd | VIA_GEC_LINE;
+    cmd = tdc->cmd | VIA_GEC_LINE;
 
     dx = x2 - x1;
     if (dx < 0) {
@@ -1241,22 +1003,33 @@ VIASubsequentSolidTwoPointLine(
     }
 
     /* Set Src and Dst base address and pitch, pitch is qword */
-    CBUFFER(buf,VIA_REG_SRCBASE, 0x0);
-    CBUFFER(buf,VIA_REG_DSTBASE, 0x0);
-    CBUFFER(buf,VIA_REG_PITCH, VIA_PITCH_ENABLE |
-	    ((pScrn->displayWidth * pScrn->bitsPerPixel >> 3) >> 3) |
-	    (((pScrn->displayWidth * pScrn->bitsPerPixel >> 3) >> 3) << 16));
 
+    if (y1 < y2) {
+      dstBase = pScrn->fbOffset + y1*pVia->Bpl;
+      y1 = 0;
+      y2 -= y1;
+      viaAccelClippingHelper(cb, y1, tdc);
+    } else {
+      dstBase = pScrn->fbOffset + y2*pVia->Bpl;
+      y1 -= y2;
+      y2 = 0;
+      viaAccelClippingHelper(cb, y2, tdc);
+    }
+
+    BEGIN_RING_AGP(cb, 14);
+    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_DSTBASE), dstBase >> 3);
+    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_PITCH), VIA_PITCH_ENABLE |
+	    ((pVia->Bpl >> 3) << 16));
     /* major = 2*dmaj, minor = 2*dmin, err = -dmaj - ((bias >> octant) & 1) */
     /* K1 = 2*dmin K2 = 2*(dmin - dmax) */
     /* Error Term = (StartX<EndX) ? (2*dmin - dmax - 1) : (2*(dmin - dmax)) */
-    CBUFFER(buf,VIA_REG_LINE_K1K2, ((((dy << 1) & 0x3fff) << 16)|
+    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_LINE_K1K2), ((((dy << 1) & 0x3fff) << 16)|
 				    (((dy - dx) << 1) & 0x3fff)));
-    CBUFFER(buf,VIA_REG_LINE_XY, ((y1 << 16) | x1));
-    CBUFFER(buf,VIA_REG_DIMENSION, dx);
-    CBUFFER(buf,VIA_REG_LINE_ERROR, (((dy << 1) - dx - error) & 0x3fff));
-    CBUFFER(buf,VIA_REG_GECMD, cmd);
-    dispatchCBufferAGP(pVia, buf);
+    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_LINE_XY), ((y1 << 16) | x1));
+    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_DIMENSION), dx);
+    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_LINE_ERROR), (((dy << 1) - dx - error) & 0x3fff));
+    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_GECMD), cmd);
+    cb->flushFunc(cb);
 
 }
 
@@ -1271,30 +1044,26 @@ VIASubsequentSolidHorVertLine(
     int dir)
 {
     VIAPtr  pVia = VIAPTR(pScrn);
-    ViaCBuffer *buf = &pVia->cBuf;
+    ViaCommandBuffer *cb = &pVia->cb;
     ViaTwodContext *tdc = &pVia->td;
-
-    /* Set Src and Dst base address and pitch, pitch is qword */
-    COND_CLEAR_CBUFFER( buf, pVia);
-    CBUFFER(buf,VIA_REG_GEMODE, tdc->mode);
-    CBUFFER(buf,VIA_REG_FGCOLOR, pVia->SavedFgColor);
-    CBUFFER(buf,VIA_REG_SRCBASE, 0x0);
-    CBUFFER(buf,VIA_REG_DSTBASE, 0x0);
-    CBUFFER(buf,VIA_REG_PITCH, VIA_PITCH_ENABLE |
-	    ((pScrn->displayWidth * pScrn->bitsPerPixel >> 3) >> 3) |
-	    (((pScrn->displayWidth * pScrn->bitsPerPixel >> 3) >> 3) << 16));
-
+    CARD32 dstBase = pScrn->fbOffset + y*pVia->Bpl;
+    
+    viaAccelClippingHelper(cb, y, tdc);
+    BEGIN_RING_AGP(cb, 10);
+    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_DSTBASE), dstBase >> 3);
+    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_PITCH), VIA_PITCH_ENABLE |
+		    ((pVia->Bpl >> 3) << 16));
+    
     if (dir == DEGREES_0) {
-        CBUFFER(buf,VIA_REG_DSTPOS, ((y << 16) | x));
-        CBUFFER(buf,VIA_REG_DIMENSION, (len - 1));
-        CBUFFER(buf,VIA_REG_GECMD, pVia->SavedCmd | VIA_GEC_BLT);
+	OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_DSTPOS), x);
+        OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_DIMENSION), (len - 1));
+	OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_GECMD), tdc->cmd | VIA_GEC_BLT);
+    } else {
+        OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_DSTPOS), x);
+	OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_DIMENSION), ((len - 1) << 16));
+        OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_GECMD), tdc->cmd | VIA_GEC_BLT);
     }
-    else {
-        CBUFFER(buf,VIA_REG_DSTPOS, ((y << 16) | x));
-        CBUFFER(buf,VIA_REG_DIMENSION, ((len - 1) << 16));
-        CBUFFER(buf,VIA_REG_GECMD, pVia->SavedCmd | VIA_GEC_BLT);
-    }
-    dispatchCBufferAGP(pVia, buf);
+    cb->flushFunc(cb);
 }
 
 static void
@@ -1310,23 +1079,18 @@ VIASetupForDashedLine(
     VIAPtr  pVia = VIAPTR(pScrn);
     int     cmd;
     CARD32  pat = *(CARD32 *)pattern;
-    ViaCBuffer *buf = &pVia->cBuf;
+    ViaCommandBuffer *cb = &pVia->cb;
     ViaTwodContext *tdc = &pVia->td;
 
-#ifdef X_HAVE_XAAGETROP
-    cmd = VIA_GEC_LINE | VIA_GEC_FIXCOLOR_PAT | (XAAGetPatternROP(rop) << 24);
-#else
-    cmd = VIA_GEC_LINE | VIA_GEC_FIXCOLOR_PAT | (XAAPatternROP[rop] << 24);
-#endif
+    cmd = VIA_GEC_LINE | VIA_GEC_FIXCOLOR_PAT | VIAACCELPATTERNROP(rop);
 
     if (bg == -1) {
-        /* transparent mono pattern */
         cmd |= VIA_GEC_MPAT_TRANS;
     }
 
-    pVia->SavedCmd = cmd;
-    pVia->SavedFgColor = fg;
-    pVia->SavedBgColor = bg;
+    tdc->cmd = cmd;
+    tdc->fgColor = fg;
+    tdc->bgColor = bg;
 
     switch (length) {
     case  2: pat |= pat <<  2; /* fall through */
@@ -1335,15 +1099,14 @@ VIASetupForDashedLine(
     case 16: pat |= pat << 16;
     }
 
-    pVia->SavedPattern0 = pat;
-    CLEAR_CBUFFER( buf, pVia);
-    CBUFFER(buf,VIA_REG_GEMODE, tdc->mode);
-    CBUFFER(buf,VIA_REG_FGCOLOR, pVia->SavedFgColor);
-    CBUFFER(buf,VIA_REG_BGCOLOR, pVia->SavedBgColor);
-    CBUFFER(buf,VIA_REG_MONOPAT0, pVia->SavedPattern0);
-
+    tdc->pattern0 = pat;
+    
+    BEGIN_RING_AGP(cb, 8);
+    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_GEMODE), tdc->mode);
+    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_FGCOLOR), tdc->fgColor);
+    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_BGCOLOR), tdc->bgColor);
+    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_MONOPAT0), tdc->pattern0);
 }
-
 
 static void
 VIASubsequentDashedTwoPointLine(
@@ -1355,59 +1118,8 @@ VIASubsequentDashedTwoPointLine(
     int flags,
     int phase)
 {
-    VIAPtr  pVia = VIAPTR(pScrn);
-    int     dx, dy, cmd, tmp, error = 1;
-    ViaCBuffer *buf = &pVia->cBuf;
-    ViaTwodContext *tdc = &pVia->td;
-
-    COND_CLEAR_CBUFFER( buf, pVia);
-    CBUFFER(buf,VIA_REG_GEMODE, tdc->mode);
-    CBUFFER(buf,VIA_REG_FGCOLOR, pVia->SavedFgColor);
-    cmd = pVia->SavedCmd;
-
-    dx = x2 - x1;
-    if (dx < 0) {
-        dx = -dx;
-        cmd |= VIA_GEC_DECX;            /* line will be drawn from right */
-        error = 0;
-    }
-
-    dy = y2 - y1;
-    if (dy < 0) {
-        dy = -dy;
-        cmd |= VIA_GEC_DECY;            /* line will be drawn from bottom */
-    }
-
-    if (dy > dx) {
-        tmp  = dy;
-        dy = dx;
-        dx = tmp;                       /* Swap 'dx' and 'dy' */
-        cmd |= VIA_GEC_Y_MAJOR;         /* Y major line */
-    }
-
-    if (flags & OMIT_LAST) {
-        cmd |= VIA_GEC_LASTPIXEL_OFF;
-    }
-
-    /* Set Src and Dst base address and pitch, pitch is qword */
-    CBUFFER(buf,VIA_REG_SRCBASE, 0x0);
-    CBUFFER(buf,VIA_REG_DSTBASE, 0x0);
-    CBUFFER(buf,VIA_REG_PITCH, VIA_PITCH_ENABLE |
-	    ((pScrn->displayWidth * pScrn->bitsPerPixel >> 3) >> 3) |
-	    (((pScrn->displayWidth * pScrn->bitsPerPixel >> 3) >> 3) << 16));
-
-    /* major = 2*dmaj, minor = 2*dmin, err = -dmaj - ((bias >> octant) & 1) */
-    /* K1 = 2*dmin K2 = 2*(dmin - dmax) */
-    /* Error Term = (StartX<EndX) ? (2*dmin - dmax - 1) : (2*(dmin - dmax)) */
-    CBUFFER(buf,VIA_REG_LINE_K1K2, ((((dy << 1) & 0x3fff) << 16)|
-				    (((dy - dx) << 1) & 0x3fff)));
-    CBUFFER(buf,VIA_REG_LINE_XY, ((y1 << 16) | x1));
-    CBUFFER(buf,VIA_REG_DIMENSION, dx);
-    CBUFFER(buf,VIA_REG_LINE_ERROR, (((dy << 1) - dx - error) & 0x3fff) | 0xFF0000);
-    CBUFFER(buf,VIA_REG_GECMD, cmd);
-    dispatchCBufferAGP(pVia, buf);
+    VIASubsequentSolidTwoPointLine(pScrn, x1, y1, x2, y2, flags);
 }
-
 
 static void
 VIASetClippingRectangle(
@@ -1418,33 +1130,23 @@ VIASetClippingRectangle(
     int y2)
 {
     VIAPtr pVia = VIAPTR(pScrn);
-    ViaCBuffer *buf = &pVia->cBuf;
     ViaTwodContext *tdc = &pVia->td;
 
-    COND_CLEAR_CBUFFER( buf, pVia);
-    pVia->justSetup = 0;
-    CBUFFER(buf,VIA_REG_GEMODE, tdc->mode);
-#ifdef DEBUG_EXTRA
-    ErrorF("ClipRect, (%4d,%4d)-(%4d,%4d) \n", x1, y1, x2, y2 );
-#endif
-
-    CBUFFER(buf,VIA_REG_CLIPTL, ((y1 << 16) | x1));
-    CBUFFER(buf,VIA_REG_CLIPBR, ((y2 << 16) | x2));
-    pVia->SavedCmd |= VIA_GEC_CLIP_ENABLE;
-    dispatchCBufferAGP(pVia, buf);
-
+    tdc->clipping = TRUE;
+    tdc->clipX1 = x1;
+    tdc->clipY1 = y1;
+    tdc->clipX2 = x2;
+    tdc->clipY2 = y2;
 }
 
 
-static void VIADisableClipping(ScrnInfoPtr pScrn)
+static void 
+VIADisableClipping(ScrnInfoPtr pScrn)
 {
     VIAPtr pVia = VIAPTR(pScrn);
+    ViaTwodContext *tdc = &pVia->td;
 
-#ifdef DEBUG_EXTRA
-    ErrorF("Kill ClipRect\n");
-#endif
-
-    pVia->SavedCmd &= ~VIA_GEC_CLIP_ENABLE;
+    tdc->clipping = FALSE;
 }
 
 /*

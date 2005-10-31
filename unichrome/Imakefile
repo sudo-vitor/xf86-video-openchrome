@@ -110,6 +110,7 @@ SRCS = via_driver.c \
     via_vbe.c \
     via_vgahw.c \
     via_vt162x.c \
+    via_dmabuffer.c \
     $(DRISRCS)
 
 OBJS = via_driver.o \
@@ -129,6 +130,7 @@ OBJS = via_driver.o \
     via_vbe.o \
     via_vgahw.o \
     via_vt162x.o \
+    via_dmabuffer.o \
     $(DRIOBJS)
 
 #if defined(XF86DriverSDK)
