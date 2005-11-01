@@ -1,3 +1,18 @@
+2005-11-01  Thomas Hellström  <unichrome-at-shipmail-dot-org>
+
+	* unichrome/via_accel.c: (viaAccelClippingHelper),
+	(viaAccelSolidHelper), (viaAccelCopyHelper),
+	(VIASubsequentScreenToScreenCopy), (VIASetupForSolidFill),
+	(VIASubsequentSolidFillRect),
+	(VIASubsequentMono8x8PatternFillRect),
+	(VIASubsequentColor8x8PatternFillRect),
+	(VIASubsequentScanlineCPUToScreenColorExpandFill),
+	(VIASubsequentImageWriteRect), (VIASubsequentSolidTwoPointLine),
+	(VIASubsequentSolidHorVertLine), (viaExaMarkSync):
+
+	-Fixed a number of bugs including accelerated clipping, which could
+	 end up with negative y values.
+
 2005-10-31  Thomas Hellström <unichrome-at-shipmail-dot-org>
 
 	* unichrome/Imakefile:
