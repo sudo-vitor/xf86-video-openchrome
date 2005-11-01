@@ -181,7 +181,6 @@ typedef struct _VIA {
     VIARegRec           SavedReg;
     xf86CursorInfoPtr   CursorInfoRec;
     int                 Bpp, Bpl;
-    unsigned            PlaneMask;
 
     Bool                FirstInit;
     unsigned long       videoRambytes;
@@ -353,10 +352,10 @@ void ViaCursorStore(ScrnInfoPtr pScrn);
 void ViaCursorRestore(ScrnInfoPtr pScrn);
 
 /* In via_accel.c. */
-Bool VIAInitAccel(ScreenPtr);
-void VIAInitialize2DEngine(ScrnInfoPtr);
-void VIAAccelSync(ScrnInfoPtr);
-void ViaVQDisable(ScrnInfoPtr pScrn);
+Bool viaInitAccel(ScreenPtr);
+void viaInitialize2DEngine(ScrnInfoPtr);
+void viaAccelSync(ScrnInfoPtr);
+void viaDisableVQ(ScrnInfoPtr pScrn);
 
 /* In via_shadow.c */
 void ViaShadowFBInit(ScrnInfoPtr pScrn, ScreenPtr pScreen);

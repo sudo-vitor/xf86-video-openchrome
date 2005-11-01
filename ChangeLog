@@ -1,5 +1,33 @@
 2005-11-01  Thomas Hellström  <unichrome-at-shipmail-dot-org>
 
+	* unichrome/via_accel.c: (viaInitAgp), (viaEnableVQ),
+	(viaDisableVQ), (viaInitialize2DEngine), (viaAccelSync),
+	(viaSetClippingRectangle), (viaDisableClipping),
+	(viaAccelCopyHelper), (viaSetupForScreenToScreenCopy),
+	(viaSubsequentScreenToScreenCopy), (viaSetupForSolidFill),
+	(viaSubsequentSolidFillRect), (viaSetupForMono8x8PatternFill),
+	(viaSubsequentMono8x8PatternFillRect),
+	(viaSetupForColor8x8PatternFill),
+	(viaSubsequentColor8x8PatternFillRect),
+	(viaSetupForCPUToScreenColorExpandFill),
+	(viaSubsequentScanlineCPUToScreenColorExpandFill),
+	(viaSetupForImageWrite), (viaSubsequentImageWriteRect),
+	(viaSetupForSolidLine), (viaSubsequentSolidTwoPointLine),
+	(viaSubsequentSolidHorVertLine), (viaSetupForDashedLine),
+	(viaSubsequentDashedTwoPointLine), (viaExaMarkSync), (viaInitXAA),
+	(viaInitAccel):
+	* unichrome/via_cursor.c: (VIALoadCursorImage):
+	* unichrome/via_dga.c:
+	* unichrome/via_driver.c: (VIALeaveVT), (VIAScreenInit),
+	(VIAWriteMode), (VIACloseScreen), (VIASwitchMode):
+	* unichrome/via_driver.h:
+	* unichrome/via_vbe.c: (ViaVbeSetMode):
+
+	-Name changes and further cleanups. Now down more than 500 lines
+	 on via_accel.c
+
+2005-11-01  Thomas Hellström  <unichrome-at-shipmail-dot-org>
+
 	* unichrome/via_accel.c: (viaAccelClippingHelper),
 	(viaAccelSolidHelper), (viaAccelCopyHelper),
 	(VIASubsequentScreenToScreenCopy), (VIASetupForSolidFill),

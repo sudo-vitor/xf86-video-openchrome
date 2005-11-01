@@ -1565,7 +1565,7 @@ static void VIALeaveVT(int scrnIndex, int flags)
 	DRILock(screenInfo.screens[scrnIndex], 0);
 #endif
 
-    VIAAccelSync(pScrn);
+    viaAccelSync(pScrn);
 
 
 #ifdef XF86DRI
@@ -1583,7 +1583,7 @@ static void VIALeaveVT(int scrnIndex, int flags)
 #endif
 
     if (pVia->VQEnable) 
-	ViaVQDisable(pScrn);
+        viaDisableVQ(pScrn);
 
     /* Save video status and turn off all video activities */
 
@@ -2081,7 +2081,7 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
 #endif
 
     if (!pVia->NoAccel) {
-        VIAInitAccel(pScreen);
+        viaInitAccel(pScreen);
     } 
 #ifdef X_USE_LINEARFB
     else {
@@ -2262,7 +2262,7 @@ VIAWriteMode(ScrnInfoPtr pScrn, DisplayModePtr mode)
 
     /* Enable the graphics engine. */
     if (!pVia->NoAccel)
-	VIAInitialize2DEngine(pScrn);
+	viaInitialize2DEngine(pScrn);
     
 #ifdef XF86DRI
     VIAInitialize3DEngine(pScrn);
@@ -2290,7 +2290,7 @@ static Bool VIACloseScreen(int scrnIndex, ScreenPtr pScreen)
 	  DRILock(screenInfo.screens[scrnIndex], 0);
 #endif
         /* Wait Hardware Engine idle to exit graphical mode */
-        VIAAccelSync(pScrn);
+        viaAccelSync(pScrn);
  
 
 #ifdef XF86DRI
@@ -2308,7 +2308,7 @@ static Bool VIACloseScreen(int scrnIndex, ScreenPtr pScreen)
         }
 
         if (pVia->VQEnable)
-	    ViaVQDisable(pScrn);
+	    viaDisableVQ(pScrn);
     }
 #ifdef XF86DRI
     if (pVia->directRenderingEnabled)
@@ -2418,7 +2418,7 @@ VIASwitchMode(int scrnIndex, DisplayModePtr mode, int flags)
 	DRILock(screenInfo.screens[scrnIndex], 0);
 #endif
     
-    VIAAccelSync(pScrn);
+    viaAccelSync(pScrn);
     
 #ifdef XF86DRI
     if (pVia->directRenderingEnabled)
@@ -2426,7 +2426,7 @@ VIASwitchMode(int scrnIndex, DisplayModePtr mode, int flags)
 #endif
     
     if (pVia->VQEnable)
-	ViaVQDisable(pScrn);
+	viaDisableVQ(pScrn);
     
     if (pVia->pVbe)
 	ret = ViaVbeSetMode(pScrn, mode);
