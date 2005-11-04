@@ -122,6 +122,9 @@ typedef enum {
     OPTION_PCI_BURST,
     OPTION_PCI_RETRY,
     OPTION_NOACCEL,
+#ifdef VIA_HAVE_EXA
+    OPTION_ACCELMETHOD,
+#endif
     OPTION_SWCURSOR,
     OPTION_HWCURSOR,
     OPTION_SHADOW_FB,
@@ -156,6 +159,9 @@ static OptionInfoRec VIAOptions[] =
     {OPTION_VBEMODES, "VBEModes", OPTV_BOOLEAN, {0}, FALSE},
 #endif /* HAVE_DEBUG */
     {OPTION_NOACCEL,    "NoAccel",      OPTV_BOOLEAN, {0}, FALSE},
+#ifdef VIA_HAVE_EXA
+    {OPTION_ACCELMETHOD, "AccelMethod", OPTV_STRING,  {0}, FALSE},
+#endif /* VIA_HAVE_EXA */
     {OPTION_HWCURSOR,   "HWCursor",     OPTV_BOOLEAN, {0}, FALSE},
     {OPTION_SWCURSOR,   "SWCursor",     OPTV_BOOLEAN, {0}, FALSE},
     {OPTION_SHADOW_FB,  "ShadowFB",     OPTV_BOOLEAN, {0}, FALSE},
@@ -269,6 +275,17 @@ static const char *xaaSymbols[] = {
     NULL
 };
 
+#ifdef VIA_HAVE_EXA
+static const char *exaSymbols[] = {
+  "exaGetVersion",
+  "exaDriverInit",
+  "exaDriverFini",
+  "exaOffscreenAlloc",
+  "exaOffscreenFree",
+  NULL
+};
+#endif
+
 static const char *shadowSymbols[] = {
     "ShadowFBInit",
     NULL
@@ -378,6 +395,9 @@ static pointer VIASetup(pointer module, pointer opts, int *errmaj, int *errmin)
 #endif
                           ramdacSymbols,
                           xaaSymbols,
+#ifdef VIA_HAVE_EXA
+			  exaSymbols,
+#endif
                           shadowSymbols,
                           vbeSymbols,
                           i2cSymbols,
@@ -871,6 +891,23 @@ static Bool VIAPreInit(ScrnInfoPtr pScrn, int flags)
     else {
         pVia->NoAccel = FALSE;
     }
+#ifdef VIA_HAVE_EXA 
+    if(!pVia->NoAccel) {
+        from = X_DEFAULT;
+	if((s = (char *)xf86GetOptValString(VIAOptions, OPTION_ACCELMETHOD))) {
+	    if(!xf86NameCmp(s,"XAA")) {
+		from = X_CONFIG;
+		pVia->useEXA = FALSE;
+	    }
+	    else if(!xf86NameCmp(s,"EXA")) {
+		from = X_CONFIG;
+		pVia->useEXA = TRUE;
+	    }
+	}
+	xf86DrvMsg(pScrn->scrnIndex, from, "Using %s acceleration architecture\n",
+		   pVia->useEXA ? "EXA" : "XAA");
+    }
+#endif /* VIA_HAVE_EXA */
 
     if (pVia->shadowFB && !pVia->NoAccel) {
         xf86DrvMsg(pScrn->scrnIndex, X_WARNING,
@@ -1488,6 +1525,13 @@ static Bool VIAPreInit(ScrnInfoPtr pScrn, int flags)
             return FALSE;
         }
         xf86LoaderReqSymLists(xaaSymbols, NULL);
+#ifdef VIA_HAVE_EXA
+        if(!xf86LoadSubModule(pScrn, "exa")) {
+            VIAFreeRec(pScrn);
+            return FALSE;
+        }
+        xf86LoaderReqSymLists(exaSymbols, NULL);
+#endif
     }
 
     if (pVia->hwcursor) {
@@ -2083,8 +2127,7 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
     if (!pVia->NoAccel) {
         viaInitAccel(pScreen);
     } 
-#ifdef X_USE_LINEARFB
-    else {
+    if (pVia->NoAccel) {
 	/*
 	 * This is needed because xf86InitFBManagerLinear in VIAInitLinear
 	 * needs xf86InitFBManager to have been initialized, and 
@@ -2106,7 +2149,6 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
 	pVia->FBFreeStart = (AvailFBArea.y2 + 1) * pVia->Bpl;
 	xf86InitFBManager(pScreen, &AvailFBArea);	
     }
-#endif /* X_USE_LINEARFB */
 
     miInitializeBackingStore(pScreen);
     xf86SetBackingStore(pScreen);
@@ -2159,10 +2201,7 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
         xf86DrvMsg(pScrn->scrnIndex, X_INFO, "direct rendering enabled\n");
     else {
         xf86DrvMsg(pScrn->scrnIndex, X_INFO, "direct rendering disabled\n");
-	VIAInitLinear(pScreen);
     }
-#else    
-    VIAInitLinear(pScreen);
 #endif
 
     viaInitVideo(pScreen);
@@ -2302,7 +2341,7 @@ static Bool VIACloseScreen(int scrnIndex, ScreenPtr pScreen)
 
 	if (!pVia->IsSecondary) {
             /* Turn off all video activities */
-            viaExitVideo(pScrn);
+            viaExitVideo(pScrn); 
 
             VIAHideCursor(pScrn);
         }

@@ -20,6 +20,8 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
  * DEALINGS IN THE SOFTWARE.
+ *
+ * Heavily cleaned up and modified for EXA support by Thomas Hellström 2005.
  */
 
 /*************************************************************************
@@ -113,6 +115,26 @@ viaDisableVQ(ScrnInfoPtr pScrn)
     VIASETREG(VIA_REG_TRANSPACE, 0x46800408);
 }    
 
+static Bool
+viaAccelSetMode(int bpp, ViaTwodContext *tdc)
+{
+    switch (bpp) {
+    case 16:
+	tdc->mode = VIA_GEM_16bpp;
+	return TRUE;
+    case 32:
+	tdc->mode = VIA_GEM_32bpp;
+	return TRUE;
+    case 8:
+	tdc->mode = VIA_GEM_8bpp;
+	return TRUE;
+    default:
+        return FALSE;
+    }
+}
+
+  
+
 void
 viaInitialize2DEngine(ScrnInfoPtr pScrn)
 {
@@ -136,19 +158,7 @@ viaInitialize2DEngine(ScrnInfoPtr pScrn)
 	viaDisableVQ(pScrn);
     }
 
-
-    switch (pScrn->bitsPerPixel) {
-    case 16:
-	tdc->mode = VIA_GEM_16bpp;
-	break;
-    case 32:
-	tdc->mode = VIA_GEM_32bpp;
-	break;
-    default:
-	tdc->mode = VIA_GEM_8bpp;
-	break;
-    }
-
+    viaAccelSetMode(pScrn->bitsPerPixel, tdc);
 }
 
 
@@ -710,19 +720,6 @@ viaSubsequentDashedTwoPointLine(ScrnInfoPtr pScrn, int x1, int y1, int x2,
     viaSubsequentSolidTwoPointLine(pScrn, x1, y1, x2, y2, flags);
 }
 
-#if 0
-static int
-viaExaMarkSync(ScreenPtr pScreen)
-{
-    ScrnInfoPtr     pScrn = xf86Screens[pScreen->myNum];
-    VIAPtr          pVia = VIAPTR(pScrn);
-  
-    viaAccelSolidHelper(&pVia->cb, 0, 0, 1, 1, pVia->markerOffset, VIA_GEM_32bpp,
-			4, ++pVia->curMarker, VIA_MODE_MARKER);
-
-    return pVia->curMarker;
-}
-#endif
 
 static int
 viaInitXAA(ScreenPtr pScreen)
@@ -849,8 +846,260 @@ viaInitXAA(ScreenPtr pScreen)
 
 }
 
+#ifdef VIA_HAVE_EXA
+
+static Bool
+viaExaPrepareSolid(PixmapPtr pPixmap, int alu, Pixel planemask,
+		   Pixel fg)
+{
+    ScrnInfoPtr pScrn = xf86Screens[pPixmap->drawable.pScreen->myNum];
+    VIAPtr pVia = VIAPTR(pScrn);
+    ViaCommandBuffer *cb = &pVia->cb;
+    ViaTwodContext *tdc = &pVia->td;
+    
+    if (exaGetPixmapPitch(pPixmap) & 7)
+	return FALSE;
+
+    if (! viaAccelSetMode(pPixmap->drawable.depth, tdc)) 
+        return FALSE;
+
+    viaAccelTransparentHelper(cb, 0x0, 0x0);
+
+    tdc->cmd = VIA_GEC_BLT | VIA_GEC_FIXCOLOR_PAT | 
+	VIAACCELPATTERNROP(alu);
+
+    tdc->fgColor = fg;
+
+    return TRUE;
+}
+
+static void
+viaExaSolid(PixmapPtr pPixmap, int x1, int y1, int x2, int y2)
+{
+    ScrnInfoPtr pScrn = xf86Screens[pPixmap->drawable.pScreen->myNum];
+    VIAPtr pVia = VIAPTR(pScrn);
+    ViaCommandBuffer *cb = &pVia->cb;
+    ViaTwodContext *tdc = &pVia->td;
+    unsigned dstPitch, dstBase;
+
+    int
+	w = x2 - x1,
+	h = y2 - y1;
+
+    dstPitch = exaGetPixmapPitch(pPixmap);
+    dstBase = exaGetPixmapOffset(pPixmap);
+
+    viaAccelSolidHelper(cb, x1, y1, w, h, dstBase,
+			tdc->mode, dstPitch, tdc->fgColor, tdc->cmd);
+    cb->flushFunc(cb);
+}
+
+static void
+viaExaDoneSolidCopy(PixmapPtr pPixmap)
+{
+}
+
+static Bool 
+viaExaPrepareCopy(PixmapPtr pSrcPixmap, PixmapPtr pDstPixmap, int xdir,
+		  int ydir, int alu, Pixel planeMask) 
+{
+    ScrnInfoPtr pScrn = xf86Screens[pDstPixmap->drawable.pScreen->myNum];
+    VIAPtr pVia = VIAPTR(pScrn);
+    ViaCommandBuffer *cb = &pVia->cb;
+    ViaTwodContext *tdc = &pVia->td;
+    
+    if((planeMask & ((1 << pSrcPixmap->drawable.depth) - 1)) !=
+       (1 << pSrcPixmap->drawable.depth) - 1) {
+	return FALSE;
+    }
+
+    if(pSrcPixmap->drawable.bitsPerPixel != 
+       pDstPixmap->drawable.bitsPerPixel)
+	return FALSE;
+
+    if ((tdc->srcPitch = exaGetPixmapPitch(pSrcPixmap)) & 3)
+	return FALSE;
+
+    if (exaGetPixmapPitch(pDstPixmap) & 7)
+	return FALSE;
+
+    tdc->srcOffset = exaGetPixmapOffset(pSrcPixmap);
+
+    tdc->cmd = VIA_GEC_BLT | VIAACCELCOPYROP(alu);
+    if (xdir < 0)
+	tdc->cmd |= VIA_GEC_DECX;
+    if (ydir < 0)
+	tdc->cmd |= VIA_GEC_DECY;
+
+    if (! viaAccelSetMode(pDstPixmap->drawable.bitsPerPixel, tdc)) 
+        return FALSE;
+
+    viaAccelTransparentHelper(cb, 0x0, 0x0);
+
+    return TRUE;
+}    
+
+static void
+viaExaCopy(PixmapPtr pDstPixmap, int srcX, int srcY, int dstX, int dstY,
+	   int width, int height)
+{
+    ScrnInfoPtr pScrn = xf86Screens[pDstPixmap->drawable.pScreen->myNum];
+    VIAPtr pVia = VIAPTR(pScrn);
+    ViaCommandBuffer *cb = &pVia->cb;
+    ViaTwodContext *tdc = &pVia->td;
+
+    if (!width || !height)
+	return;
+
+    viaAccelCopyHelper(cb, srcX, srcY, dstX, dstY, width, height,
+		       tdc->srcOffset, exaGetPixmapOffset(pDstPixmap),
+		       tdc->mode, tdc->srcPitch, exaGetPixmapPitch(pDstPixmap), 
+		       tdc->cmd);
+    cb->flushFunc(cb);
+}
+
+static void
+viaExaWaitMarker(ScreenPtr pScreen, int marker)
+{
+    ScrnInfoPtr pScrn = xf86Screens[pScreen->myNum];
+    VIAPtr pVia = VIAPTR(pScrn);
+    CARD32 uMarker = marker;
+
+    while((pVia->lastMarkerRead - uMarker) > (1 << 24))
+        pVia->lastMarkerRead = *pVia->markerBuf;
+}
+
+
+static Bool
+viaExaDownloadFromScreen(PixmapPtr pSrc, int x, int y, int w, int h,
+			 char *dst, int dst_pitch) 
+{
+    ScrnInfoPtr pScrn = xf86Screens[pSrc->drawable.pScreen->myNum];
+    VIAPtr pVia = VIAPTR(pScrn);
+    unsigned bpp = (pSrc->drawable.bitsPerPixel >> 3); 
+    unsigned i;
+
+    char *src = (char *)pVia->FBBase + exaGetPixmapOffset(pSrc) + 
+      y*exaGetPixmapPitch(pSrc) + x*bpp;
+    
+    for (i=0; i<h; ++i) {
+	memcpy(dst, src, w*bpp);
+	dst += dst_pitch;
+	src += exaGetPixmapPitch(pSrc);
+    }
+    return TRUE;
+}
+
+static Bool
+viaExaUploadToScreen(PixmapPtr pDst, int x, int y, int w, int h, char *src, int src_pitch) 
+{
+    ScrnInfoPtr pScrn = xf86Screens[pDst->drawable.pScreen->myNum];
+    VIAPtr pVia = VIAPTR(pScrn);
+    unsigned bpp = (pDst->drawable.bitsPerPixel >> 3); 
+    unsigned i;
+
+    char *dst = (char *)pVia->FBBase + exaGetPixmapOffset(pDst) + 
+      y*exaGetPixmapPitch(pDst) + x*bpp;
+    
+    for (i=0; i<h; ++i) {
+	memcpy(dst, src, w*bpp);
+	dst += exaGetPixmapPitch(pDst);
+	src += src_pitch;
+    }
+    return TRUE;
+}
+
+static int
+viaExaMarkSync(ScreenPtr pScreen)
+{
+    ScrnInfoPtr     pScrn = xf86Screens[pScreen->myNum];
+    VIAPtr          pVia = VIAPTR(pScrn);
+    ViaCommandBuffer *cb = &pVia->cb;
+
+    ++pVia->curMarker;
+
+    /*
+     * Wrap around without possibly affecting the int sign bit. 
+     */
+
+    pVia->curMarker &= 0x7FFFFFFF; 
+
+    viaAccelSolidHelper(&pVia->cb, 0, 0, 1, 1, pVia->markerOffset, VIA_GEM_32bpp,
+			4, pVia->curMarker, 
+			(0xF0 << 24) | VIA_GEC_BLT | VIA_GEC_FIXCOLOR_PAT);
+    cb->flushFunc(cb);
+    return pVia->curMarker;
+}
+
+static Bool
+viaExaUploadToScratch(PixmapPtr pSrc, PixmapPtr pDst)
+{
+    return FALSE;
+}
+
+static void
+viaExaScratchSave(ScreenPtr pScreen, ExaOffscreenArea *area)
+{
+    ScrnInfoPtr     pScrn = xf86Screens[pScreen->myNum];
+    VIAPtr          pVia = VIAPTR(pScrn);
+
+    pVia->exa_scratch = NULL;
+}
+
+static ExaDriverPtr
+viaInitExa(ScreenPtr pScreen)
+{
+    ScrnInfoPtr pScrn = xf86Screens[pScreen->myNum];
+    VIAPtr pVia = VIAPTR(pScrn);
+    ExaDriverPtr pExa = (ExaDriverPtr) xnfcalloc(sizeof(ExaDriverRec),1);
+    
+    if (!pExa) 
+	return NULL;
+    
+    pExa->card.memoryBase = pVia->FBBase;
+    pExa->card.memorySize = pVia->FBFreeEnd;
+    pExa->card.offScreenBase = pScrn->virtualY * pVia->Bpl;
+    pExa->card.pixmapOffsetAlign = 16; /* PCI DMA Bitblt restriction */
+    pExa->card.pixmapPitchAlign = 16; 
+    pExa->card.flags = EXA_OFFSCREEN_PIXMAPS;
+    pExa->card.maxX = 2047;
+    pExa->card.maxY = 2047;
+
+    pExa->accel.WaitMarker = viaExaWaitMarker;
+    pExa->accel.MarkSync = viaExaMarkSync;
+    pExa->accel.PrepareSolid = viaExaPrepareSolid;
+    pExa->accel.Solid = viaExaSolid;
+    pExa->accel.DoneSolid = viaExaDoneSolidCopy;
+    pExa->accel.PrepareCopy = viaExaPrepareCopy;
+    pExa->accel.Copy = viaExaCopy;
+    pExa->accel.DoneCopy = viaExaDoneSolidCopy;
+#if 0
+    pExa->accel.UploadToScreen = viaExaUploadToScreen;
+    pExa->accel.DownloadFromScreen = viaExaDownloadFromScreen;
+#endif
+    /*
+     * Composite not supported. Could we use the 3D engine?
+     */
+
+    if (!exaDriverInit(pScreen, pExa)) {
+	xfree(pExa);
+	return NULL;
+    }
+#if 0
+    pVia->exa_scratch = exaOffscreenAlloc(pScreen, 128*1024, 16, TRUE,
+					  viaExaScratchSave, pVia);
+    if (pVia->exa_scratch) {
+	pVia->exa_scratch_next = pVia->exa_scratch->offset;
+	pExa->accel.UploadToScratch = viaExaUploadToScratch;
+    }
+#endif
+    return pExa;
+}
+
+#endif /* VIA_HAVE_EXA */
+
 /* 
- * Acceleration init function, sets up pointers to our accelerated functions 
+ * Acceleration init function, sets up pointers to our accelerated functions.
  */
 
 Bool
@@ -859,9 +1108,6 @@ viaInitAccel(ScreenPtr pScreen)
     ScrnInfoPtr     pScrn = xf86Screens[pScreen->myNum];
     VIAPtr          pVia = VIAPTR(pScrn);
     BoxRec 	    AvailFBArea;
-    unsigned long   cacheEnd;
-    unsigned long   cacheEndTmp;
-    
 
     pVia->VQStart = 0;
     if (((pVia->FBFreeEnd - pVia->FBFreeStart) >= VIA_VQ_SIZE) &&
@@ -870,59 +1116,53 @@ viaInitAccel(ScreenPtr pScreen)
 	pVia->VQStart = pVia->FBFreeEnd - VIA_VQ_SIZE;
 	pVia->VQEnd = pVia->VQStart + VIA_VQ_SIZE - 1;
 	pVia->FBFreeEnd -= VIA_VQ_SIZE;
-    } /* FIXME: Else disable VQ */
+    } 
+
+    viaInitialize2DEngine(pScrn);
     
     if (pVia->hwcursor) {
 	pVia->FBFreeEnd -= VIA_CURSOR_SIZE;
 	pVia->CursorStart = pVia->FBFreeEnd;
-    } /* FIXME: Else disable hwcursor */
+    } 
     
+#ifdef VIA_HAVE_EXA
+
     /*
-     * Sync marker code.
+     * Sync marker space.
      */
 
-    pVia->FBFreeEnd -= 64;
-    pVia->markerOffset = (pVia->FBFreeEnd + 31) & 31;
-    pVia->markerBuf = (CARD32 *) pVia->FBBase + (pVia->markerOffset >> 2);
+    pVia->FBFreeEnd -= 32;
+    pVia->markerOffset = (pVia->FBFreeEnd + 31) & ~31;
+    pVia->markerBuf = (CARD32 *) ((char *) pVia->FBBase + pVia->markerOffset);
     
-    viaInitialize2DEngine(pScrn);
+    viaSetupCBuffer(pScrn, &pVia->cb, 0);
 
-    cacheEnd = pVia->FBFreeEnd / pVia->Bpl;
-    cacheEndTmp = (pVia->FBFreeStart + VIA_PIXMAP_CACHE_SIZE + pVia->Bpl-1) 
-	/ pVia->Bpl;
-    
-    /*
-     *	Use only requested pixmap size if it is less than available
-     *  offscreen memory.
-     */
+    if (pVia->useEXA) {
+	pVia->exaDriverPtr = viaInitExa(pScreen);
+	if (!pVia->exaDriverPtr) {
 
-    if(cacheEnd > cacheEndTmp)
-	cacheEnd = cacheEndTmp;
-    /*
-     *	Clip to the blitter limit
-     */
+	    /*
+	     * Docs recommend turning off also Xv here, but we handle this
+	     * case with the old linear offscreen FB manager through
+	     * VIAInitLinear.
+	     */
 
-    if (cacheEnd > VIA_MAX_ACCEL_Y)
-	cacheEnd = VIA_MAX_ACCEL_Y;
-
-    pVia->FBFreeStart = (cacheEnd + 1) *pVia->Bpl;
-
-    /*
-     * Finally, we set up the video memory space available to the pixmap
-     * cache
-     */
+	    pVia->NoAccel = TRUE;
+	    return FALSE;
+	}
+	return TRUE;
+    } 
+#endif
 
     AvailFBArea.x1 = 0;
     AvailFBArea.y1 = 0;
     AvailFBArea.x2 = pScrn->virtualX;
-    AvailFBArea.y2 = cacheEnd;
+    AvailFBArea.y2 = pVia->FBFreeEnd / pVia->Bpl;
 
     xf86InitFBManager(pScreen, &AvailFBArea);
     DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO,
 		     "Using %d lines for offscreen memory.\n",
 		     AvailFBArea.y2 - pScrn->virtualY ));
-
-    viaSetupCBuffer(pScrn, &pVia->cb, 0);
 
     return viaInitXAA(pScreen);
 }

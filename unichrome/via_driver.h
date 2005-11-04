@@ -74,6 +74,10 @@
 #include "via_dri.h"
 #endif
 
+#ifdef VIA_HAVE_EXA
+#include "exa.h"
+#endif
+
 #define DRIVER_NAME     "via"
 #define VERSION_MAJOR   0
 #define VERSION_MINOR   0
@@ -155,6 +159,9 @@ typedef struct _twodContext {
     CARD32 pattern0;
     CARD32 pattern1;
     CARD32 patternAddr;
+    unsigned srcOffset;
+    unsigned srcPitch;
+    unsigned Bpp;
     Bool clipping;
     int clipX1;
     int clipX2;
@@ -204,11 +211,6 @@ typedef struct _VIA {
     unsigned char*      FBBase;
     CARD8               MemClk;
 
-    /* Private memory pool management */
-    int			SWOVUsed[MEM_BLOCKS]; /* Free map for SWOV pool */
-    unsigned long	SWOVPool;	/* Base of SWOV pool */
-    unsigned long	SWOVSize;	/* Size of SWOV blocks */
-
     /* Here are all the Options */
     Bool                VQEnable;
     Bool                pci_burst;
@@ -239,8 +241,16 @@ typedef struct _VIA {
     XAAInfoRecPtr       AccelInfoRec;
     ViaTwodContext      td;
     ViaCommandBuffer    cb;
+#ifdef VIA_HAVE_EXA
     CARD32              markerOffset;
     CARD32             *markerBuf;
+    CARD32              curMarker;
+    CARD32              lastMarkerRead;
+    ExaDriverPtr        exaDriverPtr;
+    ExaOffscreenArea   *exa_scratch;
+    unsigned int        exa_scratch_next;
+    Bool                useEXA;
+#endif
 
     /* BIOS Info Ptr */
     VIABIOSInfoPtr      pBIOSInfo;
