@@ -2353,10 +2353,7 @@ static Bool VIACloseScreen(int scrnIndex, ScreenPtr pScreen)
     if (pVia->directRenderingEnabled)
 	VIADRICloseScreen(pScreen);
 #endif
-    if (pVia->AccelInfoRec) {
-        XAADestroyInfoRec(pVia->AccelInfoRec);
-        pVia->AccelInfoRec = NULL;
-    }
+    viaExitAccel(pScreen);
     if (pVia->CursorInfoRec) {
         xf86DestroyCursorInfoRec(pVia->CursorInfoRec);
         pVia->CursorInfoRec = NULL;

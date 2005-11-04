@@ -366,6 +366,7 @@ Bool viaInitAccel(ScreenPtr);
 void viaInitialize2DEngine(ScrnInfoPtr);
 void viaAccelSync(ScrnInfoPtr);
 void viaDisableVQ(ScrnInfoPtr pScrn);
+void viaExitAccel(ScreenPtr);
 
 /* In via_shadow.c */
 void ViaShadowFBInit(ScrnInfoPtr pScrn, ScreenPtr pScreen);

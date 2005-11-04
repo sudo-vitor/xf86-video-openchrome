@@ -1124,6 +1124,8 @@ viaInitAccel(ScreenPtr pScreen)
 	pVia->FBFreeEnd -= VIA_CURSOR_SIZE;
 	pVia->CursorStart = pVia->FBFreeEnd;
     } 
+
+    viaSetupCBuffer(pScrn, &pVia->cb, 0);
     
 #ifdef VIA_HAVE_EXA
 
@@ -1135,8 +1137,6 @@ viaInitAccel(ScreenPtr pScreen)
     pVia->markerOffset = (pVia->FBFreeEnd + 31) & ~31;
     pVia->markerBuf = (CARD32 *) ((char *) pVia->FBBase + pVia->markerOffset);
     
-    viaSetupCBuffer(pScrn, &pVia->cb, 0);
-
     if (pVia->useEXA) {
 	pVia->exaDriverPtr = viaInitExa(pScreen);
 	if (!pVia->exaDriverPtr) {
@@ -1167,3 +1167,28 @@ viaInitAccel(ScreenPtr pScreen)
     return viaInitXAA(pScreen);
 }
 
+void 
+viaExitAccel(ScreenPtr pScreen)
+{
+    ScrnInfoPtr     pScrn = xf86Screens[pScreen->myNum];
+    VIAPtr          pVia = VIAPTR(pScrn);
+    
+    viaAccelSync(pScrn);
+
+#ifdef VIA_HAVE_EXA
+    if (pVia->useEXA) {
+	if (pVia->exaDriverPtr) {
+	    exaDriverFini(pScreen);
+	}
+	xfree(pVia->exaDriverPtr);
+	pVia->exaDriverPtr = NULL;
+	viaTearDownCBuffer(&pVia->cb);
+	return;
+    }
+#endif
+    if (pVia->AccelInfoRec) {
+        XAADestroyInfoRec(pVia->AccelInfoRec);
+        pVia->AccelInfoRec = NULL;
+	viaTearDownCBuffer(&pVia->cb);
+    }
+}
