@@ -82,7 +82,7 @@ void viaFlushPCI(ViaCommandBuffer *buf)
 
 #ifdef XF86DRI
 static void 
-viaFlushAGP(ViaCommandBuffer *cb) 
+viaFlushDRIEnabled(ViaCommandBuffer *cb) 
 {
     ScrnInfoPtr pScrn = cb->pScrn;
     VIAPtr pVia = VIAPTR(pScrn);
@@ -90,27 +90,30 @@ viaFlushAGP(ViaCommandBuffer *cb)
     int tmpSize = cb->pos * sizeof(CARD32);
     drm_via_cmdbuffer_t b;
     
-    do {
-	b.size = (tmpSize > VIA_DMASIZE) ? VIA_DMASIZE : tmpSize;
-	tmpSize -= b.size;
-	b.buf = tmp;
-	tmp += b.size;
-
-	if (drmCommandWrite(pVia->drmFD,DRM_VIA_CMDBUFFER,&b,sizeof(b)))
-	    return;
-    } while (tmpSize > 0);
-    cb->pos = 0;
+    if (pVia->agpDMA) {
+	do {
+	    b.size = (tmpSize > VIA_DMASIZE) ? VIA_DMASIZE : tmpSize;
+	    tmpSize -= b.size;
+	    b.buf = tmp;
+	    tmp += b.size;
+	    if (drmCommandWrite(pVia->drmFD,DRM_VIA_CMDBUFFER,&b,sizeof(b))) {
+		ErrorF("AGP DMA command submission failed.\n");
+		pVia->agpDMA = FALSE;
+		cb->flushFunc = viaFlushPCI;
+		return;
+	    }
+	} while (tmpSize > 0);
+	cb->pos = 0;
+    } else {
+	cb->flushFunc = viaFlushPCI;
+	viaFlushPCI(cb);
+    }
 }
 #endif
 
 int 
 viaSetupCBuffer(ScrnInfoPtr pScrn, ViaCommandBuffer *buf, unsigned size)
 {
-
-#ifdef XF86DRI
-    VIAPtr pVia = VIAPTR(pScrn);
-#endif
-
     buf->pScrn = pScrn;
     buf->bufSize = ((size == 0) ? VIA_DMASIZE : size) >> 2;
     buf->buf = (CARD32 *)xcalloc(buf->bufSize,1);
@@ -122,11 +125,7 @@ viaSetupCBuffer(ScrnInfoPtr pScrn, ViaCommandBuffer *buf, unsigned size)
     buf->header_start = 0;
     buf->rindex = 0;
 #ifdef XF86DRI
-    if (pVia->directRenderingEnabled && pVia->agpEnable && pVia->dma2d) {    
-	buf->flushFunc = viaFlushAGP;
-    } else {
-	buf->flushFunc = viaFlushPCI;
-    }
+    buf->flushFunc = viaFlushDRIEnabled;
 #else
     buf->flushFunc = viaFlushPCI;
 #endif
@@ -938,6 +937,49 @@ viaInitXAA(ScreenPtr pScreen)
 
 }
 
+static int
+viaAccelMarkSync(ScreenPtr pScreen)
+{
+    ScrnInfoPtr     pScrn = xf86Screens[pScreen->myNum];
+    VIAPtr          pVia = VIAPTR(pScrn);
+    ViaCommandBuffer *cb = &pVia->cb;
+
+    ++pVia->curMarker;
+
+    if (pVia->agpDMA) {    
+	/*
+	 * Wrap around without possibly affecting the int sign bit. 
+	 */
+
+	pVia->curMarker &= 0x7FFFFFFF; 
+
+	viaAccelSolidHelper(&pVia->cb, 0, 0, 1, 1, pVia->markerOffset, VIA_GEM_32bpp,
+			    4, pVia->curMarker, 
+			    (0xF0 << 24) | VIA_GEC_BLT | VIA_GEC_FIXCOLOR_PAT);
+	cb->flushFunc(cb);
+    }
+    return pVia->curMarker;
+}
+
+static void
+viaAccelWaitMarker(ScreenPtr pScreen, int marker)
+{
+    ScrnInfoPtr pScrn = xf86Screens[pScreen->myNum];
+    VIAPtr pVia = VIAPTR(pScrn);
+
+    if(pVia->agpDMA) {
+	CARD32 uMarker = marker;
+	
+	while((pVia->lastMarkerRead - uMarker) > (1 << 24))
+	    pVia->lastMarkerRead = *pVia->markerBuf;
+    } else {
+	viaAccelSync(pScrn);
+    }
+}
+
+
+
+
 #ifdef VIA_HAVE_EXA
 
 static Bool
@@ -1050,18 +1092,6 @@ viaExaCopy(PixmapPtr pDstPixmap, int srcX, int srcY, int dstX, int dstY,
     cb->flushFunc(cb);
 }
 
-static void
-viaExaWaitMarker(ScreenPtr pScreen, int marker)
-{
-    ScrnInfoPtr pScrn = xf86Screens[pScreen->myNum];
-    VIAPtr pVia = VIAPTR(pScrn);
-    CARD32 uMarker = marker;
-
-    while((pVia->lastMarkerRead - uMarker) > (1 << 24))
-        pVia->lastMarkerRead = *pVia->markerBuf;
-}
-
-
 static Bool
 viaExaDownloadFromScreen(PixmapPtr pSrc, int x, int y, int w, int h,
 			 char *dst, int dst_pitch) 
@@ -1101,28 +1131,6 @@ viaExaUploadToScreen(PixmapPtr pDst, int x, int y, int w, int h, char *src, int 
     return TRUE;
 }
 
-static int
-viaExaMarkSync(ScreenPtr pScreen)
-{
-    ScrnInfoPtr     pScrn = xf86Screens[pScreen->myNum];
-    VIAPtr          pVia = VIAPTR(pScrn);
-    ViaCommandBuffer *cb = &pVia->cb;
-
-    ++pVia->curMarker;
-
-    /*
-     * Wrap around without possibly affecting the int sign bit. 
-     */
-
-    pVia->curMarker &= 0x7FFFFFFF; 
-
-    viaAccelSolidHelper(&pVia->cb, 0, 0, 1, 1, pVia->markerOffset, VIA_GEM_32bpp,
-			4, pVia->curMarker, 
-			(0xF0 << 24) | VIA_GEC_BLT | VIA_GEC_FIXCOLOR_PAT);
-    cb->flushFunc(cb);
-    return pVia->curMarker;
-}
-
 static Bool
 viaExaUploadToScratch(PixmapPtr pSrc, PixmapPtr pDst)
 {
@@ -1157,8 +1165,8 @@ viaInitExa(ScreenPtr pScreen)
     pExa->card.maxX = 2047;
     pExa->card.maxY = 2047;
 
-    pExa->accel.WaitMarker = viaExaWaitMarker;
-    pExa->accel.MarkSync = viaExaMarkSync;
+    pExa->accel.WaitMarker = viaAccelWaitMarker;
+    pExa->accel.MarkSync = viaAccelMarkSync;
     pExa->accel.PrepareSolid = viaExaPrepareSolid;
     pExa->accel.Solid = viaExaSolid;
     pExa->accel.DoneSolid = viaExaDoneSolidCopy;
@@ -1287,3 +1295,69 @@ viaExitAccel(ScreenPtr pScreen)
 	viaTearDownCBuffer(&pVia->cb);
     }
 }
+
+void
+viaDGABlitRect(ScrnInfoPtr pScrn, int srcx, int srcy, int w, int h,
+               int dstx, int dsty)
+{
+    VIAPtr pVia = VIAPTR(pScrn);
+    ViaTwodContext *tdc = &pVia->td;
+    ViaCommandBuffer *cb = &pVia->cb;
+    unsigned dstOffset = pScrn->fbOffset + dsty*pVia->Bpl;
+    unsigned srcOffset = pScrn->fbOffset + srcy*pVia->Bpl;
+    
+    if (!w || !h)
+	return;
+
+    if (!pVia->NoAccel) {
+
+        int xdir = ((srcx < dstx) && (srcy == dsty)) ? -1 : 1;
+        int ydir = (srcy < dsty) ? -1 : 1;
+	CARD32 cmd = VIA_GEC_BLT | VIAACCELCOPYROP(GXcopy);
+	
+	if (xdir < 0)
+	    cmd |= VIA_GEC_DECX;
+	if (ydir < 0)
+	    cmd |= VIA_GEC_DECY;
+	
+	viaAccelSetMode(pScrn->bitsPerPixel, tdc);
+	viaAccelTransparentHelper(cb, 0x0, 0x0);
+	viaAccelCopyHelper(cb, srcx, 0, dstx, 0, w, h, srcOffset, dstOffset,
+			   tdc->mode, pVia->Bpl, pVia->Bpl, cmd);
+	pVia->dgaMarker = viaAccelMarkSync(pScrn->pScreen);
+	cb->flushFunc(cb);
+    }
+}
+
+void
+viaDGAFillRect(ScrnInfoPtr pScrn, int x, int y, int w, int h, unsigned long color)
+{
+    VIAPtr pVia = VIAPTR(pScrn);
+    unsigned dstBase = pScrn->fbOffset + y*pVia->Bpl;
+    ViaTwodContext *tdc = &pVia->td;
+    ViaCommandBuffer *cb = &pVia->cb;
+    CARD32 cmd = VIA_GEC_BLT | VIA_GEC_FIXCOLOR_PAT | 
+	VIAACCELPATTERNROP(GXcopy);
+
+
+    if (!w || !h)
+	return;
+
+    if (!pVia->NoAccel) {
+	viaAccelSetMode(pScrn->bitsPerPixel, tdc);
+	viaAccelTransparentHelper(cb, 0x0, 0x0);
+	viaAccelSolidHelper(cb, x, 0, w, h, dstBase, tdc->mode,
+			    pVia->Bpl, color, cmd);
+	pVia->dgaMarker = viaAccelMarkSync(pScrn->pScreen);
+	cb->flushFunc(cb);
+    }
+}
+
+void
+viaDGAWaitMarker(ScrnInfoPtr pScrn)
+{
+    VIAPtr pVia = VIAPTR(pScrn);
+
+    viaAccelWaitMarker(pScrn->pScreen, pVia->dgaMarker);
+}
+    

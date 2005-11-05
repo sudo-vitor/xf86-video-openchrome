@@ -2200,7 +2200,7 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
     DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "- DPMS set up\n"));
 
     DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "- Color maps etc. set up\n"));
-
+    pVia->agpDMA = FALSE;
 
 #ifdef XF86DRI
     pVia->directRenderingEnabled = FALSE;
@@ -2213,6 +2213,10 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
     else {
         xf86DrvMsg(pScrn->scrnIndex, X_INFO, "direct rendering disabled\n");
     }
+    {
+	VIADRIPtr pVIADRI = pVia->pDRIInfo->devPrivate;
+	pVia->agpDMA = pVia->directRenderingEnabled && pVia->dma2d && pVIADRI->ringBufActive;
+    } 
 #endif
 
     viaInitVideo(pScreen);

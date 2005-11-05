@@ -1,5 +1,17 @@
 2005-11-05 Thomas Hellström  <unichrome-at-shipmail-dot-org>
 
+	* unichrome/via_accel.c: (viaFlushDRIEnabled), (viaSetupCBuffer),
+	(viaAccelMarkSync), (viaAccelWaitMarker), (viaInitExa),
+	(viaDGABlitRect), (viaDGAFillRect), (viaDGAWaitMarker):
+	* unichrome/via_dga.c:
+	* unichrome/via_driver.c: (VIAScreenInit):
+	* unichrome/via_driver.h:
+
+	-Adapt DGA to new acceleration design (untested). 
+	 Fix AGP DMA usage.
+	
+2005-11-05 Thomas Hellström  <unichrome-at-shipmail-dot-org>
+
 	* unichrome/Imakefile:
 	* unichrome/via_accel.c: (viaFlushPCI), (viaFlushAGP),
 	(viaSetupCBuffer), (viaTearDownCBuffer), (viaInitAccel):

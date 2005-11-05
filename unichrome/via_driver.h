@@ -84,16 +84,8 @@
 #define PATCHLEVEL      0
 #define VIA_VERSION     ((VERSION_MAJOR<<24) | (VERSION_MINOR<<16) | PATCHLEVEL)
 
-#define VIA_MAX_ACCEL_X         (2047)
-#define VIA_MAX_ACCEL_Y         (2047)
-#ifdef X_USE_LINEARFB
-#define VIA_PIXMAP_CACHE_SIZE   (4 * (VIA_MAX_ACCEL_X + 1) * (VIA_MAX_ACCEL_Y +1))
-#else
-#define VIA_PIXMAP_CACHE_SIZE   (256 * 1024)
-#endif /* X_USE_LINEARFB */
 #define VIA_CURSOR_SIZE         (4 * 1024)
 #define VIA_VQ_SIZE             (256 * 1024)
-#define VIA_CBUFFERSIZE         512
 
 typedef struct {
     CARD8   SR08, SR0A, SR0F;
@@ -170,12 +162,6 @@ typedef struct _twodContext {
 } ViaTwodContext;
 
 typedef struct{
-    unsigned curPos;
-    CARD32 buffer[VIA_CBUFFERSIZE];
-    int status;
-} ViaCBuffer;
-
-typedef struct{
     /* textMode */
     CARD8 *state, *pstate; /* SVGA state */
     int statePage, stateSize, stateMode;
@@ -241,11 +227,13 @@ typedef struct _VIA {
     XAAInfoRecPtr       AccelInfoRec;
     ViaTwodContext      td;
     ViaCommandBuffer    cb;
-#ifdef VIA_HAVE_EXA
+    int                 dgaMarker;
     CARD32              markerOffset;
     CARD32             *markerBuf;
     CARD32              curMarker;
     CARD32              lastMarkerRead;
+    Bool                agpDMA;
+#ifdef VIA_HAVE_EXA
     ExaDriverPtr        exaDriverPtr;
     ExaOffscreenArea   *exa_scratch;
     unsigned int        exa_scratch_next;
@@ -366,8 +354,11 @@ void ViaCursorRestore(ScrnInfoPtr pScrn);
 Bool viaInitAccel(ScreenPtr);
 void viaInitialize2DEngine(ScrnInfoPtr);
 void viaAccelSync(ScrnInfoPtr);
-void viaDisableVQ(ScrnInfoPtr pScrn);
+void viaDisableVQ(ScrnInfoPtr);
 void viaExitAccel(ScreenPtr);
+void viaDGABlitRect(ScrnInfoPtr, int, int, int, int, int, int);
+void viaDGAFillRect(ScrnInfoPtr, int, int, int, int, unsigned long);
+void viaDGAWaitMarker(ScrnInfoPtr);
 
 /* In via_shadow.c */
 void ViaShadowFBInit(ScrnInfoPtr pScrn, ScreenPtr pScreen);
