@@ -49,6 +49,98 @@
 #define VIAACCELCOPYROP(vRop) (XAACopyROP[vRop] << 24)
 #endif
 
+
+void viaFlushPCI(ViaCommandBuffer *buf)
+{
+    unsigned size = buf->pos >> 1;
+    int i;
+    register CARD32 *bp = buf->buf;
+    unsigned loop = 0;
+    register unsigned offset;
+    register unsigned value;
+    VIAPtr pVia = VIAPTR(buf->pScrn);
+    
+    /*
+     * Not doing this wait will probably stall the processor
+     * for an unacceptable amount of time in VIASETREG while other high
+     * priority interrupts may be pending.
+     */
+    
+    while (!(VIAGETREG(VIA_REG_STATUS) & VIA_VR_QUEUE_BUSY) && (loop++ < MAXLOOP));
+    while ((VIAGETREG(VIA_REG_STATUS) &
+	    (VIA_CMD_RGTR_BUSY | VIA_2D_ENG_BUSY )) &&
+	   (loop++ < MAXLOOP));
+    
+    for(i=0; i<size; ++i) {
+	offset = (*bp++ & 0x0FFFFFFF) << 2;
+	value = *bp++;
+	VIASETREG( offset , value);
+    }
+    buf->pos = 0;
+}
+
+
+#ifdef XF86DRI
+static void 
+viaFlushAGP(ViaCommandBuffer *cb) 
+{
+    ScrnInfoPtr pScrn = cb->pScrn;
+    VIAPtr pVia = VIAPTR(pScrn);
+    char *tmp = (char *) cb->buf;
+    int tmpSize = cb->pos * sizeof(CARD32);
+    drm_via_cmdbuffer_t b;
+    
+    do {
+	b.size = (tmpSize > VIA_DMASIZE) ? VIA_DMASIZE : tmpSize;
+	tmpSize -= b.size;
+	b.buf = tmp;
+	tmp += b.size;
+
+	if (drmCommandWrite(pVia->drmFD,DRM_VIA_CMDBUFFER,&b,sizeof(b)))
+	    return;
+    } while (tmpSize > 0);
+    cb->pos = 0;
+}
+#endif
+
+int 
+viaSetupCBuffer(ScrnInfoPtr pScrn, ViaCommandBuffer *buf, unsigned size)
+{
+
+#ifdef XF86DRI
+    VIAPtr pVia = VIAPTR(pScrn);
+#endif
+
+    buf->pScrn = pScrn;
+    buf->bufSize = ((size == 0) ? VIA_DMASIZE : size) >> 2;
+    buf->buf = (CARD32 *)xcalloc(buf->bufSize,1);
+    if (!buf->buf) 
+	return BadAlloc;
+    buf->waitFlags = 0;
+    buf->pos = 0;
+    buf->mode = 0;
+    buf->header_start = 0;
+    buf->rindex = 0;
+#ifdef XF86DRI
+    if (pVia->directRenderingEnabled && pVia->agpEnable && pVia->dma2d) {    
+	buf->flushFunc = viaFlushAGP;
+    } else {
+	buf->flushFunc = viaFlushPCI;
+    }
+#else
+    buf->flushFunc = viaFlushPCI;
+#endif
+    return Success;
+}
+
+void
+viaTearDownCBuffer(ViaCommandBuffer *buf)
+{
+    xfree(buf->buf);
+    buf->buf = NULL;
+}
+
+
 static void
 viaInitAgp(VIAPtr pVia)
 {
@@ -1125,7 +1217,10 @@ viaInitAccel(ScreenPtr pScreen)
 	pVia->CursorStart = pVia->FBFreeEnd;
     } 
 
-    viaSetupCBuffer(pScrn, &pVia->cb, 0);
+    if (Success != viaSetupCBuffer(pScrn, &pVia->cb, 0)) {
+	pVia->NoAccel = TRUE;
+	return FALSE;
+    }
     
 #ifdef VIA_HAVE_EXA
 

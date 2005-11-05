@@ -1,10 +1,26 @@
 2005-11-05 Thomas Hellström  <unichrome-at-shipmail-dot-org>
 
+	* unichrome/Imakefile:
+	* unichrome/via_accel.c: (viaFlushPCI), (viaFlushAGP),
+	(viaSetupCBuffer), (viaTearDownCBuffer), (viaInitAccel):
+	* unichrome/via_dmabuffer.c:
+	* unichrome/via_dmabuffer.h:
+	* unichrome/via_dri.c: (VIADRIFBInit), (VIADRICloseScreen):
+	* unichrome/via_driver.c: (VIAScreenInit):
+	* unichrome/via_driver.h:
+	* unichrome/via_memcpy.c: (viaVidCopyInit):
+	* unichrome/via_memory.c: (offScreenLinear):
+
+	-Fix DRI and NoAccel path. Incorporate via_dmabuffer.c into 
+	 via_accel.c
+
+2005-11-05 Thomas Hellström  <unichrome-at-shipmail-dot-org>
+
 	* unichrome/via_accel.c: (viaInitAccel), (viaExitAccel):
 	* unichrome/via_driver.c: (VIACloseScreen):
 	* unichrome/via_driver.h:
 
-	Fix XAA segfault, do proper teardown when X exits.
+	-Fix XAA segfault, do proper teardown when X exits.
 	
 2005-11-04 Thomas Hellström  <unichrome-at-shipmail-dot-org>
 
@@ -22,9 +38,9 @@
 	(VIAAllocLinear), (VIAInitLinear):
 	* unichrome/via_priv.h:
 
-	First somewhat working Exa version. Seems to segfault when compiled without EXA.
-	Some features still missing, like driver structure teardown, and up- and download to
-	screen. Still breaks DRI and apparently segfaults when built without -DVIA_HAVE_EXA.
+	-First somewhat working Exa version. Seems to segfault when compiled without EXA.
+	 Some features still missing, like driver structure teardown, and up- and download to
+	 screen. Still breaks DRI and apparently segfaults when built without -DVIA_HAVE_EXA.
 
 2005-11-01  Thomas Hellström  <unichrome-at-shipmail-dot-org>
 

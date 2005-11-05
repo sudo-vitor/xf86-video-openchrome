@@ -297,6 +297,7 @@ typedef struct _VIA {
     int                 drmVerMajor;
     int                 drmVerMinor;
     int                 drmVerPL;
+    VIAMem              driOffScreenMem;
 #endif
     Bool		DRIIrqEnable;
     Bool                agpEnable;

@@ -2037,6 +2037,12 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
     ScrnInfoPtr pScrn = xf86Screens[pScreen->myNum];
     vgaHWPtr hwp = VGAHWPTR(pScrn);
     VIAPtr pVia = VIAPTR(pScrn);
+    
+    pScrn->pScreen = pScreen;
+
+#ifdef XF86DRI
+    Bool driOK;
+#endif
 
     DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "VIAScreenInit\n"));
 
@@ -2092,7 +2098,7 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
     }
 
 #ifdef XF86DRI
-    pVia->directRenderingEnabled = VIADRIScreenInit(pScreen);
+    driOK = VIADRIScreenInit(pScreen);
 #endif
 
     DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "- Visuals set up\n"));
@@ -2127,28 +2133,6 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
     if (!pVia->NoAccel) {
         viaInitAccel(pScreen);
     } 
-    if (pVia->NoAccel) {
-	/*
-	 * This is needed because xf86InitFBManagerLinear in VIAInitLinear
-	 * needs xf86InitFBManager to have been initialized, and 
-	 * xf86InitFBManager needs at least one line of free memory to
-	 * work. This is only for Xv in Noaccel part, and since Xv is in some
-	 * sense accelerated, it might be a better idea to disable it
-	 * altogether.
-	 */ 
-        BoxRec AvailFBArea;
-
-        AvailFBArea.x1 = 0;
-        AvailFBArea.y1 = 0;
-        AvailFBArea.x2 = pScrn->displayWidth;
-        AvailFBArea.y2 = pScrn->virtualY + 1;
-	/* 
-	 * Update FBFreeStart also for other memory managers, since 
-	 * we steal one line to make xf86InitFBManager work.
-	 */
-	pVia->FBFreeStart = (AvailFBArea.y2 + 1) * pVia->Bpl;
-	xf86InitFBManager(pScreen, &AvailFBArea);	
-    }
 
     miInitializeBackingStore(pScreen);
     xf86SetBackingStore(pScreen);
@@ -2166,6 +2150,30 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
             xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
                        "Hardware cursor initialization failed\n");
         }
+    }
+
+    if (pVia->NoAccel) {
+	/*
+	 * This is needed because xf86InitFBManagerLinear in VIAInitLinear
+	 * needs xf86InitFBManager to have been initialized, and 
+	 * xf86InitFBManager needs at least one line of free memory to
+	 * work. This is only for Xv in Noaccel part, and since Xv is in some
+	 * sense accelerated, it might be a better idea to disable it
+	 * altogether.
+	 */ 
+        BoxRec AvailFBArea;
+
+        AvailFBArea.x1 = 0;
+        AvailFBArea.y1 = 0;
+        AvailFBArea.x2 = pScrn->virtualX;
+        AvailFBArea.y2 = pVia->FBFreeEnd / pVia->Bpl;
+
+	/* 
+	 * Update FBFreeStart also for other memory managers, since 
+	 * we steal one line to make xf86InitFBManager work.
+	 */
+
+	xf86InitFBManager(pScreen, &AvailFBArea);	
     }
 
     if (pVia->shadowFB)
@@ -2193,8 +2201,11 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
 
     DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "- Color maps etc. set up\n"));
 
+
 #ifdef XF86DRI
-    if (pVia->directRenderingEnabled)
+    pVia->directRenderingEnabled = FALSE;
+
+    if (driOK)
 	pVia->directRenderingEnabled = VIADRIFinishScreenInit(pScreen);
 
     if (pVia->directRenderingEnabled)

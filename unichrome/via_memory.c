@@ -86,12 +86,12 @@ static unsigned long offScreenLinear(VIAMemPtr mem, ScrnInfoPtr pScrn,
     VIAPtr pVia = VIAPTR(pScrn);
 
     if (pVia->useEXA && !pVia->NoAccel) {
+
 	mem->exa = exaOffscreenAlloc(pScrn->pScreen, size, 
 				     32, TRUE, NULL,NULL);
 	if (mem->exa == NULL)
 	    return BadAlloc;
 	mem->base = mem->exa->offset;
-	ErrorF("EXA Base: 0x%08x\n", mem->base);
 	mem->pool = 1;
 	return Success;
     }

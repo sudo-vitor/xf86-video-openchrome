@@ -59,7 +59,7 @@ typedef struct _ViaCommandBuffer {
 	(cb)->buf[(cb)->pos++] = (val2);		\
     } while (0)
 
-extern void viaSetupCBuffer(ScrnInfoPtr pScrn, ViaCommandBuffer *buf, unsigned size);
+extern int viaSetupCBuffer(ScrnInfoPtr pScrn, ViaCommandBuffer *buf, unsigned size);
 extern void viaTearDownCBuffer(ViaCommandBuffer *buf);
 extern void viaFlushPCI(ViaCommandBuffer *buf);
 

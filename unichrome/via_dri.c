@@ -330,12 +330,38 @@ static Bool VIADRIAgpInit(ScreenPtr pScreen, VIAPtr pVia)
 }
 static Bool VIADRIFBInit(ScreenPtr pScreen, VIAPtr pVia)
 {   
+    ScrnInfoPtr pScrn = xf86Screens[pScreen->myNum];
     int FBSize = pVia->FBFreeEnd-pVia->FBFreeStart;
-    int FBOffset = pVia->FBFreeStart; 
+    int FBOffset;
     VIADRIPtr pVIADRI = pVia->pDRIInfo->devPrivate;
-    pVIADRI->fbOffset = FBOffset;
-    pVIADRI->fbSize = pVia->videoRambytes;
+
+    /*
+     * We try to allocate half the off-screen frame-buffer size for DRI.
+     */
     
+    FBSize >>= 1;
+
+    if (FBSize < (pScrn->virtualY * pVia->Bpl)) {
+	xf86DrvMsg(pScreen->myNum, X_WARNING,
+		   "[drm] The DRM Heap and Pixmap cache memory could be too small\n");
+	xf86DrvMsg(pScreen->myNum, X_WARNING,
+		   "[drm] for optimal performance. Please increase the frame buffer\n");
+	xf86DrvMsg(pScreen->myNum, X_WARNING,
+		   "[drm] memory area in BIOS.\n");
+    }
+
+    pVia->driOffScreenMem.pool = 0;
+    if (Success != VIAAllocLinear(&pVia->driOffScreenMem, pScrn, FBSize)) {
+        xf86DrvMsg(pScreen->myNum, X_ERROR,
+		   "[drm] failed to allocate offscreen frame buffer area\n");
+	return FALSE;
+    }
+
+    FBOffset = pVia->driOffScreenMem.base;
+
+    pVIADRI->fbOffset = FBOffset;
+    pVIADRI->fbSize = FBSize;
+
     {
 	drm_via_fb_t fb;
 	fb.offset = FBOffset;
@@ -348,9 +374,7 @@ static Bool VIADRIFBInit(ScreenPtr pScreen, VIAPtr pVia)
 	    return FALSE;
 	} else {
 	    xf86DrvMsg(pScreen->myNum, X_INFO,
-		       "[drm] FBFreeStart= 0x%08x FBFreeEnd= 0x%08x "
-		       "FBSize= 0x%08x\n",
-		       pVia->FBFreeStart, pVia->FBFreeEnd, FBSize);
+		       "[drm] Using %d bytes for DRM memory heap.\n", FBSize);
 	    return TRUE;	
 	}   
     }
@@ -740,8 +764,8 @@ VIADRICloseScreen(ScreenPtr pScreen)
 	drmAgpRelease(pVia->drmFD);
     }
 
-    
     DRICloseScreen(pScreen);
+    VIAFreeLinear(&pVia->driOffScreenMem);
     
     if (pVia->pDRIInfo) {
 	if ((pVIADRI = (VIADRIPtr) pVia->pDRIInfo->devPrivate)) {
