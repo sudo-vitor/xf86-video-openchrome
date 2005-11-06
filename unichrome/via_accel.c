@@ -49,7 +49,6 @@
 #define VIAACCELCOPYROP(vRop) (XAACopyROP[vRop] << 24)
 #endif
 
-
 void viaFlushPCI(ViaCommandBuffer *buf)
 {
     unsigned size = buf->pos >> 1;
@@ -966,15 +965,15 @@ viaAccelWaitMarker(ScreenPtr pScreen, int marker)
 {
     ScrnInfoPtr pScrn = xf86Screens[pScreen->myNum];
     VIAPtr pVia = VIAPTR(pScrn);
+    CARD32 uMarker = marker;
 
     if(pVia->agpDMA) {
-	CARD32 uMarker = marker;
-	
 	while((pVia->lastMarkerRead - uMarker) > (1 << 24))
 	    pVia->lastMarkerRead = *pVia->markerBuf;
     } else {
 	viaAccelSync(pScrn);
     }
+    viaBlitSyncMarker(pVia, marker);
 }
 
 
@@ -1092,23 +1091,85 @@ viaExaCopy(PixmapPtr pDstPixmap, int srcX, int srcY, int dstX, int dstY,
     cb->flushFunc(cb);
 }
 
+/*
+ * Currently EXA does not seem to properly sync uploads and downloads.
+ * If EXA_SYNC_BUG is defined, we do it in the driver instead.
+ */
+
+#define EXA_SYNC_BUG
+
+#ifdef XF86DRI
 static Bool
 viaExaDownloadFromScreen(PixmapPtr pSrc, int x, int y, int w, int h,
 			 char *dst, int dst_pitch) 
 {
     ScrnInfoPtr pScrn = xf86Screens[pSrc->drawable.pScreen->myNum];
     VIAPtr pVia = VIAPTR(pScrn);
-    unsigned bpp = (pSrc->drawable.bitsPerPixel >> 3); 
-    unsigned i;
+    drm_via_dmablit_t blit;
+    unsigned srcPitch = exaGetPixmapPitch(pSrc);
+    unsigned srcOffset = exaGetPixmapOffset(pSrc);
+    unsigned bytesPerPixel = pSrc->drawable.bitsPerPixel >> 3;
+    int err;
+    char *bounce = NULL;
+    char *bounceAligned = NULL;
+    unsigned bouncePitch = 0;
 
-    char *src = (char *)pVia->FBBase + exaGetPixmapOffset(pSrc) + 
-      y*exaGetPixmapPitch(pSrc) + x*bpp;
-    
-    for (i=0; i<h; ++i) {
-	memcpy(dst, src, w*bpp);
-	dst += dst_pitch;
-	src += exaGetPixmapPitch(pSrc);
+    if ((srcPitch & 3) || (srcOffset & 3)) {
+	ErrorF("VIA EXA download src_pitch misaligned\n");
+	return FALSE;
     }
+    
+    blit.num_lines = h;
+    blit.line_length = w*bytesPerPixel;
+    blit.fb_addr = srcOffset;
+    blit.fb_stride = srcPitch;
+    blit.mem_addr = dst;
+    blit.mem_stride = dst_pitch;
+    blit.bounce_buffer = 0;
+    blit.to_fb = 0;
+
+    if (((unsigned long)dst & 15) || (dst_pitch & 15)) {
+	bouncePitch = (w*bytesPerPixel + 15) & ~15;
+	bounce = (char *)xalloc(bouncePitch * h + 15);
+	if (!bounce) return FALSE;
+	bounceAligned = (char *)(((unsigned long) bounce + 15) & ~15);
+	blit.mem_addr = bounceAligned;
+	blit.mem_stride = bouncePitch;
+    }
+
+
+    while(-EAGAIN == (err = drmCommandWriteRead(pVia->drmFD, DRM_VIA_DMA_BLIT, 
+						&blit, sizeof(blit))));
+    if (err < 0) 
+	return FALSE;
+
+    if (!bounce) {
+#ifndef EXA_SYNC_BUG
+        viaBlitSyncPushBack(pVia, &blit.sync, pVia->curMarker);
+#else
+	while(-EAGAIN == (err = drmCommandWrite(pVia->drmFD, DRM_VIA_BLIT_SYNC, 
+						&blit.sync, 
+						sizeof(blit.sync))));
+	if (err < 0) 
+	    return FALSE;
+#endif	
+    } else {
+	unsigned i;
+
+	while(-EAGAIN == (err = drmCommandWrite(pVia->drmFD, DRM_VIA_BLIT_SYNC, 
+						&blit.sync, 
+						sizeof(blit.sync))));
+	if (err < 0) 
+	    return FALSE;
+
+	for (i=0; i<h; ++i) {
+	    memcpy(dst,bounceAligned, blit.line_length);
+	    dst += dst_pitch;
+	    bounceAligned += bouncePitch;
+	}
+	xfree(bounce);
+    }
+    
     return TRUE;
 }
 
@@ -1117,34 +1178,44 @@ viaExaUploadToScreen(PixmapPtr pDst, int x, int y, int w, int h, char *src, int 
 {
     ScrnInfoPtr pScrn = xf86Screens[pDst->drawable.pScreen->myNum];
     VIAPtr pVia = VIAPTR(pScrn);
-    unsigned bpp = (pDst->drawable.bitsPerPixel >> 3); 
-    unsigned i;
+    drm_via_dmablit_t blit;
+    unsigned dstPitch = exaGetPixmapPitch(pDst);
+    unsigned dstOffset = exaGetPixmapOffset(pDst);
+    unsigned bytesPerPixel = pDst->drawable.bitsPerPixel >> 3;
+    int err;
 
-    char *dst = (char *)pVia->FBBase + exaGetPixmapOffset(pDst) + 
-      y*exaGetPixmapPitch(pDst) + x*bpp;
+    if (((unsigned long)src & 15) || (src_pitch & 15)) 
+	return FALSE;
+
+    if ((dstPitch & 3) || (dstOffset & 3))
+	return FALSE;
     
-    for (i=0; i<h; ++i) {
-	memcpy(dst, src, w*bpp);
-	dst += exaGetPixmapPitch(pDst);
-	src += src_pitch;
-    }
+    blit.num_lines = h;
+    blit.line_length = w*bytesPerPixel;
+    blit.fb_addr = dstOffset;
+    blit.fb_stride = dstPitch;
+    blit.mem_addr = src;
+    blit.mem_stride = src_pitch;
+    blit.bounce_buffer = 0;
+    blit.to_fb = 1;
+
+    while(-EAGAIN == (err = drmCommandWriteRead(pVia->drmFD, DRM_VIA_DMA_BLIT, 
+						&blit, sizeof(blit))));
+    if (err < 0) 
+	return FALSE;
+
+#ifndef EXA_SYNC_BUG
+    viaBlitSyncPushBack(pVia, &blit.sync, pVia->curMarker);
+#else
+    while(-EAGAIN == (err = drmCommandWrite(pVia->drmFD, DRM_VIA_BLIT_SYNC, 
+					    &blit.sync, 
+					    sizeof(blit.sync))));
+    if (err < 0) 
+	return FALSE;
+#endif	
     return TRUE;
 }
-
-static Bool
-viaExaUploadToScratch(PixmapPtr pSrc, PixmapPtr pDst)
-{
-    return FALSE;
-}
-
-static void
-viaExaScratchSave(ScreenPtr pScreen, ExaOffscreenArea *area)
-{
-    ScrnInfoPtr     pScrn = xf86Screens[pScreen->myNum];
-    VIAPtr          pVia = VIAPTR(pScrn);
-
-    pVia->exa_scratch = NULL;
-}
+#endif
 
 static ExaDriverPtr
 viaInitExa(ScreenPtr pScreen)
@@ -1173,10 +1244,15 @@ viaInitExa(ScreenPtr pScreen)
     pExa->accel.PrepareCopy = viaExaPrepareCopy;
     pExa->accel.Copy = viaExaCopy;
     pExa->accel.DoneCopy = viaExaDoneSolidCopy;
-#if 0
-    pExa->accel.UploadToScreen = viaExaUploadToScreen;
-    pExa->accel.DownloadFromScreen = viaExaDownloadFromScreen;
+
+#if defined(XF86DRI) && defined(linux)
+    if ((pVia->drmVerMajor > 2) || 
+	((pVia->drmVerMajor == 2) && (pVia->drmVerMinor >= 7))) {
+	pExa->accel.UploadToScreen = viaExaUploadToScreen; 
+	pExa->accel.DownloadFromScreen = viaExaDownloadFromScreen;
+    }
 #endif
+
     /*
      * Composite not supported. Could we use the 3D engine?
      */
@@ -1185,14 +1261,7 @@ viaInitExa(ScreenPtr pScreen)
 	xfree(pExa);
 	return NULL;
     }
-#if 0
-    pVia->exa_scratch = exaOffscreenAlloc(pScreen, 128*1024, 16, TRUE,
-					  viaExaScratchSave, pVia);
-    if (pVia->exa_scratch) {
-	pVia->exa_scratch_next = pVia->exa_scratch->offset;
-	pExa->accel.UploadToScratch = viaExaUploadToScratch;
-    }
-#endif
+
     return pExa;
 }
 
@@ -1360,4 +1429,44 @@ viaDGAWaitMarker(ScrnInfoPtr pScrn)
 
     viaAccelWaitMarker(pScrn->pScreen, pVia->dgaMarker);
 }
-    
+ 
+#ifdef XF86DRI   
+void 
+viaBlitSyncPushBack(VIAPtr pVia, drm_via_blitsync_t *sync, int marker)
+{
+    unsigned back;
+
+    if (pVia->syncNum == VIA_ACCEL_NUM_BLITSYNC) {
+	while(-EAGAIN == drmCommandWrite(pVia->drmFD, DRM_VIA_BLIT_SYNC, 
+					 &pVia->syncFifo[pVia->syncFront].sync, 
+					 sizeof(drm_via_blitsync_t)));
+	pVia->syncFront = (pVia->syncFront + 1) & VIA_ACCEL_BLITSYNC_MASK;
+	pVia->syncFront = 0;
+	pVia->syncNum--;
+    }
+
+    back = (pVia->syncFront + pVia->syncNum) & VIA_ACCEL_BLITSYNC_MASK;
+    pVia->syncFifo[back].sync = *sync;
+    pVia->syncFifo[back].marker = marker;
+    pVia->syncNum++;
+}
+
+void
+viaBlitSyncMarker(VIAPtr pVia, int marker)
+{
+    CARD32 uMarker = marker;
+    unsigned count = 0;
+    unsigned index;
+  
+    for (count = 0; count<pVia->syncNum; ++count) {
+	index = (pVia->syncFront + count) & VIA_ACCEL_BLITSYNC_MASK;
+	if ((pVia->syncFifo[index].marker - uMarker) < (1 >> 23)) 
+	    break;
+	while(-EAGAIN == drmCommandWrite(pVia->drmFD, DRM_VIA_BLIT_SYNC, 
+					 &pVia->syncFifo[index].sync, 
+					 sizeof(drm_via_blitsync_t)));
+    }
+    pVia->syncFront = (pVia->syncFront + count) & VIA_ACCEL_BLITSYNC_MASK;
+    pVia->syncNum -= count;
+}
+#endif

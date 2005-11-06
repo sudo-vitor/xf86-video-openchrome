@@ -1,3 +1,17 @@
+2005-11-06 Thomas Hellström  <unichrome-at-shipmail-dot-org> 
+
+	* unichrome/via_accel.c: (viaAccelWaitMarker),
+	(viaExaDownloadFromScreen), (viaExaUploadToScreen), (viaInitExa),
+	(viaBlitSyncPushBack), (viaBlitSyncMarker):
+	* unichrome/via_dri.c: (VIADRIScreenInit),
+	(VIADRIFinishScreenInit):
+	* unichrome/via_driver.h:
+
+	-EXA PCI DMA upload to and download from screen. Upload only 
+	 when alignments match. Download uses bounce-buffer if 
+	 alignments are illegal. Move DRM version collect to before
+	 accel init to be able to detect PCI dma-supporting versions.
+	
 2005-11-05 Thomas Hellström  <unichrome-at-shipmail-dot-org>
 
 	* unichrome/via_accel.c: (viaFlushDRIEnabled), (viaSetupCBuffer),

@@ -615,6 +615,7 @@ Bool VIADRIScreenInit(ScreenPtr pScreen)
     VIAPtr pVia = VIAPTR(pScrn);
     DRIInfoPtr pDRIInfo;
     VIADRIPtr pVIADRI;
+    drmVersionPtr drmVer;
 
     /* if symbols or version check fails, we still want this to be NULL */
     pVia->pDRIInfo = NULL;
@@ -722,6 +723,15 @@ Bool VIADRIScreenInit(ScreenPtr pScreen)
 	return FALSE;
     }
 
+    if (NULL == (drmVer = drmGetVersion(pVia->drmFD))) {
+	VIADRICloseScreen(pScreen);
+	return FALSE;
+    }
+    pVia->drmVerMajor = drmVer->version_major;
+    pVia->drmVerMinor = drmVer->version_minor;
+    pVia->drmVerPL = drmVer->version_patchlevel;
+    drmFreeVersion(drmVer);
+
 	   
     if (!(VIAInitVisualConfigs(pScreen))) {
 	VIADRICloseScreen(pScreen);
@@ -810,7 +820,6 @@ VIADRIFinishScreenInit(ScreenPtr pScreen)
     ScrnInfoPtr pScrn = xf86Screens[pScreen->myNum];
     VIAPtr pVia = VIAPTR(pScrn);
     VIADRIPtr pVIADRI;
-    drmVersionPtr drmVer;
 
     pVia->pDRIInfo->driverSwapMethod = DRI_HIDE_X_CONTEXT;
     
@@ -859,14 +868,6 @@ VIADRIFinishScreenInit(ScreenPtr pScreen)
     pVIADRI->scrnX=pVIADRI->width;
     pVIADRI->scrnY=pVIADRI->height;
     
-    if (NULL == (drmVer = drmGetVersion(pVia->drmFD))) {
-	VIADRICloseScreen(pScreen);
-	return FALSE;
-    }
-    pVia->drmVerMajor = drmVer->version_major;
-    pVia->drmVerMinor = drmVer->version_minor;
-    pVia->drmVerPL = drmVer->version_patchlevel;
-    drmFreeVersion(drmVer);
 
     /* Initialize IRQ */
     if (pVia->DRIIrqEnable) 

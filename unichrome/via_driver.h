@@ -161,6 +161,15 @@ typedef struct _twodContext {
     int clipY2;
 } ViaTwodContext;
 
+#ifdef XF86DRI
+#define VIA_ACCEL_NUM_BLITSYNC 8
+#define VIA_ACCEL_BLITSYNC_MASK 7
+typedef struct {
+    drm_via_blitsync_t sync;
+    CARD32 marker;
+} ViaAccelBlitSync;
+#endif
+
 typedef struct{
     /* textMode */
     CARD8 *state, *pstate; /* SVGA state */
@@ -238,6 +247,8 @@ typedef struct _VIA {
     ExaOffscreenArea   *exa_scratch;
     unsigned int        exa_scratch_next;
     Bool                useEXA;
+#ifdef XF86DRI
+#endif
 #endif
 
     /* BIOS Info Ptr */
@@ -286,6 +297,9 @@ typedef struct _VIA {
     int                 drmVerMinor;
     int                 drmVerPL;
     VIAMem              driOffScreenMem;
+    unsigned            syncFront;
+    unsigned            syncNum;
+    ViaAccelBlitSync    syncFifo[VIA_ACCEL_NUM_BLITSYNC];
 #endif
     Bool		DRIIrqEnable;
     Bool                agpEnable;
@@ -359,6 +373,10 @@ void viaExitAccel(ScreenPtr);
 void viaDGABlitRect(ScrnInfoPtr, int, int, int, int, int, int);
 void viaDGAFillRect(ScrnInfoPtr, int, int, int, int, unsigned long);
 void viaDGAWaitMarker(ScrnInfoPtr);
+#ifdef XF86DRI
+void viaBlitSyncMarker(VIAPtr, int);
+void viaBlitSyncPushBack(VIAPtr, drm_via_blitsync_t *, int);
+#endif
 
 /* In via_shadow.c */
 void ViaShadowFBInit(ScrnInfoPtr pScrn, ScreenPtr pScreen);
