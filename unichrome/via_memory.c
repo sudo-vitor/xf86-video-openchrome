@@ -168,7 +168,7 @@ void VIAInitLinear(ScreenPtr pScreen)
 #endif
     {
         unsigned long offset = (pVia->FBFreeStart + pVia->Bpp - 1 ) / pVia->Bpp; 
-        unsigned long size = pVia->FBFreeEnd / pVia->Bpp - offset;
+        long size = pVia->FBFreeEnd / pVia->Bpp - offset;
         if (size > 0) xf86InitFBManagerLinear(pScreen, offset, size);
     }
 }

@@ -615,6 +615,7 @@ viaSubsequentScanlineCPUToScreenColorExpandFill(ScrnInfoPtr pScrn, int x, int y,
      */
 
     viaFlushPCI(cb);
+    viaDisableClipping(pScrn);
 }
 
 static void
@@ -653,6 +654,7 @@ viaSubsequentImageWriteRect(ScrnInfoPtr pScrn, int x, int y, int w, int h,
      */
 
     viaFlushPCI(cb);
+    viaDisableClipping(pScrn);
 }
 
 
