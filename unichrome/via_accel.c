@@ -951,6 +951,7 @@ viaAccelMarkSync(ScreenPtr pScreen)
     ++pVia->curMarker;
 
     if (pVia->agpDMA) {    
+
 	/*
 	 * Wrap around without possibly affecting the int sign bit. 
 	 */
@@ -978,7 +979,6 @@ viaAccelWaitMarker(ScreenPtr pScreen, int marker)
     } else {
 	viaAccelSync(pScrn);
     }
-    viaBlitSyncMarker(pVia, marker);
 }
 
 
@@ -1096,13 +1096,6 @@ viaExaCopy(PixmapPtr pDstPixmap, int srcX, int srcY, int dstX, int dstY,
 		       exaGetPixmapPitch(pDstPixmap), tdc->cmd);
     cb->flushFunc(cb);
 }
-
-/*
- * Currently EXA does not seem to properly sync uploads and downloads.
- * If EXA_SYNC_BUG is defined, we do it in the driver instead.
- */
-
-#define EXA_SYNC_BUG
 
 #ifdef XF86DRI
 static Bool
@@ -1230,10 +1223,12 @@ viaInitExa(ScreenPtr pScreen)
     pExa->accel.DoneCopy = viaExaDoneSolidCopy;
 
 #if defined(XF86DRI) && defined(linux)
-    if ((pVia->drmVerMajor > 2) || 
-	((pVia->drmVerMajor == 2) && (pVia->drmVerMinor >= 7))) {
-	pExa->accel.UploadToScreen = viaExaUploadToScreen; 
-	pExa->accel.DownloadFromScreen = viaExaDownloadFromScreen;
+    if (pVia->directRenderingEnabled) {
+	if ((pVia->drmVerMajor > 2) || 
+	    ((pVia->drmVerMajor == 2) && (pVia->drmVerMinor >= 7))) {
+	    pExa->accel.UploadToScreen = viaExaUploadToScreen; 
+	    pExa->accel.DownloadFromScreen = viaExaDownloadFromScreen;
+	}
     }
 #endif
 

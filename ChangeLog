@@ -1,3 +1,13 @@
+2005-11-09  Thomas Hellström  <unichrome-at-shipmail-dot-org> 
+
+	* unichrome/via_accel.c: (viaAccelMarkSync), (viaAccelWaitMarker),
+	(viaInitExa):
+	* unichrome/via_driver.h:
+
+	-Nope, some bugs left: 
+	 Don't enable up/download to screen unless DRI is enabled.
+	 Avoid referencing removed functions.
+
 2005-11-09  Thomas Hellström <unichrome-at-shipmail-dot-org> 
 
 	* unichrome/via_accel.c: (viaAccelSetMode), (viaInitXAA),

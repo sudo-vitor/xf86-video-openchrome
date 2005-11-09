@@ -363,10 +363,6 @@ void viaExitAccel(ScreenPtr);
 void viaDGABlitRect(ScrnInfoPtr, int, int, int, int, int, int);
 void viaDGAFillRect(ScrnInfoPtr, int, int, int, int, unsigned long);
 void viaDGAWaitMarker(ScrnInfoPtr);
-#ifdef XF86DRI
-void viaBlitSyncMarker(VIAPtr, int);
-void viaBlitSyncPushBack(VIAPtr, drm_via_blitsync_t *, int);
-#endif
 
 /* In via_shadow.c */
 void ViaShadowFBInit(ScrnInfoPtr pScrn, ScreenPtr pScreen);
