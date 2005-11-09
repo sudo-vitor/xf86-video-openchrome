@@ -331,16 +331,19 @@ static Bool VIADRIAgpInit(ScreenPtr pScreen, VIAPtr pVia)
 static Bool VIADRIFBInit(ScreenPtr pScreen, VIAPtr pVia)
 {   
     ScrnInfoPtr pScrn = xf86Screens[pScreen->myNum];
-    int FBSize = pVia->FBFreeEnd-pVia->FBFreeStart;
+    int FBSize = pVia->driSize;
     int FBOffset;
     VIADRIPtr pVIADRI = pVia->pDRIInfo->devPrivate;
 
-    /*
-     * We try to allocate half the off-screen frame-buffer size for DRI.
-     */
-    
-    FBSize >>= 1;
-
+    if (FBSize < pVia->Bpl) {
+        xf86DrvMsg(pScreen->myNum, X_ERROR,
+		   "[drm] No DRM framebuffer heap available.\n");
+	xf86DrvMsg(pScreen->myNum, X_ERROR,
+		   "[drm] Please increase the frame buffer\n");
+	xf86DrvMsg(pScreen->myNum, X_ERROR,
+		   "[drm] memory area in BIOS. Disabling DRI.\n");
+	return FALSE;
+    }
     if (FBSize < (pScrn->virtualY * pVia->Bpl)) {
 	xf86DrvMsg(pScreen->myNum, X_WARNING,
 		   "[drm] The DRM Heap and Pixmap cache memory could be too small\n");

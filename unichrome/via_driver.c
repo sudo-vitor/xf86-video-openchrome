@@ -1452,7 +1452,7 @@ static Bool VIAPreInit(ScrnInfoPtr pScrn, int flags)
 			      NULL,                     /* list of line pitches */
 			      256,                      /* mini line pitch */
 			      3344,                     /* max line pitch */
-			      16 * pScrn->bitsPerPixel, /* pitch inc (bits) */
+			      32*8,                      /* pitch inc (bits) */
 			      128,                      /* min height */
 			      2508,                     /* max height */
 			      pScrn->display->virtualX, /* virtual width */
@@ -1479,7 +1479,7 @@ static Bool VIAPreInit(ScrnInfoPtr pScrn, int flags)
     
     /* Set up screen parameters. */
     pVia->Bpp = pScrn->bitsPerPixel >> 3;
-    pVia->Bpl = pScrn->virtualX * pVia->Bpp;
+    pVia->Bpl = pScrn->displayWidth * pVia->Bpp;
 
     xf86SetCrtcForModes(pScrn, INTERLACE_HALVE_V);
     pScrn->currentMode = pScrn->modes;
@@ -2039,11 +2039,6 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
     VIAPtr pVia = VIAPTR(pScrn);
     
     pScrn->pScreen = pScreen;
-
-#ifdef XF86DRI
-    Bool driOK;
-#endif
-
     DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "VIAScreenInit\n"));
 
     if (!VIAMapFB(pScrn))
@@ -2098,7 +2093,7 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
     }
 
 #ifdef XF86DRI
-    driOK = VIADRIScreenInit(pScreen);
+    pVia->directRenderingEnabled = VIADRIScreenInit(pScreen);
 #endif
 
     DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "- Visuals set up\n"));
@@ -2153,27 +2148,23 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
     }
 
     if (pVia->NoAccel) {
+
 	/*
-	 * This is needed because xf86InitFBManagerLinear in VIAInitLinear
-	 * needs xf86InitFBManager to have been initialized, and 
-	 * xf86InitFBManager needs at least one line of free memory to
-	 * work. This is only for Xv in Noaccel part, and since Xv is in some
+	 * This is only for Xv in Noaccel path, and since Xv is in some
 	 * sense accelerated, it might be a better idea to disable it
 	 * altogether.
 	 */ 
+
         BoxRec AvailFBArea;
 
         AvailFBArea.x1 = 0;
         AvailFBArea.y1 = 0;
-        AvailFBArea.x2 = pScrn->virtualX;
-        AvailFBArea.y2 = pVia->FBFreeEnd / pVia->Bpl;
-
-	/* 
-	 * Update FBFreeStart also for other memory managers, since 
-	 * we steal one line to make xf86InitFBManager work.
-	 */
-
-	xf86InitFBManager(pScreen, &AvailFBArea);	
+        AvailFBArea.x2 = pScrn->displayWidth;
+        AvailFBArea.y2 = pScrn->virtualY + 1;
+	pVia->FBFreeStart=(AvailFBArea.y2 + 1)*pVia->Bpl;
+	xf86InitFBManager(pScreen, &AvailFBArea);
+	VIAInitLinear(pScreen);
+	pVia->driSize = (pVia->FBFreeEnd - pVia->FBFreeStart - pVia->Bpl);
     }
 
     if (pVia->shadowFB)
@@ -2203,20 +2194,16 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
     pVia->agpDMA = FALSE;
 
 #ifdef XF86DRI
-    pVia->directRenderingEnabled = FALSE;
-
-    if (driOK)
+    if (pVia->directRenderingEnabled)
 	pVia->directRenderingEnabled = VIADRIFinishScreenInit(pScreen);
 
-    if (pVia->directRenderingEnabled)
+    if (pVia->directRenderingEnabled) {
         xf86DrvMsg(pScrn->scrnIndex, X_INFO, "direct rendering enabled\n");
-    else {
+	VIADRIPtr pVIADRI = pVia->pDRIInfo->devPrivate;
+	pVia->agpDMA = pVia->dma2d && pVIADRI->ringBufActive;
+    } else {
         xf86DrvMsg(pScrn->scrnIndex, X_INFO, "direct rendering disabled\n");
     }
-    {
-	VIADRIPtr pVIADRI = pVia->pDRIInfo->devPrivate;
-	pVia->agpDMA = pVia->directRenderingEnabled && pVia->dma2d && pVIADRI->ringBufActive;
-    } 
 #endif
 
     viaInitVideo(pScreen);
@@ -2485,8 +2472,8 @@ VIASwitchMode(int scrnIndex, DisplayModePtr mode, int flags)
 	ret = VIAWriteMode(pScrn, mode);
 
 #ifdef XF86DRI
-    kickVblank(pScrn);
     if (pVia->directRenderingEnabled) {
+        kickVblank(pScrn);
 	VIADRIRingBufferInit(pScrn);
 	DRIUnlock(screenInfo.screens[scrnIndex]);
     }

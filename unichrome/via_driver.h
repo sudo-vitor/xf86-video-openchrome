@@ -154,21 +154,13 @@ typedef struct _twodContext {
     unsigned srcOffset;
     unsigned srcPitch;
     unsigned Bpp;
+    unsigned bytesPPShift;
     Bool clipping;
     int clipX1;
     int clipX2;
     int clipY1;
     int clipY2;
 } ViaTwodContext;
-
-#ifdef XF86DRI
-#define VIA_ACCEL_NUM_BLITSYNC 8
-#define VIA_ACCEL_BLITSYNC_MASK 7
-typedef struct {
-    drm_via_blitsync_t sync;
-    CARD32 marker;
-} ViaAccelBlitSync;
-#endif
 
 typedef struct{
     /* textMode */
@@ -189,6 +181,7 @@ typedef struct _VIA {
     int                 videoRamKbytes;
     int                 FBFreeStart;
     int                 FBFreeEnd;
+    int                 driSize;
     int                 CursorStart;
     int                 VQStart;
     int                 VQEnd;
@@ -297,9 +290,6 @@ typedef struct _VIA {
     int                 drmVerMinor;
     int                 drmVerPL;
     VIAMem              driOffScreenMem;
-    unsigned            syncFront;
-    unsigned            syncNum;
-    ViaAccelBlitSync    syncFifo[VIA_ACCEL_NUM_BLITSYNC];
 #endif
     Bool		DRIIrqEnable;
     Bool                agpEnable;

@@ -1,11 +1,27 @@
-2005-11-07  Thomas Hellström <unichrome-at-shipmail-dot-org>  
+2005-11-09  Thomas Hellström <unichrome-at-shipmail-dot-org> 
+
+	* unichrome/via_accel.c: (viaAccelSetMode), (viaInitXAA),
+	(viaExaSolid), (viaExaCopy), (viaExaDownloadFromScreen),
+	(viaExaUploadToScreen), (viaInitExa), (viaInitAccel),
+	(viaDGAWaitMarker):
+	* unichrome/via_dri.c: (VIADRIFBInit):
+	* unichrome/via_driver.c: (VIAPreInit), (VIAScreenInit),
+	(VIASwitchMode):
+	* unichrome/via_driver.h:
+
+	-Frame-buffer memory and pitch alignment fixes.
+	 Replaced a lot of virtualX with displayWidth,
+	 Fixed pitch increment, which primarily fixes 8-bit modes
+	 which were previously broken. Time for merge?
+	
+2005-11-07  Thomas Hellström <unichrome-at-shipmail-dot-org>
 
 	* unichrome/via_accel.c:
 	(viaSubsequentScanlineCPUToScreenColorExpandFill),
 	(viaSubsequentImageWriteRect):
 	* unichrome/via_memory.c: (VIAInitLinear):
 
-	Fix XAA clipping and a possible bug in VIAInitLinear
+	-Fix XAA clipping and a possible bug in VIAInitLinear
 	
 2005-11-06 Thomas Hellström  <unichrome-at-shipmail-dot-org> 
 
