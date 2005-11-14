@@ -1,3 +1,12 @@
+2005-11-14  Thomas Hellström  <unichrome-at-shipmail-dot-org>
+
+	* unichrome/via_accel.c: (viaTearDownCBuffer),
+	(viaExaDownloadFromScreen), (viaExaUploadToScreen):
+
+	- Work around an apparent DMA upload bug.
+	- Add some code comments.
+	- Protect with directrenderingenabled flag.
+
 2005-11-09  Thomas Hellström  <unichrome-at-shipmail-dot-org> 
 
 	* unichrome/via_accel.c: (viaAccelMarkSync), (viaAccelWaitMarker),
