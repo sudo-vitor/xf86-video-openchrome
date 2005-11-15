@@ -1,3 +1,9 @@
+2005-11-15  Thomas Hellström  <unichrome-at-shipmail-dot-org>
+
+	* unichrome/via_accel.c: (viaExaUploadToScreen):
+
+	- Fix some compilation warnings introduced by last commit.
+	
 2005-11-14  Thomas Hellström  <unichrome-at-shipmail-dot-org>
 
 	* unichrome/via_accel.c: (viaTearDownCBuffer),

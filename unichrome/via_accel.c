@@ -1220,9 +1220,7 @@ viaExaUploadToScreen(PixmapPtr pDst, int x, int y, int w, int h, char *src, int 
     unsigned dstPitch = exaGetPixmapPitch(pDst);
     unsigned bytesPerPixel = pDst->drawable.bitsPerPixel >> 3;
     unsigned dstOffset = exaGetPixmapOffset(pDst) + y*dstPitch + x*bytesPerPixel;
-    char *dst = (char *)pVia->FBBase + dstOffset;
     int err;
-    int i,j;
 
     if (!pVia->directRenderingEnabled) 
         return FALSE;
