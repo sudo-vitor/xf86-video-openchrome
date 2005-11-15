@@ -383,7 +383,8 @@ viaAccelSolidHelper(ViaCommandBuffer *cb, int x, int y, int w, int h,
     BEGIN_RING_AGP(cb, 14); 
     OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_GEMODE), mode);
     OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_DSTBASE), fbBase >> 3);
-    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_PITCH), (pitch >> 3) << 16);
+    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_PITCH), VIA_PITCH_ENABLE | 
+		    (pitch >> 3) << 16);
     OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_DSTPOS), (y << 16) | x);
     OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_DIMENSION), ((h - 1) << 16) | (w - 1));
     OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_FGCOLOR), fg);
@@ -428,7 +429,8 @@ viaAccelCopyHelper(ViaCommandBuffer *cb, int xs, int ys, int xd, int yd,
     OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_GEMODE), mode);
     OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_SRCBASE), srcFbBase >> 3);    
     OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_DSTBASE), dstFbBase >> 3);
-    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_PITCH), ((dstPitch >> 3) << 16) | (srcPitch >> 3));
+    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_PITCH), VIA_PITCH_ENABLE | 
+		    ((dstPitch >> 3) << 16) | (srcPitch >> 3));
     OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_SRCPOS), (ys << 16) | xs);
     OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_DSTPOS), (yd << 16) | xd);
     OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_DIMENSION), ((h - 1) << 16) | (w - 1));
