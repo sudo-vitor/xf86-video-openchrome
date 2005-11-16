@@ -438,7 +438,9 @@ viaAccelCopyHelper(ViaCommandBuffer *cb, int xs, int ys, int xd, int yd,
 }
 
 /*
- * XAA functions
+ * XAA functions. Note that the 2047 line blitter limit has been worked around by adding
+ * min(y1, y2, clipping y) * stride to the offset (which is recommended by VIA docs).
+ * The y values (including clipping) must be subtracted accordingly. 
  */
     
 static void
@@ -518,6 +520,7 @@ viaSubsequentSolidFillRect(ScrnInfoPtr pScrn, int x, int y, int w, int h)
 
 
 /*
+ * Original VIA comment:
  * The meaning of the two pattern paremeters to Setup & Subsequent for
  * Mono8x8Patterns varies depending on the flag bits.  We specify
  * HW_PROGRAMMED_BITS, which means our hardware can handle 8x8 patterns
@@ -629,6 +632,14 @@ viaSubsequentColor8x8PatternFillRect(ScrnInfoPtr pScrn, int patOffx, int patOffy
     cb->flushFunc(cb);
 }
 
+/*
+ * CPU to screen functions cannot use AGP due to complicated syncing. Therefore the
+ * command buffer is flushed before new command emissions and viaFluchPCI is called
+ * explicitly instead of cb->flushFunc() at the end of each CPU to screen function.
+ * Should the buffer get completely filled again by a CPU to screen command emission,
+ * a horrible error will occur.
+ */
+
 static void
 viaSetupForCPUToScreenColorExpandFill(ScrnInfoPtr pScrn, int fg, int bg, int rop,
 				      unsigned planemask)
@@ -650,7 +661,7 @@ viaSetupForCPUToScreenColorExpandFill(ScrnInfoPtr pScrn, int fg, int bg, int rop
     tdc->bgColor = bg;
 
     cb->flushFunc(cb);
-    /* Disable Transparent Bitblt */
+
     viaAccelTransparentHelper(cb, 0x0, 0x0);
 }
 
@@ -673,10 +684,6 @@ viaSubsequentScanlineCPUToScreenColorExpandFill(ScrnInfoPtr pScrn, int x, int y,
     OUT_RING_QW_AGP(cb,H1_ADDR(VIA_REG_FGCOLOR), tdc->fgColor);
     viaAccelCopyHelper(cb, 0, 0, x, y - sub, w, h, 0, pScrn->fbOffset + sub*pVia->Bpl, 
 		       tdc->mode, pVia->Bpl, pVia->Bpl, tdc->cmd);
-
-    /*
-     * Can't use AGP for CPU to screen actions.
-     */
 
     viaFlushPCI(cb);
     viaDisableClipping(pScrn);
@@ -712,16 +719,11 @@ viaSubsequentImageWriteRect(ScrnInfoPtr pScrn, int x, int y, int w, int h,
     sub = viaAccelClippingHelper(cb, y, tdc);
     viaAccelCopyHelper(cb, 0, 0, x, y - sub, w, h, 0, pScrn->fbOffset + pVia->Bpl * sub, 
 		       tdc->mode, pVia->Bpl, pVia->Bpl, tdc->cmd);
-    /*
-     * Can't use AGP for CPU to screen actions.
-     */
 
     viaFlushPCI(cb);
     viaDisableClipping(pScrn);
 }
 
-
-/* Setup for XAA solid lines. */
 static void
 viaSetupForSolidLine(ScrnInfoPtr pScrn, int color, int rop, unsigned int planemask)
 {
@@ -775,8 +777,6 @@ viaSubsequentSolidTwoPointLine(ScrnInfoPtr pScrn, int x1, int y1,
 	cmd |= VIA_GEC_LASTPIXEL_OFF;
     }
 
-    /* Set Src and Dst base address and pitch, pitch is qword */
-
     sub = viaAccelClippingHelper(cb, (y1 < y2) ? y1 : y2, tdc);
 
     dstBase = pScrn->fbOffset + sub*pVia->Bpl;
@@ -787,9 +787,13 @@ viaSubsequentSolidTwoPointLine(ScrnInfoPtr pScrn, int x1, int y1,
     OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_DSTBASE), dstBase >> 3);
     OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_PITCH), VIA_PITCH_ENABLE |
 		    ((pVia->Bpl >> 3) << 16));
-    /* major = 2*dmaj, minor = 2*dmin, err = -dmaj - ((bias >> octant) & 1) */
-    /* K1 = 2*dmin K2 = 2*(dmin - dmax) */
-    /* Error Term = (StartX<EndX) ? (2*dmin - dmax - 1) : (2*(dmin - dmax)) */
+
+    /*
+     * major = 2*dmaj, minor = 2*dmin, err = -dmaj - ((bias >> octant) & 1) 
+     * K1 = 2*dmin K2 = 2*(dmin - dmax) 
+     * Error Term = (StartX<EndX) ? (2*dmin - dmax - 1) : (2*(dmin - dmax)) 
+     */
+
     OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_LINE_K1K2), ((((dy << 1) & 0x3fff) << 16)|
 						     (((dy - dx) << 1) & 0x3fff)));
     OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_LINE_XY), ((y1 << 16) | x1));
@@ -800,7 +804,6 @@ viaSubsequentSolidTwoPointLine(ScrnInfoPtr pScrn, int x1, int y1,
 
 }
 
-/* Subsequent XAA solid horizontal and vertical lines */
 static void
 viaSubsequentSolidHorVertLine(ScrnInfoPtr pScrn, int x, int y, int len, int dir)
 {
@@ -881,7 +884,10 @@ viaInitXAA(ScreenPtr pScreen)
     VIAPtr          pVia = VIAPTR(pScrn);
     XAAInfoRecPtr   xaaptr;
 
-    /* General acceleration flags */
+    /* 
+     * General acceleration flags 
+     */
+
     if (!(xaaptr = pVia->AccelInfoRec = XAACreateInfoRec()))
 	return FALSE;
 
@@ -894,7 +900,6 @@ viaInitXAA(ScreenPtr pScreen)
     if (pScrn->bitsPerPixel == 8)
 	xaaptr->CachePixelGranularity = 128;
 
-    /* Clipping */
     xaaptr->SetClippingRectangle = viaSetClippingRectangle;
     xaaptr->DisableClipping = viaDisableClipping;
     xaaptr->ClippingFlags = HARDWARE_CLIP_SOLID_FILL |
@@ -908,17 +913,14 @@ viaInitXAA(ScreenPtr pScreen)
 
     xaaptr->Sync = viaAccelSync;
 
-    /* ScreenToScreen copies */
     xaaptr->SetupForScreenToScreenCopy = viaSetupForScreenToScreenCopy;
     xaaptr->SubsequentScreenToScreenCopy = viaSubsequentScreenToScreenCopy;
     xaaptr->ScreenToScreenCopyFlags = NO_PLANEMASK | ROP_NEEDS_SOURCE;
 
-    /* Solid filled rectangles */
     xaaptr->SetupForSolidFill = viaSetupForSolidFill;
     xaaptr->SubsequentSolidFillRect = viaSubsequentSolidFillRect;
     xaaptr->SolidFillFlags = NO_PLANEMASK | ROP_NEEDS_SOURCE;
 
-    /* Mono 8x8 pattern fills */
     xaaptr->SetupForMono8x8PatternFill = viaSetupForMono8x8PatternFill;
     xaaptr->SubsequentMono8x8PatternFillRect =
 	viaSubsequentMono8x8PatternFillRect;
@@ -928,7 +930,6 @@ viaInitXAA(ScreenPtr pScreen)
 	BIT_ORDER_IN_BYTE_MSBFIRST |
 	0;
 
-    /* Color 8x8 pattern fills */
     xaaptr->SetupForColor8x8PatternFill = viaSetupForColor8x8PatternFill;
     xaaptr->SubsequentColor8x8PatternFillRect =
 	viaSubsequentColor8x8PatternFillRect;
@@ -938,14 +939,12 @@ viaInitXAA(ScreenPtr pScreen)
 	HARDWARE_PATTERN_PROGRAMMED_ORIGIN |
 	0;
 
-    /* Solid lines */
     xaaptr->SetupForSolidLine = viaSetupForSolidLine;
     xaaptr->SubsequentSolidTwoPointLine = viaSubsequentSolidTwoPointLine;
     xaaptr->SubsequentSolidHorVertLine = viaSubsequentSolidHorVertLine;
     xaaptr->SolidBresenhamLineErrorTermBits = 14;
     xaaptr->SolidLineFlags = NO_PLANEMASK | ROP_NEEDS_SOURCE;
 
-    /* dashed line */
     xaaptr->SetupForDashedLine = viaSetupForDashedLine;
     xaaptr->SubsequentDashedTwoPointLine = viaSubsequentDashedTwoPointLine;
     xaaptr->DashPatternMaxLength = 8;
@@ -955,7 +954,6 @@ viaInitXAA(ScreenPtr pScreen)
 	LINE_PATTERN_MSBFIRST_LSBJUSTIFIED |
 	0;
 
-    /* CPU to Screen color expansion */
     xaaptr->ScanlineCPUToScreenColorExpandFillFlags = NO_PLANEMASK |
 	CPU_TRANSFER_PAD_DWORD |
 	SCANLINE_PAD_DWORD |
@@ -971,7 +969,6 @@ viaInitXAA(ScreenPtr pScreen)
     xaaptr->ColorExpandBase = pVia->BltBase;
     xaaptr->ColorExpandRange = VIA_MMIO_BLTSIZE;
 
-    /* ImageWrite */
     xaaptr->ImageWriteFlags = NO_PLANEMASK |
 	CPU_TRANSFER_PAD_DWORD |
 	SCANLINE_PAD_DWORD |
@@ -982,8 +979,9 @@ viaInitXAA(ScreenPtr pScreen)
 	0;
     
     /*
-     * CLE266 has fast direct processor access to the framebuffer.
-     * Therefore, disable the PCI GXcopy.
+     * Most Unichromes are much faster using processor to
+     * framebuffer writes than using the 2D engine for this.
+     * test with x11perf -shmput500!
      */
     
     if (pVia->Chipset != VIA_K8M800)
@@ -998,6 +996,13 @@ viaInitXAA(ScreenPtr pScreen)
 
 }
 
+/*
+ * Mark Sync using the 2D blitter for AGP. NoOp for PCI.
+ * In the future one could even launch a NULL PCI DMA command
+ * to have an interrupt generated, provided it is possible to
+ * write to the PCI DMA engines from the AGP command stream.
+ */ 
+
 static int
 viaAccelMarkSync(ScreenPtr pScreen)
 {
@@ -1006,14 +1011,14 @@ viaAccelMarkSync(ScreenPtr pScreen)
     ViaCommandBuffer *cb = &pVia->cb;
 
     ++pVia->curMarker;
+    
+    /*
+     * Wrap around without possibly affecting the int sign bit. 
+     */
+
+    pVia->curMarker &= 0x7FFFFFFF; 
 
     if (pVia->agpDMA) {    
-
-	/*
-	 * Wrap around without possibly affecting the int sign bit. 
-	 */
-
-	pVia->curMarker &= 0x7FFFFFFF; 
 
 	viaAccelSolidHelper(&pVia->cb, 0, 0, 1, 1, pVia->markerOffset, VIA_GEM_32bpp,
 			    4, pVia->curMarker, 
@@ -1022,6 +1027,10 @@ viaAccelMarkSync(ScreenPtr pScreen)
     }
     return pVia->curMarker;
 }
+
+/*
+ * Wait for the value to get blitted, or in the PCI case for engine idle.
+ */
 
 static void
 viaAccelWaitMarker(ScreenPtr pScreen, int marker)
@@ -1039,6 +1048,10 @@ viaAccelWaitMarker(ScreenPtr pScreen, int marker)
 }
 
 #ifdef VIA_HAVE_EXA
+
+/*
+ * Exa functions. It is assumed that EXA does not exceed the blitter limits.
+ */
 
 static Bool
 viaExaPrepareSolid(PixmapPtr pPixmap, int alu, Pixel planemask,
@@ -1152,6 +1165,12 @@ viaExaCopy(PixmapPtr pDstPixmap, int srcX, int srcY, int dstX, int dstY,
 }
 
 #ifdef XF86DRI
+
+/*
+ * Use PCI DMA if we can. Really, if the system alignments don't match it is worth doing 
+ * an extra copy to avoid reading from the frame-buffer which is painfully slow.
+ */ 
+
 static Bool
 viaExaDownloadFromScreen(PixmapPtr pSrc, int x, int y, int w, int h,
 			 char *dst, int dst_pitch) 
@@ -1213,6 +1232,12 @@ viaExaDownloadFromScreen(PixmapPtr pSrc, int x, int y, int w, int h,
     return (err == 0);
 }
 
+/*
+ * I'm not sure upload is necessary. Seems buggy for widths below 65, and I'd guess that in
+ * most situations, CPU direct writes are faster. Use DMA only when alignments match. At least
+ * it saves some CPU cycles.
+ */
+
 static Bool
 viaExaUploadToScreen(PixmapPtr pDst, int x, int y, int w, int h, char *src, int src_pitch) 
 {
@@ -1256,6 +1281,10 @@ viaExaUploadToScreen(PixmapPtr pDst, int x, int y, int w, int h, char *src, int 
     return (err == 0);
 }
 #endif
+
+/*
+ * Init EXA. Alignments are 2D engine constraints.
+ */
 
 static ExaDriverPtr
 viaInitExa(ScreenPtr pScreen)
@@ -1310,7 +1339,8 @@ viaInitExa(ScreenPtr pScreen)
 #endif /* VIA_HAVE_EXA */
 
 /*
- * Acceleration init function, sets up pointers to our accelerated functions.
+ * Acceleration init function. Sets up offscreen memory disposition, initializes engines
+ * and acceleration method.
  */
 
 Bool
@@ -1324,7 +1354,6 @@ viaInitAccel(ScreenPtr pScreen)
     pVia->VQStart = 0;
     if (((pVia->FBFreeEnd - pVia->FBFreeStart) >= VIA_VQ_SIZE) &&
 	pVia->VQEnable) {
-	/* Reserved space for VQ */
 	pVia->VQStart = pVia->FBFreeEnd - VIA_VQ_SIZE;
 	pVia->VQEnd = pVia->VQStart + VIA_VQ_SIZE - 1;
 	pVia->FBFreeEnd -= VIA_VQ_SIZE;
@@ -1407,6 +1436,10 @@ viaInitAccel(ScreenPtr pScreen)
     return viaInitXAA(pScreen);
 }
 
+/*
+ * Free used acceleration resources.
+ */
+
 void 
 viaExitAccel(ScreenPtr pScreen)
 {
@@ -1432,6 +1465,11 @@ viaExitAccel(ScreenPtr pScreen)
 	viaTearDownCBuffer(&pVia->cb);
     }
 }
+
+/*
+ * DGA accelerated functions go here and let them be independent of acceleration 
+ * method.
+ */
 
 void
 viaDGABlitRect(ScrnInfoPtr pScrn, int srcx, int srcy, int w, int h,

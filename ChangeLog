@@ -1,3 +1,24 @@
+2005-11-16  Thomas Hellström <unichrome-at-shipmail-dot-org> 
+
+	* unichrome/via_accel.c: (viaSetupForCPUToScreenColorExpandFill),
+	(viaSubsequentScanlineCPUToScreenColorExpandFill),
+	(viaSubsequentImageWriteRect), (viaSubsequentSolidTwoPointLine),
+	(viaInitXAA), (viaAccelMarkSync), (viaInitAccel):
+
+	- Add some comments and mask out the marker sign bit also when AGP
+	  is not used.
+
+2005-11-15  Thomas Hellström  <unichrome-at-shipmail-dot-org>
+
+	* unichrome/Imakefile:
+	* unichrome/via_accel.c: (viaAccelSolidHelper),
+	(viaAccelCopyHelper):
+	* unichrome/via_driver.c: (VIAScreenInit):
+
+	- Fix Imakefile warning when EXA is not available.
+	- Fix compilation warning about mixed declarations and code.
+	- Fix K8M800 stride setting.
+	
 2005-11-15  Thomas Hellström  <unichrome-at-shipmail-dot-org>
 
 	* unichrome/via_accel.c: (viaExaUploadToScreen):
