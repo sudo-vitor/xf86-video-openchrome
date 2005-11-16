@@ -40,8 +40,7 @@
 #define VIA_BW_KM400A   3
 #define VIA_BW_K8M800   4
 #define VIA_BW_PM800    5
-#define VIA_BW_VM800    6
-#define VIA_BW_ALL      7
+#define VIA_BW_ALL      6
 
 /*
  * 393216000 is for SDR133 in via_refresh.h
@@ -56,8 +55,7 @@ static struct {
     { VIA_BW_KM400,   { VIA_BW_MIN, VIA_BW_MIN, VIA_BW_MIN,  394000000,  461000000,  461000000, VIA_BW_MIN } },
     { VIA_BW_KM400A,  { VIA_BW_MIN, VIA_BW_MIN, VIA_BW_MIN,  394000000,  461000000,  461000000,  461000000 } },
     { VIA_BW_K8M800,  { VIA_BW_MIN, VIA_BW_MIN, VIA_BW_MIN,  394000000,  461000000,  461000000,  461000000 } },
-    { VIA_BW_PM800,   { VIA_BW_MIN, VIA_BW_MIN, VIA_BW_MIN,  394000000,  461000000,  461000000,  461000000 } },
-    { VIA_BW_VM800,   { VIA_BW_MIN, VIA_BW_MIN, VIA_BW_MIN,  394000000,  461000000,  461000000,  461000000 } }
+    { VIA_BW_PM800,   { VIA_BW_MIN, VIA_BW_MIN, VIA_BW_MIN,  394000000,  461000000,  461000000,  461000000 } }
 };
     
 /*
@@ -89,7 +87,6 @@ static struct ViaDotClock {
     {  64995, 0x0D3B, 0x6b8c01 }, 
     {  65000, 0x0D3B, 0x6b8c01 }, /* Slightly unstable on PM800 */ 
     {  65028, 0x866D, 0x6b8c01 }, 
-    {  74480, 0x156E, 0x288800 }, 
     {  75000, 0x156E, 0x288800 }, 
     {  78800, 0x442C, 0x2a8800 }, 
     {  81135, 0x0622, 0x428801 }, 

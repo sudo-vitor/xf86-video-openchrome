@@ -23,6 +23,10 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include "via_driver.h"
 #include "via_vgahw.h"
 #include "via_vt162x.h"
@@ -99,8 +103,14 @@ ViaVT162xDetect(ScrnInfoPtr pScrn, I2CBusPtr pBus, CARD8 Address)
     case 0x50:
 	xf86DrvMsg(pScrn->scrnIndex, X_PROBED, 
 		   "Detected VIA Technologies VT1625 TV Encoder\n");
+#if 0
 	pBIOSInfo->TVEncoder = VIA_VT1625;
 	pDev->DevName = "VT1625";
+#else 
+	xf86DrvMsg(pScrn->scrnIndex, X_WARNING, "VT1625 is not supported yet.\n");
+	xf86DestroyI2CDevRec(pDev, TRUE);
+	pDev = NULL;
+#endif
 	break;
     default:
 	pBIOSInfo->TVEncoder = VIA_NONETV;
@@ -162,24 +172,6 @@ VT162xDACSenseI2C(I2CDevPtr pDev)
     xf86I2CWriteByte(pDev, 0x0E, save);
     
     return (sense & 0x0F);
-}
-
-/*
- * VT1625 moves DACa through DACd from bits 0-3 to 2-5
- */
-static CARD8
-VT1625DACSenseI2C(I2CDevPtr pDev)
-{
-    CARD8  save, sense;
-
-    xf86I2CReadByte(pDev, 0x0E, &save);
-    xf86I2CWriteByte(pDev, 0x0E, 0x00);
-    xf86I2CWriteByte(pDev, 0x0E, 0x80);
-    xf86I2CWriteByte(pDev, 0x0E, 0x00);
-    xf86I2CReadByte(pDev, 0x0F, &sense);
-    xf86I2CWriteByte(pDev, 0x0E, save);
-
-    return (sense & 0x3F);
 }
 
 /*
@@ -266,54 +258,6 @@ VT1622DACSense(ScrnInfoPtr pScrn)
 }
 
 /*
- * VT1625 knows composite, s-video, RGB and YCBCR
- */
-static Bool
-VT1625DACSense(ScrnInfoPtr pScrn)
-{
-    VIABIOSInfoPtr pBIOSInfo = VIAPTR(pScrn)->pBIOSInfo;
-    CARD8  sense;
-
-    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "VT1625DACSense\n"));
-
-    sense = VT1625DACSenseI2C(pBIOSInfo->TVI2CDev);
-    switch (sense) {
-    case 0x00: /* DAC A,B,C,D,E,F */
-        pBIOSInfo->TVOutput = TVOUTPUT_RGB;
-        xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "VT1625: RGB connected.\n");
-        return TRUE;
-    case 0x07: /* DAC A,B,C */
-        pBIOSInfo->TVOutput = TVOUTPUT_SC;
-        xf86DrvMsg(pScrn->scrnIndex, X_PROBED,
-                   "VT1625: S-Video & Composite connected.\n");
-        return TRUE;
-    case 0x37: /* DAC C */
-        pBIOSInfo->TVOutput = TVOUTPUT_COMPOSITE;
-        xf86DrvMsg(pScrn->scrnIndex, X_PROBED,
-                   "VT1625: Composite connected.\n");
-        return TRUE;
-    case 0x38: /* DAC D,E,F */
-        pBIOSInfo->TVOutput = TVOUTPUT_YCBCR;
-        xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "VT1625: YCbCr connected.\n");
-        return TRUE;
-    case 0x0F: /* DAC A,B */
-        pBIOSInfo->TVOutput = TVOUTPUT_SVIDEO;
-        xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "VT1625: S-Video connected.\n");
-        return TRUE;
-    case 0x3F:
-        pBIOSInfo->TVOutput = TVOUTPUT_NONE;
-        xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "VT1625: Nothing connected.\n");
-        return FALSE;
-    default:
-        pBIOSInfo->TVOutput = TVOUTPUT_NONE;
-        xf86DrvMsg(pScrn->scrnIndex, X_WARNING,
-                   "VT1625: Unknown cable combination: 0x0%2X.\n",
-                   sense);
-        return FALSE;
-    }
-}
-
-/*
  *
  */
 static CARD8
@@ -331,7 +275,7 @@ VT1621ModeIndex(ScrnInfoPtr pScrn, DisplayModePtr mode)
 	    !(strcmp(VT1621Table[i].name, mode->name)))
 	    return i;
     }
-    xf86DrvMsg(pScrn->scrnIndex, X_WARNING, "VT1621ModeIndex:"
+    xf86DrvMsg(pScrn->scrnIndex, X_WARNING, "VT1622ModeIndex:"
 	       " Mode \"%s\" not found in Table\n", mode->name);
     return 0xFF;
 }
@@ -382,19 +326,10 @@ VT1622ModeIndex(ScrnInfoPtr pScrn, DisplayModePtr mode)
 
     if (pBIOSInfo->TVEncoder == VIA_VT1622)
 	Table = VT1622Table;
-    else if (pBIOSInfo->TVEncoder == VIA_VT1625)
-	Table = VT1625Table;
     else
 	Table = VT1623Table;
 
     for (i = 0; Table[i].Width; i++) {
-
-xf86DrvMsg(pScrn->scrnIndex, X_WARNING, "width=%d:%d, height=%d:%d, std=%d:%d, name=%s:%s.\n",
-Table[i].Width, mode->CrtcHDisplay,
-Table[i].Height, mode->CrtcVDisplay,
-Table[i].Standard, pBIOSInfo->TVType,
-Table[i].name, mode->name);
-
 	if ((Table[i].Width == mode->CrtcHDisplay) &&
 	    (Table[i].Height == mode->CrtcVDisplay) &&
 	    (Table[i].Standard == pBIOSInfo->TVType) &&
@@ -437,58 +372,6 @@ VT1622ModeValid(ScrnInfoPtr pScrn, DisplayModePtr mode)
 	return MODE_OK;
     return MODE_BAD;
 }
-
-static ModeStatus
-VT1625ModeValid(ScrnInfoPtr pScrn, DisplayModePtr mode)
-{
-    VIABIOSInfoPtr pBIOSInfo = VIAPTR(pScrn)->pBIOSInfo;
-
-    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "VT1625ModeValid\n"));
-
-    if ((mode->PrivSize != sizeof(struct VT162xModePrivate)) ||
-        ((mode->Private != (void *) &VT162xModePrivateNTSC) &&
-         (mode->Private != (void *) &VT162xModePrivatePAL) &&
-         (mode->Private != (void *) &VT162xModePrivate480P) &&
-         (mode->Private != (void *) &VT162xModePrivate576P) &&
-         (mode->Private != (void *) &VT162xModePrivate720P) &&
-         (mode->Private != (void *) &VT162xModePrivate1080I))) {
-        xf86DrvMsg(pScrn->scrnIndex, X_INFO, "Not a mode defined by the TV Encoder.\n");
-        return MODE_BAD;
-    }
-    
-    if ((pBIOSInfo->TVType == TVTYPE_NTSC) &&
-        (mode->Private != (void *) &VT162xModePrivateNTSC)) {
-        xf86DrvMsg(pScrn->scrnIndex, X_INFO, "TV standard is NTSC. This is an incompatible mode.\n");
-        return MODE_BAD;
-    } else if ((pBIOSInfo->TVType == TVTYPE_PAL) &&
-               (mode->Private != (void *) &VT162xModePrivatePAL)) {
-        xf86DrvMsg(pScrn->scrnIndex, X_INFO, "TV standard is PAL. This is an incompatible mode.\n");
-        return MODE_BAD;
-    } else if ((pBIOSInfo->TVType == TVTYPE_480P) &&
-               (mode->Private != (void *) &VT162xModePrivate480P)) {
-        xf86DrvMsg(pScrn->scrnIndex, X_INFO, "TV standard is 480P. This is an incompatible mode.\n");
-        return MODE_BAD;
-    } else if ((pBIOSInfo->TVType == TVTYPE_576P) &&
-               (mode->Private != (void *) &VT162xModePrivate576P)) {
-        xf86DrvMsg(pScrn->scrnIndex, X_INFO, "TV standard is 576P. This is an incompatible mode.\n");
-        return MODE_BAD;
-    } else if ((pBIOSInfo->TVType == TVTYPE_720P) &&
-               (mode->Private != (void *) &VT162xModePrivate720P)) {
-        xf86DrvMsg(pScrn->scrnIndex, X_INFO, "TV standard is 720P. This is an incompatible mode.\n");
-        return MODE_BAD;
-    } else if ((pBIOSInfo->TVType == TVTYPE_1080I) &&
-               (mode->Private != (void *) &VT162xModePrivate1080I)) {
-        xf86DrvMsg(pScrn->scrnIndex, X_INFO, "TV standard is 1080I. This is an incompatible mode.\n");
-        return MODE_BAD;
-    }
-
-
-    
-    if (VT1622ModeIndex(pScrn, mode) != 0xFF)
-        return MODE_OK;
-    return MODE_BAD;
-}
-
 
 /*
  *
@@ -582,13 +465,14 @@ VT1621ModeCrtc(ScrnInfoPtr pScrn, DisplayModePtr mode)
 	hwp->writeCrtc(hwp, 0x6B, 0x80);
 	hwp->writeCrtc(hwp, 0x6C, Table.PrimaryCR6C);
     }
-    pBIOSInfo->ClockExternal = TRUE;
+    if ((pVia->Chipset != VIA_K8M800) && (pVia->Chipset != VIA_PM800))
+	pBIOSInfo->ClockExternal = TRUE;
     ViaCrtcMask(hwp, 0x6A, 0x40, 0x40);
     ViaCrtcMask(hwp, 0x6C, 0x01, 0x01);
 }
 
 /*
- * also suited for VT1622A, VT1623, VT1625
+ * also suited for VT1622A, VT1623
  */
 static void
 VT1622ModeI2C(ScrnInfoPtr pScrn, DisplayModePtr mode)
@@ -601,8 +485,6 @@ VT1622ModeI2C(ScrnInfoPtr pScrn, DisplayModePtr mode)
 
     if (pBIOSInfo->TVEncoder == VIA_VT1622)
 	Table = VT1622Table[VT1622ModeIndex(pScrn, mode)];
-    else if (pBIOSInfo->TVEncoder == VIA_VT1625)
-	Table = VT1625Table[VT1622ModeIndex(pScrn, mode)];
     else /* VT1622A/VT1623 */
 	Table = VT1623Table[VT1622ModeIndex(pScrn, mode)];
 
@@ -672,7 +554,7 @@ VT1622ModeI2C(ScrnInfoPtr pScrn, DisplayModePtr mode)
 }
 
 /*
- * Also suited for VT1622A, VT1623, VT1625
+ * Also suited for VT1622A, VT1623
  */
 static void
 VT1622ModeCrtc(ScrnInfoPtr pScrn, DisplayModePtr mode)
@@ -686,8 +568,6 @@ VT1622ModeCrtc(ScrnInfoPtr pScrn, DisplayModePtr mode)
 
     if (pBIOSInfo->TVEncoder == VIA_VT1622)
 	Table = VT1622Table[VT1622ModeIndex(pScrn, mode)];
-    else if (pBIOSInfo->TVEncoder == VIA_VT1625)
-	Table = VT1625Table[VT1622ModeIndex(pScrn, mode)];
     else /* VT1622A/VT1623 */
 	Table = VT1623Table[VT1622ModeIndex(pScrn, mode)];
 
@@ -723,7 +603,8 @@ VT1622ModeCrtc(ScrnInfoPtr pScrn, DisplayModePtr mode)
 		hwp->writeCrtc(hwp, 0x6C, Table.PrimaryCR6C);
         }
     }
-    pBIOSInfo->ClockExternal = TRUE;
+    if ((pVia->Chipset != VIA_K8M800) && (pVia->Chipset != VIA_PM800))
+	pBIOSInfo->ClockExternal = TRUE;
     ViaCrtcMask(hwp, 0x6A, 0x40, 0x40);
     ViaCrtcMask(hwp, 0x6C, 0x01, 0x01);
     ViaSeqMask(hwp, 0x1E, 0xC0, 0xC0); /* Enable DI0/DVP0 */
@@ -759,22 +640,6 @@ VT1622Power(ScrnInfoPtr pScrn, Bool On)
 	xf86I2CWriteByte(pBIOSInfo->TVI2CDev, 0x0E, 0x00);
     else
 	xf86I2CWriteByte(pBIOSInfo->TVI2CDev, 0x0E, 0x0F);
-}
-
-/*
- *
- */
-static void
-VT1625Power(ScrnInfoPtr pScrn, Bool On)
-{
-    VIABIOSInfoPtr pBIOSInfo = VIAPTR(pScrn)->pBIOSInfo;
-
-    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "VT1625Power\n"));
-
-    if (On)
-        xf86I2CWriteByte(pBIOSInfo->TVI2CDev, 0x0E, 0x00);
-    else
-        xf86I2CWriteByte(pBIOSInfo->TVI2CDev, 0x0E, 0x3F);
 }
 
 /*
@@ -824,18 +689,6 @@ ViaVT162xInit(ScrnInfoPtr pScrn)
 	pBIOSInfo->TVPrintRegs = VT162xPrintRegs;
 	pBIOSInfo->TVNumRegs = 0x6C;
 	break;
-        case VIA_VT1625:
-            pBIOSInfo->TVSave = VT162xSave;
-            pBIOSInfo->TVRestore = VT162xRestore;
-            pBIOSInfo->TVDACSense = VT1625DACSense;
-            pBIOSInfo->TVModeValid = VT1625ModeValid;
-            pBIOSInfo->TVModeI2C = VT1622ModeI2C;
-            pBIOSInfo->TVModeCrtc = VT1622ModeCrtc;
-            pBIOSInfo->TVPower = VT1625Power;
-            pBIOSInfo->TVModes = VT1625Modes;
-            pBIOSInfo->TVPrintRegs = VT162xPrintRegs;
-            pBIOSInfo->TVNumRegs = 0x6C;
-        break;
     default:
 	break;
     }

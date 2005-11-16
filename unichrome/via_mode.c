@@ -30,6 +30,10 @@
  *
  */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include "via_driver.h"
 #include "via_vgahw.h"
 #include "via_id.h"
@@ -69,23 +73,11 @@ ViaTVDetect(ScrnInfoPtr pScrn)
     pBIOSInfo->TVPower = NULL;
     pBIOSInfo->TVModes = NULL;
     pBIOSInfo->TVPrintRegs = NULL;
-    pBIOSInfo->LCDPower = NULL;
-    pBIOSInfo->TVNumRegs = 0;
 
-    /*
-     * On an SK43G (KM400/Ch7011), false positive detections at a VT162x
-     * chip were observed, so try to detect the Ch7011 first.
-     */
-    if (pVia->pI2CBus2 && xf86I2CProbeAddress(pVia->pI2CBus2, 0xEC))
-        pBIOSInfo->TVI2CDev = ViaCH7xxxDetect(pScrn, pVia->pI2CBus2, 0xEC);
-    else if (pVia->pI2CBus2 && xf86I2CProbeAddress(pVia->pI2CBus2, 0x40))
-        pBIOSInfo->TVI2CDev = ViaVT162xDetect(pScrn, pVia->pI2CBus2, 0x40);
+    if (pVia->pI2CBus2 && xf86I2CProbeAddress(pVia->pI2CBus2, 0x40))
+	pBIOSInfo->TVI2CDev = ViaVT162xDetect(pScrn, pVia->pI2CBus2, 0x40);
     else if (pVia->pI2CBus3 && xf86I2CProbeAddress(pVia->pI2CBus3, 0x40))
-        pBIOSInfo->TVI2CDev = ViaVT162xDetect(pScrn, pVia->pI2CBus3, 0x40);
-    else if (pVia->pI2CBus2 && xf86I2CProbeAddress(pVia->pI2CBus2, 0xEA))
-        pBIOSInfo->TVI2CDev = ViaCH7xxxDetect(pScrn, pVia->pI2CBus2, 0xEA);
-    else if (pVia->pI2CBus3 && xf86I2CProbeAddress(pVia->pI2CBus3, 0xEA))
-        pBIOSInfo->TVI2CDev = ViaCH7xxxDetect(pScrn, pVia->pI2CBus3, 0xEA);
+	pBIOSInfo->TVI2CDev = ViaVT162xDetect(pScrn, pVia->pI2CBus3, 0x40);
 
     if (pBIOSInfo->TVI2CDev)
 	return TRUE;
@@ -103,20 +95,14 @@ ViaTVInit(ScrnInfoPtr pScrn)
     DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "ViaTVInit\n"));
 
     switch (pBIOSInfo->TVEncoder){
-        case VIA_VT1621:
-        case VIA_VT1622:
-        case VIA_VT1623:
-        case VIA_VT1625:
-            ViaVT162xInit(pScrn);
-            break;
-        case VIA_CH7011:
-        case VIA_CH7019A:
-        case VIA_CH7019B:
-            ViaCH7xxxInit(pScrn);
-            break;
-        default:
-            return FALSE;
-            break;
+    case VIA_VT1621:
+    case VIA_VT1622:
+    case VIA_VT1623:
+	ViaVT162xInit(pScrn);
+	break;
+    default:
+	return FALSE;
+	break;
     }
 
     if (!pBIOSInfo->TVSave || !pBIOSInfo->TVRestore ||
@@ -142,7 +128,6 @@ ViaTVInit(ScrnInfoPtr pScrn)
 	pBIOSInfo->TVPower = NULL;
 	pBIOSInfo->TVModes = NULL;
 	pBIOSInfo->TVPrintRegs = NULL;
-    pBIOSInfo->TVNumRegs = 0;
 
 	return FALSE;
     }
@@ -171,6 +156,7 @@ void
 ViaTVRestore(ScrnInfoPtr pScrn)
 {
     VIABIOSInfoPtr pBIOSInfo = VIAPTR(pScrn)->pBIOSInfo;
+
     if (pBIOSInfo->TVRestore)
 	pBIOSInfo->TVRestore(pScrn);
 }
@@ -778,19 +764,27 @@ ViaGetMemoryBandwidth(ScrnInfoPtr pScrn)
 	else
 	    return ViaBandwidthTable[VIA_BW_CLE266C].Bandwidth[pVia->MemClk];
     case VIA_KM400:
-        /* 0x84 is earliest public device, 0x80 is more likely though */
-	if (pVia->ChipRev < 0x84)
-	    return ViaBandwidthTable[VIA_BW_KM400].Bandwidth[pVia->MemClk];
-	else
-	    return ViaBandwidthTable[VIA_BW_KM400A].Bandwidth[pVia->MemClk];
+        {
+            /* is this a KM400 or a P4M800 ? */
+            Bool KM400 = FALSE;
+            
+            /* check host bridge pci device id. */
+            if (pciReadWord(0x00000000, 0x02) == 0x3205)
+                KM400 = TRUE;
+            
+            /* 0x84 is earliest known KM400A device, 0x80 is more likely though */
+            if (KM400 && (pVia->ChipRev < 0x84))
+                return ViaBandwidthTable[VIA_BW_KM400].Bandwidth[pVia->MemClk];
+            else
+                return ViaBandwidthTable[VIA_BW_KM400A].Bandwidth[pVia->MemClk];
+        }
     case VIA_K8M800:
 	return ViaBandwidthTable[VIA_BW_K8M800].Bandwidth[pVia->MemClk];
     case VIA_PM800:
 	return ViaBandwidthTable[VIA_BW_PM800].Bandwidth[pVia->MemClk];
-    case VIA_VM800:
-	return ViaBandwidthTable[VIA_BW_VM800].Bandwidth[pVia->MemClk];
     default:
-	xf86DrvMsg(pScrn->scrnIndex, X_ERROR, "ViaBandwidthAllowed: Unknown Chipset.\n");
+	xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
+		   "ViaGetMemoryBandwidth: Unknown Chipset.\n");
 	return VIA_BW_MIN;
     }
 }
@@ -1607,18 +1601,21 @@ ViaModeDotClockTranslate(ScrnInfoPtr pScrn, DisplayModePtr mode)
     VIAPtr pVia = VIAPTR(pScrn);
     int i;
 
-    if ((pVia->Chipset == VIA_CLE266) || (pVia->Chipset == VIA_KM400)) {
-        for (i = 0; ViaDotClocks[i].DotClock; i++)
-            if (ViaDotClocks[i].DotClock == mode->Clock)
-                return ViaDotClocks[i].UniChrome;
-    } else {
-        for (i = 0; ViaDotClocks[i].DotClock; i++)
-            if (ViaDotClocks[i].DotClock == mode->Clock)
-                return ViaDotClocks[i].UniChromePro;
-        return ViaComputeProDotClock(mode->Clock);
-    }
+    for (i = 0; ViaDotClocks[i].DotClock; i++)
+	if (ViaDotClocks[i].DotClock == mode->Clock) {
+	    if ((pVia->Chipset == VIA_CLE266) || (pVia->Chipset == VIA_KM400))
+		return ViaDotClocks[i].UniChrome;
+	    else {
+                if (ViaDotClocks[i].UniChromePro)
+                    return ViaDotClocks[i].UniChromePro;
+                break;
+            }
+        }
 
-    return 0;
+    if ((pVia->Chipset == VIA_CLE266) || (pVia->Chipset == VIA_KM400))
+        return 0;
+    else
+        return ViaComputeProDotClock(mode->Clock);
 }
 
 /*
@@ -1671,7 +1668,7 @@ ViaModePrimary(ScrnInfoPtr pScrn, DisplayModePtr mode)
 	    ViaSetPrimaryDotclock(pScrn, 0x529001);
 	else
 	    ViaSetPrimaryDotclock(pScrn, 0x871C);
-	ViaSetUseExternalClock(hwp); 
+	ViaSetUseExternalClock(hwp);
 
 	ViaTVSetMode(pScrn, mode);
     } else
@@ -1686,8 +1683,7 @@ ViaModePrimary(ScrnInfoPtr pScrn, DisplayModePtr mode)
 	    ViaSetPrimaryDotclock(pScrn, 0x529001);
 	else
 	    ViaSetPrimaryDotclock(pScrn, 0x871C);
-	if ((pVia->Chipset != VIA_K8M800) && pVia->Chipset != VIA_PM800)
-	  ViaCrtcMask(hwp, 0x6B, 0x01, 0x01);
+	ViaCrtcMask(hwp, 0x6B, 0x01, 0x01);
     } else {
 	ViaSetPrimaryDotclock(pScrn, pBIOSInfo->Clock);
 	ViaSetUseExternalClock(hwp);

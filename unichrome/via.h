@@ -199,7 +199,7 @@
 #define HQV_DST_STRIDE          0x1F4
 #define HQV_SRC_STRIDE          0x1F8
 
-#define PRO_HQV1_OFFSET         0x1000
+
 /*
  *  Video command definition
  */
@@ -483,7 +483,6 @@
 #define HQV_TRIPLE_BUFF     0x04000000
 #define HQV_SUBPIC_FLIP     0x00008000
 #define HQV_FIFO_STATUS     0x00001000  
-#define HQV_GEN_IRQ         0x00000080
 
 /* HQV_FILTER_CONTROL      0x3E4 */
 #define HQV_H_LOWPASS_2TAP  0x00000001
@@ -537,7 +536,12 @@
 #define HQV_H_FILTER_DEFAULT    0x00000040
 
 
+/* UNICHROME PRO GROUP A HQV1 OFFSET */
 
+#define PRO_HQV1_OFFSET 0x1000
+
+/* UNICHROME PRO GROUP A VIDEO SPECIALS */
+#define HQV_GEN_IRQ (1 << 7)
 
 /* HQV_MINI_CONTROL        0x3E8 */
 #define HQV_H_MINIFY_ENABLE 0x00000800

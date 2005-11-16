@@ -22,6 +22,10 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include "via_driver.h"
 #include "via_id.h"
 
@@ -61,8 +65,6 @@
  * Chaintech MK8M800
  * Epox EP-8KMM5I (km400a)
  * MSI K8M Neo-V
- * MSI K8MM-V
- * MSI K8MM-ILSR
  * PcChips M861G
  * Soltek SL-B9C-FGR (Qbic EQ3802-300P)
  * Soltek SL-K8M800I-R
@@ -89,6 +91,7 @@ static struct ViaCardIdStruct ViaCardId[] = {
     {"ECS G320",                              VIA_CLE266,  0x1019, 0xB320, VIA_DEVICE_CRT | VIA_DEVICE_LCD},
     {"Asus C3V (Terminator)",                 VIA_CLE266,  0x1043, 0x8155, VIA_DEVICE_CRT},
     {"VIA EPIA M/MII/...",                    VIA_CLE266,  0x1106, 0x3122, VIA_DEVICE_CRT | VIA_DEVICE_TV},
+    {"Element Computers Helium 2100",         VIA_CLE266,  0x1558, 0x200A, VIA_DEVICE_LCD},
     /* KM400 */
     {"Acer Aspire 135x",                      VIA_KM400,   0x1025, 0x0033, VIA_DEVICE_CRT | VIA_DEVICE_LCD | VIA_DEVICE_TV},
     {"Asustek A7V8X-MX",                      VIA_KM400,   0x1043, 0x80ED, VIA_DEVICE_CRT},
@@ -102,7 +105,6 @@ static struct ViaCardIdStruct ViaCardId[] = {
     {"Giga-byte 7VM400(A)M",                  VIA_KM400,   0x1458, 0xD000, VIA_DEVICE_CRT}, /* 7VM400M, GA-7VM400AM */
     {"MSI KM4(A)M-V",                         VIA_KM400,   0x1462, 0x7061, VIA_DEVICE_CRT}, /* aka "DFI KM400-MLV" */
     {"MSI KM4(A)M-L",                         VIA_KM400,   0x1462, 0x7348, VIA_DEVICE_CRT},
-    {"MSI PM8M2-V",                           VIA_KM400,   0x1462, 0x7071, VIA_DEVICE_CRT},
     {"Abit VA-10 (1)",                        VIA_KM400,   0x147B, 0x140B, VIA_DEVICE_CRT},
     {"Abit VA-10 (2)",                        VIA_KM400,   0x147B, 0x140C, VIA_DEVICE_CRT}, /* VA-10/VA-20 id difference is not confirmed */
     {"Abit VA-20",                            VIA_KM400,   0x147B, 0x1411, VIA_DEVICE_CRT},
@@ -113,14 +115,12 @@ static struct ViaCardIdStruct ViaCardId[] = {
     {"ASRock Inc. K7VM2/3/4",                 VIA_KM400,   0x1849, 0x7205, VIA_DEVICE_CRT},
     {"Soyo K7VME",                            VIA_KM400,   0xA723, 0x10FD, VIA_DEVICE_CRT},
     /* K8M800 */
-    {"ZX-5360",                               VIA_K8M800,  0x1019, 0x0F60, VIA_DEVICE_CRT | VIA_DEVICE_LCD },
     {"ECS K8M800-M2",                         VIA_K8M800,  0x1019, 0x1828, VIA_DEVICE_CRT},
     {"Acer Aspire 136x",                      VIA_K8M800,  0x1025, 0x006E, VIA_DEVICE_CRT | VIA_DEVICE_LCD | VIA_DEVICE_TV},
     {"Asus K8V-MX",                           VIA_K8M800,  0x1043, 0x8129, VIA_DEVICE_CRT},
     {"Mitac 8399",                            VIA_K8M800,  0x1071, 0x8399, VIA_DEVICE_CRT | VIA_DEVICE_LCD | VIA_DEVICE_TV}, /* aka "pogolinux konabook 3100" */
-    {"Mitac 8889",                            VIA_K8M800,  0x1071, 0x8889, VIA_DEVICE_CRT | VIA_DEVICE_LCD | VIA_DEVICE_TV},
     {"Mitac 8899",                            VIA_K8M800,  0x1071, 0x8899, VIA_DEVICE_CRT | VIA_DEVICE_LCD | VIA_DEVICE_TV},
-    {"DFI K8M800-MLVF",                       VIA_K8M800,  0x15BD, 0x1002, VIA_DEVICE_CRT},
+    {"DFI K8M800-MLVF",                       VIA_K8M800,  0x1106, 0x3108, VIA_DEVICE_CRT}, /* VIA/K8M800 -- ??? PciInfo Alignment issue ??? */
     {"Shuttle FX83",                          VIA_K8M800,  0x1297, 0xF683, VIA_DEVICE_CRT | VIA_DEVICE_TV},
     {"Sharp Actius AL27",                     VIA_K8M800,  0x13BD, 0x1044, VIA_DEVICE_CRT | VIA_DEVICE_LCD},
     {"Giga-byte GA-K8VM800M",                 VIA_K8M800,  0x1458, 0xD000, VIA_DEVICE_CRT},
@@ -129,7 +129,6 @@ static struct ViaCardIdStruct ViaCardId[] = {
     {"MSI K8MM-ILSR",                         VIA_K8M800,  0x1462, 0x7410, VIA_DEVICE_CRT},
     {"Abit KV-80",                            VIA_K8M800,  0x147B, 0x1419, VIA_DEVICE_CRT},
     {"Averatec 327x",                         VIA_K8M800,  0x14FF, 0x0315, VIA_DEVICE_CRT | VIA_DEVICE_LCD},
-    {"Twinhead N14RA",                        VIA_K8M800,  0x14FF, 0x0321, VIA_DEVICE_CRT | VIA_DEVICE_LCD},
     {"Averatec 54xx",                         VIA_K8M800,  0x1509, 0x3930, VIA_DEVICE_CRT | VIA_DEVICE_LCD},
     {"FIC K8M-800M",                          VIA_K8M800,  0x1509, 0x6001, VIA_DEVICE_CRT},
     {"Biostar K8VGA-M",                       VIA_K8M800,  0x1565, 0x1203, VIA_DEVICE_CRT},
@@ -141,10 +140,6 @@ static struct ViaCardIdStruct ViaCardId[] = {
     {"Fujitsu/Siemens Amilo Pro V2010",       VIA_PM800,   0x1734, 0x1078, VIA_DEVICE_CRT | VIA_DEVICE_LCD | VIA_DEVICE_TV},
     {"ASRock P4VM8",                          VIA_PM800,   0x1849, 0x3118, VIA_DEVICE_CRT},
     {"Chaintech MPM800-3",                    VIA_PM800,   0x270F, 0x7671, VIA_DEVICE_CRT},
-
-    /* VN800 */
-    {"Fujitsu/Siemens Amilo Pro V2030",       VIA_VM800,   0x1734, 0x109B, VIA_DEVICE_CRT | VIA_DEVICE_LCD},
-    {"ASRock P4VM800",                        VIA_VM800,   0x1849, 0x3344, VIA_DEVICE_CRT},
     /* keep this */
     {NULL,                                    VIA_UNKNOWN, 0x0000, 0x0000, VIA_DEVICE_NONE}
 };
@@ -200,7 +195,7 @@ ViaCheckCardId(ScrnInfoPtr pScrn)
     }
     
     xf86DrvMsg(pScrn->scrnIndex, X_ERROR, 
-	       "Unknown Card-Ids (%4X|%4X), report this to openchrome-users@openchrome.org ASAP\n"
+	       "Unknown Card-Ids (%4X|%4X), report this to the driver maintainer ASAP\n"
 	       , pVia->PciInfo->subsysVendor, pVia->PciInfo->subsysCard);
     pVia->Id = NULL;
 }

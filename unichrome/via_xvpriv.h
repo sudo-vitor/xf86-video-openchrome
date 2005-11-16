@@ -27,6 +27,7 @@
 
 #include "xf86xv.h"
 
+
 enum{ XV_ADAPT_SWOV=0, 
       XV_ADAPT_NUM};
 
@@ -58,14 +59,6 @@ typedef struct {
     short old_drw_h;
 
     void *xvmc_priv;
-    
-    /*
-     * For PCI DMA image transfer to frame-buffer memory.
-     */
-
-    unsigned char *dmaBounceBuffer;
-    unsigned dmaBounceStride;
-    unsigned dmaBounceLines;
 
 } viaPortPrivRec, *viaPortPrivPtr;
 

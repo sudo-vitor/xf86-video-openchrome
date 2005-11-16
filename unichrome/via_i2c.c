@@ -25,6 +25,11 @@
 /*
  * Implements three i2c busses through registers SR26, SR2c and SR31
  */
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include "via_driver.h"
 #include "via_vgahw.h"
 
@@ -190,11 +195,7 @@ ViaI2C3Address(I2CDevPtr d, I2CSlaveAddr addr)
 {
     I2CBusPtr b = d->pI2CBus;
 
-#ifdef X_NEED_I2CSTART
     if (b->I2CStart(d->pI2CBus, d->StartTimeout)) {
-#else
-    if (ViaI2C3Start(d->pI2CBus, d->StartTimeout)) {
-#endif
         if (b->I2CPutByte(d, addr & 0xFF)) {
             if ((addr & 0xF8) != 0xF0 &&
                 (addr & 0xFE) != 0x00)
@@ -357,13 +358,11 @@ ViaI2CBus3Init(int scrnIndex)
     pI2CBus->BusName    = "I2C bus 3";
     pI2CBus->scrnIndex  = scrnIndex;
     pI2CBus->I2CAddress = ViaI2C3Address;
-#ifdef X_NEED_I2CSTART
     pI2CBus->I2CStart = ViaI2C3Start;
-#endif
     pI2CBus->I2CStop = ViaI2C3Stop;
     pI2CBus->I2CPutByte = ViaI2C3PutByte;
     pI2CBus->I2CGetByte = ViaI2C3GetByte;
-
+    
     pI2CBus->HoldTime = 10;
     pI2CBus->BitTimeout = 10;
     pI2CBus->ByteTimeout = 10;

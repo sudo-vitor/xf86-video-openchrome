@@ -4,9 +4,6 @@
 #ifdef XF86DRI
 #include "via_drm.h"
 #endif
-#ifdef VIA_HAVE_EXA
-#include "exa.h"
-#endif
 
 /*
  * Alignment macro functions
@@ -119,12 +116,9 @@ typedef struct {
     int    drm_fd;			/* Fd in DRM mode */
     drm_via_mem_t drm;			/* DRM management object */
 #endif
+    int    slot;			/* Pool 3 slot */
     void  *pVia;			/* VIA driver pointer */
     FBLinearPtr linear;			/* X linear pool info ptr */
-#ifdef VIA_HAVE_EXA
-    ExaOffscreenArea *exa;
-#endif
-    ScrnInfoPtr pScrn;
 } VIAMem;
 
 typedef VIAMem *VIAMemPtr;
@@ -163,7 +157,6 @@ typedef struct  {
     int panning_y;
     int oldPanningX;
     int oldPanningY;
-
 } swovRec, *swovPtr;
 
 #endif /* _VIA_PRIV_H_ */

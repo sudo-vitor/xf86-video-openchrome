@@ -28,6 +28,9 @@
  *  Content:    Hardware cursor support for VIA/S3G UniChrome
  *
  ************************************************************************/
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 
 #include "via_driver.h"
 
@@ -72,8 +75,7 @@ VIAHWCursorInit(ScreenPtr pScreen)
         pVia->CursorStart = pVia->FBFreeEnd - VIA_CURSOR_SIZE;
         pVia->FBFreeEnd -= VIA_CURSOR_SIZE;
     }
-    
-    /* Set cursor location in frame buffer. */    
+    /* Set cursor location in frame buffer.  */
     VIASETREG(VIA_REG_CURSOR_MODE, pVia->CursorStart);
 
     return xf86InitCursor(pScreen, infoPtr);
@@ -113,7 +115,7 @@ VIALoadCursorImage(ScrnInfoPtr pScrn, unsigned char* src)
     VIAPtr pVia = VIAPTR(pScrn);
     CARD32 dwCursorMode;
 
-    viaAccelSync(pScrn);
+    VIAAccelSync(pScrn);
 
     dwCursorMode = VIAGETREG(VIA_REG_CURSOR_MODE);
 

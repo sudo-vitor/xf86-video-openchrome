@@ -27,6 +27,10 @@
  *
  */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include "via_driver.h"
 #include "vbe.h"
 #include "vbeModes.h"
@@ -130,11 +134,11 @@ ViaVbeSetMode(ScrnInfoPtr pScrn, DisplayModePtr pMode)
     /* enable linear addressing */
     mode |= 1 << 14;
 
-    xf86DrvMsg(pScrn->scrnIndex, X_INFO, "Trying VBE Mode %dx%d (0x%x) Refresh %.2f:\n", 
+    xf86DrvMsg(pScrn->scrnIndex, X_INFO, "Trying VBE Mode %dx%d (0x%x)\n", 
 	       (int) data->data->XResolution,
 	       (int) data->data->YResolution,
-	       mode & ~(1 << 11), (float) data->block->RefreshRate/100.);
-    ViaVbeSetRefresh(pScrn, 75 /*data->block->RefreshRate/100*/);
+	       mode & ~(1 << 11));
+    ViaVbeSetRefresh(pScrn, data->block->RefreshRate/100);
     if (VBESetVBEMode(pVia->pVbe, mode, data->block) == FALSE) {
 	xf86DrvMsg(pScrn->scrnIndex, X_INFO, "VBESetVBEMode failed");
 	if ((data->block || (data->mode & (1 << 11))) &&
@@ -157,7 +161,7 @@ ViaVbeSetMode(ScrnInfoPtr pScrn, DisplayModePtr pMode)
     pScrn->vtSema = TRUE;
 
     if (!pVia->NoAccel)
-	viaInitialize2DEngine(pScrn);
+	VIAInitialize2DEngine(pScrn);
     
 #ifdef XF86DRI
     VIAInitialize3DEngine(pScrn);

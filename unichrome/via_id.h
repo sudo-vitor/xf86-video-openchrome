@@ -24,6 +24,15 @@
 #ifndef _VIA_ID_H_
 #define _VIA_ID_H_ 1
 
+/*
+ * K8M800 and PM800/PM880/CN400 are currently untested
+ * and support is disabled.
+ */
+
+#define HAVE_K8M800
+#define HAVE_PM800
+
+
 /* Chip tags.  These are used to group the adapters into
  * related families.
  */
@@ -33,7 +42,6 @@ enum VIACHIPTAGS {
     VIA_KM400,
     VIA_K8M800,
     VIA_PM800,
-    VIA_VM800,
     VIA_LAST
 };
 
@@ -46,16 +54,12 @@ enum VIACHIPTAGS {
  * someplace. There is also the possibility that it just does 
  * not exist in the wild.
  *
- * Contact unichrome-devel@lists.sf.net asap if you can
- * provide any further information.
- *
  */
 /* #define PCI_CHIP_CLE3022        0x3022 */ /* CLE266??? */
 #define PCI_CHIP_VT3204         0x3108 /* K8M800 */
 #define PCI_CHIP_VT3259         0x3118 /* PM800/PM880/CN400 */
 #define PCI_CHIP_CLE3122        0x3122 /* CLE266 */
 #define PCI_CHIP_VT3205         0x7205 /* KM400 */
-#define PCI_CHIP_VT3314         0x3344 /* VM800 */
 
 /*
  * There is also quite some conflicting information on the

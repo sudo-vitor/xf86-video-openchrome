@@ -22,6 +22,10 @@
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
  * DEALINGS IN THE SOFTWARE.
  */
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include "via_driver.h"
 #include "via_vgahw.h"
 #include "via_id.h"
@@ -189,6 +193,7 @@ ViaSetPrimaryFIFO(ScrnInfoPtr pScrn, DisplayModePtr mode)
 	/* originally when setting secondary */
 	ViaSetPrimaryExpireNumber(pScrn, mode, KM400ExpireNumber);
 	break;
+#ifdef HAVE_K8M800
     case VIA_K8M800:
 	hwp->writeSeq(hwp, 0x17, 0xBF); /* 384/2 - 1 = 191 (orig via comment: 384/8) */
 	ViaSeqMask(hwp, 0x16, 0x92, 0xBF); /* 328/4 = 82 = 0x52*/
@@ -199,6 +204,8 @@ ViaSetPrimaryFIFO(ScrnInfoPtr pScrn, DisplayModePtr mode)
 	else
 	    ViaSeqMask(hwp, 0x22, 0x00, 0x1F); /* 128/4 = overflow = 0 */
 	break;
+#endif /* HAVE_K8M800 */
+#ifdef HAVE_PM800
     case VIA_PM800:
 	hwp->writeSeq(hwp, 0x17, 0x5F); /* 95 */
 	ViaSeqMask(hwp, 0x16, 0x20, 0xBF); /* 32 */
@@ -209,6 +216,7 @@ ViaSetPrimaryFIFO(ScrnInfoPtr pScrn, DisplayModePtr mode)
 	else
 	    ViaSeqMask(hwp, 0x22, 0x1F, 0x1F); /* 31 */
 	break;
+#endif /* HAVE_PM800 */
     default:
 	xf86DrvMsg(pScrn->scrnIndex, X_ERROR, "ViaSetPrimaryFIFO:"
 		   " Chipset %d not implemented\n", pVia->Chipset);
@@ -271,6 +279,7 @@ ViaSetSecondaryFIFO(ScrnInfoPtr pScrn, DisplayModePtr mode)
 	   hwp->writeCrtc(hwp, 0x68, 0x67); /* depth: 6, threshold: 7 */
 	}
 	break;
+#ifdef HAVE_K8M800
     case VIA_K8M800:
 	/* depth: (384 /8 -1 -1) = 46 = 0x2E */
 	ViaCrtcMask(hwp, 0x68, 0xE0, 0xF0);
@@ -290,6 +299,8 @@ ViaSetSecondaryFIFO(ScrnInfoPtr pScrn, DisplayModePtr mode)
 	else
 	    ViaCrtcMask(hwp, 0x94, 0x20, 0x7F); /* 128/4 */
 	break;
+#endif /* HAVE_K8M800 */
+#ifdef HAVE_PM800
     case VIA_PM800:
 	/* depth: 12 - 1 = 0x0B */
 	ViaCrtcMask(hwp, 0x68, 0xB0, 0xF0);
@@ -309,6 +320,7 @@ ViaSetSecondaryFIFO(ScrnInfoPtr pScrn, DisplayModePtr mode)
 	else
 	    ViaCrtcMask(hwp, 0x94, 0x20, 0x7F); /* 128/4 */
 	break;
+#endif /* HAVE_PM800 */
     default:
 	xf86DrvMsg(pScrn->scrnIndex, X_ERROR, "ViaSetSecondaryFIFO:"
 		   " Chipset %d not implemented\n", pVia->Chipset);

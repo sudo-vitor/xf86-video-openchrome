@@ -29,10 +29,6 @@
 
 typedef CARD32 uint32_t;
 
-#ifdef X_NEED_DRMLOCK
-#define drm_hw_lock_t drmLock
-#endif
-
 #define UNICHROME_LOCK(fd, lockNo, saPriv, context, lastcontext, ret)	\
     do {								\
 	volatile drm_hw_lock_t *lockPtr = XVMCLOCKPTR((saPriv), (lockNo));	\
@@ -72,11 +68,11 @@ typedef CARD32 uint32_t;
     
 #define UNICHROME_UNLOCK(fd, lockNo, saPriv, context)			\
     do {								\
-      volatile drm_hw_lock_t *lockPtr = XVMCLOCKPTR((saPriv), (lockNo)); 	\
+      	volatile drm_hw_lock_t *lockPtr = XVMCLOCKPTR((saPriv), (lockNo)); 	\
 									\
 	if ((lockPtr->lock & ~DRM_LOCK_CONT) ==				\
-	       ((context) | DRM_LOCK_HELD)) {				\
-	  DRM_CAS_RESULT(__ret);					\
+	    ((context) | DRM_LOCK_HELD)) {				\
+	    DRM_CAS_RESULT(__ret);					\
 	    DRM_CAS(lockPtr,(context) | DRM_LOCK_HELD, context, __ret); \
 	    if (__ret) {						\
 		drm_via_futex_t fx;					\
@@ -88,12 +84,11 @@ typedef CARD32 uint32_t;
 		drmCommandWrite((fd), DRM_VIA_DEC_FUTEX, &fx,		\
 				sizeof(fx));				\
 	    }								\
-	}								\
+	    }								\
     } while (0)								\
 
 #define UNICHROME_LOCK_DECODER1 0
 #define UNICHROME_LOCK_DECODER2 1
 #define UNICHROME_LOCK_HQV      4
-#define __user
       
 #endif

@@ -164,10 +164,6 @@
 #define VIA_PITCH_ENABLE        0x80000000
 
 
-/* CN400 HQV offset */
-#define REG_HQV1_INDEX              0x00001000
-
-
 #define MAXLOOP                 0xffffff
 
 #define VIASETREG(addr, data)   *(volatile unsigned int *)(pVia->MapBase + (addr)) = (data)

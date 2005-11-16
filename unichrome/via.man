@@ -31,13 +31,6 @@ Rendering Infrastructure, DRI. The XvMC client library implements a nonstandard
 Linux kernel module is available
 at dri.sourceforge.net.
 .PP
-Only a limited number of resolutions are supported at 60, 75, 85, 100 and
-120Hz (save memory bandwidth limitations): 640x480, 800x600, 1024x768, 
-1152x864, 1280x1024 and 1600x1200. Another range of resolutions is only
-possible at 60Hz: 720x480, 720x576, 848x480, 856x480, 1024x512, 1024x576,
-1280x768, 1280x960, 1400x1050 and 1440x1050. This behaviour will change in
-the not too distant future.
-.PP
 .SH CONFIGURATION DETAILS
 Please refer to __xconfigfile__(__filemansuffix__) for general configuration
 details.  This section only covers configuration details specific to this
@@ -107,18 +100,19 @@ Disable or enable the use of VQ. VQ is enabled by default.
 .BI "Option \*qDRIXINERAMA\*q \*q" boolean \*q
 Set DRI Xinerama mode. Currently unsupported.
 .TP
-.BI "Option \*qDisableIRQ\*q \*q" boolean \*q
-Disables Vblank IRQ. A workaround for some mainboards that have
-problems with IRQs from the unichrome chip. With IRQ disabled,
-DRI clients have no way to sync drawing to Vblank.
-.TP
 .BI "Option \*qEnableAGPDMA\*q \*q" boolean \*q
 Enable the AGP DMA functionality in DRM. This requires that DRI is enabled
-and will force 2D, and 3D acceleration to use AGP DMA. The XvMC DRI client will also
-make use of this on the CLE266 to consume much less CPU. 
+and will force 2D acceleration to use AGP DMA. The XvMC DRI client will also
+make use of this to consume much less CPU. 
 .TP
 .BI "Option \*qNoAGPFor2D\*q \*q" boolean \*q
 With this option on, 2D acceleration will not use AGP DMA even if it is enabled.
+.TP
+.BI "Option \*qVBEModes\*q \*q" boolean \*q
+The driver will set modes using BIOS similar to the way the vesa driver does. This
+is the default behaviour for Unichrome Pro in panel mode, which is otherwise not 
+supported. Use this option only when the driver does not support your particular 
+hardware.
 
 .SH "Supported TV Encoders"
 Unichromes tend to be paired with several different TV Encoders.
@@ -135,14 +129,14 @@ Supports the following modes: \*q640x480\*q, \*q800x600\*q, \*q1024x768\*q,
 \*q848x480\*q, \*q720x480\*q (NTSC only) and \*q720x576\*q (PAL only). Use
 \*q640x480Over\*q, \*q800x600Over\*q, \*q1024x768Over\*q, \*q848x480Over\*q,
 \*q720x480Over\*q (NTSC) and \*q720x576Over\*q (PAL) for vertical overscan.
-The modes \*q720x480Noscale\*q (NTSC) and \*q720x576Noscale\*q (PAL)
-(VT1622 only) provide cleaner TV output (unscaled with only minimal overscan).
+The modes \*q720x480Noscale\*q (NTSC VT1622 only) and \*q720x576Noscale\*q
+(PAL VT1622 and VT1622a only) provide cleaner TV output (unscaled with only minimal overscan).
 These modes are made available by the driver and modelines provided in
 __xconfigfile__ will be ignored.
 
 .SH "BUGS"
-Switching virtual terminals when an OpenGL DRI client is running may cause
-subsequent rendering errors or server crash. XvMC DRI does not suffer from this.
+The driver is not fully 64 bit clean. In particular, 3D acceleration, XvMC and VBEModes do not
+work properly in 64-bit mode.
 .SH "SEE ALSO"
 __xservername__(__appmansuffix__), __xconfigfile__(__filemansuffix__), xorgconfig(__appmansuffix__), Xserver(__appmansuffix__), X(__miscmansuffix__)
 .SH AUTHORS

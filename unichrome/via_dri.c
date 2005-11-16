@@ -21,6 +21,11 @@
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
  * DEALINGS IN THE SOFTWARE.
  */
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include "xf86.h"
 #include "xf86_OSproc.h"
 #include "xf86_ansic.h"
@@ -38,13 +43,6 @@
 #include "via_dri.h"
 #include "via_id.h"
 #include "xf86drm.h"
-
-#ifndef DRIINFO_MAJOR_VERSION
-#define DRIINFO_MAJOR_VERSION 4
-#endif
-#ifndef DRIINFO_MINOR_VERSION
-#define DRIINFO_MINOR_VERSION 0
-#endif
 
 #define VIDEO	0 
 #define AGP		1
@@ -162,8 +160,13 @@ VIADRIRingBufferInit(ScrnInfoPtr pScrn)
 
     if (pVia->agpEnable) {
 	drm_via_dma_init_t ringBufInit;
+	drmVersionPtr drmVer;
 
-	if (((pVia->drmVerMajor <= 1) && (pVia->drmVerMinor <= 3))) {
+	if (NULL == (drmVer = drmGetVersion(pVia->drmFD))) {
+	    return FALSE;
+	}
+
+	if (((drmVer->version_major <= 1) && (drmVer->version_minor <= 3))) {
 	    return FALSE;
 	} 
 
@@ -330,41 +333,12 @@ static Bool VIADRIAgpInit(ScreenPtr pScreen, VIAPtr pVia)
 }
 static Bool VIADRIFBInit(ScreenPtr pScreen, VIAPtr pVia)
 {   
-    ScrnInfoPtr pScrn = xf86Screens[pScreen->myNum];
-    int FBSize = pVia->driSize;
-    int FBOffset;
+    int FBSize = pVia->FBFreeEnd-pVia->FBFreeStart;
+    int FBOffset = pVia->FBFreeStart; 
     VIADRIPtr pVIADRI = pVia->pDRIInfo->devPrivate;
-
-    if (FBSize < pVia->Bpl) {
-        xf86DrvMsg(pScreen->myNum, X_ERROR,
-		   "[drm] No DRM framebuffer heap available.\n");
-	xf86DrvMsg(pScreen->myNum, X_ERROR,
-		   "[drm] Please increase the frame buffer\n");
-	xf86DrvMsg(pScreen->myNum, X_ERROR,
-		   "[drm] memory area in BIOS. Disabling DRI.\n");
-	return FALSE;
-    }
-    if (FBSize < (pScrn->virtualY * pVia->Bpl)) {
-	xf86DrvMsg(pScreen->myNum, X_WARNING,
-		   "[drm] The DRM Heap and Pixmap cache memory could be too small\n");
-	xf86DrvMsg(pScreen->myNum, X_WARNING,
-		   "[drm] for optimal performance. Please increase the frame buffer\n");
-	xf86DrvMsg(pScreen->myNum, X_WARNING,
-		   "[drm] memory area in BIOS.\n");
-    }
-
-    pVia->driOffScreenMem.pool = 0;
-    if (Success != VIAAllocLinear(&pVia->driOffScreenMem, pScrn, FBSize)) {
-        xf86DrvMsg(pScreen->myNum, X_ERROR,
-		   "[drm] failed to allocate offscreen frame buffer area\n");
-	return FALSE;
-    }
-
-    FBOffset = pVia->driOffScreenMem.base;
-
     pVIADRI->fbOffset = FBOffset;
-    pVIADRI->fbSize = FBSize;
-
+    pVIADRI->fbSize = pVia->videoRambytes;
+    
     {
 	drm_via_fb_t fb;
 	fb.offset = FBOffset;
@@ -377,7 +351,9 @@ static Bool VIADRIFBInit(ScreenPtr pScreen, VIAPtr pVia)
 	    return FALSE;
 	} else {
 	    xf86DrvMsg(pScreen->myNum, X_INFO,
-		       "[drm] Using %d bytes for DRM memory heap.\n", FBSize);
+		       "[drm] FBFreeStart= 0x%08x FBFreeEnd= 0x%08x "
+		       "FBSize= 0x%08x\n",
+		       pVia->FBFreeStart, pVia->FBFreeEnd, FBSize);
 	    return TRUE;	
 	}   
     }
@@ -618,7 +594,6 @@ Bool VIADRIScreenInit(ScreenPtr pScreen)
     VIAPtr pVia = VIAPTR(pScrn);
     DRIInfoPtr pDRIInfo;
     VIADRIPtr pVIADRI;
-    drmVersionPtr drmVer;
 
     /* if symbols or version check fails, we still want this to be NULL */
     pVia->pDRIInfo = NULL;
@@ -663,11 +638,7 @@ Bool VIADRIScreenInit(ScreenPtr pScreen)
     pDRIInfo->ddxDriverMajorVersion = VIA_DRIDDX_VERSION_MAJOR;
     pDRIInfo->ddxDriverMinorVersion = VIA_DRIDDX_VERSION_MINOR;
     pDRIInfo->ddxDriverPatchVersion = VIA_DRIDDX_VERSION_PATCH;
-#if (DRIINFO_MAJOR_VERSION == 5)
     pDRIInfo->frameBufferPhysicalAddress = (pointer) pVia->FrameBufferBase;
-#else
-    pDRIInfo->frameBufferPhysicalAddress = pVia->FrameBufferBase;
-#endif
     pDRIInfo->frameBufferSize = pVia->videoRambytes;  
   
     pDRIInfo->frameBufferStride = (pScrn->displayWidth *
@@ -726,15 +697,6 @@ Bool VIADRIScreenInit(ScreenPtr pScreen)
 	return FALSE;
     }
 
-    if (NULL == (drmVer = drmGetVersion(pVia->drmFD))) {
-	VIADRICloseScreen(pScreen);
-	return FALSE;
-    }
-    pVia->drmVerMajor = drmVer->version_major;
-    pVia->drmVerMinor = drmVer->version_minor;
-    pVia->drmVerPL = drmVer->version_patchlevel;
-    drmFreeVersion(drmVer);
-
 	   
     if (!(VIAInitVisualConfigs(pScreen))) {
 	VIADRICloseScreen(pScreen);
@@ -777,8 +739,8 @@ VIADRICloseScreen(ScreenPtr pScreen)
 	drmAgpRelease(pVia->drmFD);
     }
 
+    
     DRICloseScreen(pScreen);
-    VIAFreeLinear(&pVia->driOffScreenMem);
     
     if (pVia->pDRIInfo) {
 	if ((pVIADRI = (VIADRIPtr) pVia->pDRIInfo->devPrivate)) {
@@ -870,7 +832,6 @@ VIADRIFinishScreenInit(ScreenPtr pScreen)
     /* TODO */
     pVIADRI->scrnX=pVIADRI->width;
     pVIADRI->scrnY=pVIADRI->height;
-    
 
     /* Initialize IRQ */
     if (pVia->DRIIrqEnable) 

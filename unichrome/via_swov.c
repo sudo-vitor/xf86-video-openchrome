@@ -241,6 +241,7 @@ VIAVidHWDiffInit(ScrnInfoPtr pScrn)
         HWDiff->dwHQVInitPatch = VID_HWDIFF_FALSE;
         HWDiff->dwHQVDisablePatch = VID_HWDIFF_TRUE;
         break;
+#ifdef HAVE_K8M800
     case VIA_K8M800:
         HWDiff->dwThreeHQVBuffer = VID_HWDIFF_TRUE;
         HWDiff->dwHQVFetchByteUnit = VID_HWDIFF_TRUE;
@@ -248,7 +249,8 @@ VIAVidHWDiffInit(ScrnInfoPtr pScrn)
         HWDiff->dwHQVInitPatch = VID_HWDIFF_FALSE;
         HWDiff->dwHQVDisablePatch = VID_HWDIFF_TRUE;
         break;
-    case VIA_VM800:
+#endif /* HAVE_K8M800 */
+#ifdef HAVE_PM800
     case VIA_PM800:
         HWDiff->dwThreeHQVBuffer = VID_HWDIFF_TRUE;
         HWDiff->dwHQVFetchByteUnit = VID_HWDIFF_TRUE;
@@ -256,6 +258,7 @@ VIAVidHWDiffInit(ScrnInfoPtr pScrn)
         HWDiff->dwHQVInitPatch = VID_HWDIFF_FALSE;
         HWDiff->dwHQVDisablePatch = VID_HWDIFF_FALSE;
         break;
+#endif /* HAVE_PM800 */
     default:
         xf86DrvMsg(pScrn->scrnIndex, X_ERROR, "VIAVidHWDiffInit: Unhandled ChipSet.\n");
     }
@@ -1920,9 +1923,9 @@ VIAVidUpdateOverlay(ScrnInfoPtr pScrn, LPDDUPDATEOVERLAY pUpdate)
 
 
     panDX = pVia->swov.panning_x; 
-    panDY = pVia->swov.panning_y; 
+    panDY = pVia->swov.panning_y;
     pVia->swov.oldPanningX = pVia->swov.panning_x;
-    pVia->swov.oldPanningY = pVia->swov.panning_y;
+    pVia->swov.oldPanningY = pVia->swov.panning_y; 
 
     pUpdate->DstLeft   -= panDX;
     pUpdate->DstTop    -= panDY;
