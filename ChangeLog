@@ -1,3 +1,30 @@
+2005-11-17  Thomas Hellström <unichrome-at-shipmail-dot-org> 
+
+	* unichrome/via_accel.c: (viaFlushPCI), (viaFlushDRIEnabled),
+	(viaSetupCBuffer), (viaTearDownCBuffer), (viaEnableVQ),
+	(viaDisableVQ), (viaAccelSetMode), (viaInitialize2DEngine),
+	(viaAccelSync), (viaSetClippingRectangle),
+	(viaAccelClippingHelper), (viaAccelSolidHelper),
+	(viaAccelTransparentHelper), (viaAccelCopyHelper),
+	(viaSetupForScreenToScreenCopy), (viaSubsequentScreenToScreenCopy),
+	(viaSetupForSolidFill), (viaSubsequentSolidFillRect),
+	(viaSetupForMono8x8PatternFill),
+	(viaSubsequentMono8x8PatternFillRect),
+	(viaSetupForColor8x8PatternFill),
+	(viaSubsequentColor8x8PatternFillRect),
+	(viaSetupForCPUToScreenColorExpandFill),
+	(viaSubsequentScanlineCPUToScreenColorExpandFill),
+	(viaSetupForImageWrite), (viaSubsequentImageWriteRect),
+	(viaSetupForSolidLine), (viaSubsequentSolidTwoPointLine),
+	(viaSubsequentSolidHorVertLine), (viaSetupForDashedLine),
+	(viaSubsequentDashedTwoPointLine), (viaInitXAA),
+	(viaAccelMarkSync), (viaAccelWaitMarker), (viaExaPrepareSolid),
+	(viaExaSolid), (viaExaPrepareCopy), (viaExaCopy),
+	(viaExaDownloadFromScreen), (viaExaUploadToScreen), (viaInitExa),
+	(viaInitAccel), (viaExitAccel), (viaDGABlitRect), (viaDGAFillRect):
+
+	- Run indent on via_accel.c
+
 2005-11-16  Thomas Hellström <unichrome-at-shipmail-dot-org> 
 
 	* unichrome/via_accel.c: (viaSetupForCPUToScreenColorExpandFill),
