@@ -1,3 +1,10 @@
+2005-11-26  Thomas Hellström  <unichrome-at-shipmail-dot-org> 
+
+	* unichrome/via_accel.c: (viaFlushDRIEnabled), (viaSetupCBuffer):
+
+	- Fix possible accel segfault.
+	- Don't submit an empty AGP command stream to the DRM.
+	
 2005-11-17  Thomas Hellström <unichrome-at-shipmail-dot-org> 
 
 	* unichrome/via_accel.c: (viaFlushPCI), (viaFlushDRIEnabled),
