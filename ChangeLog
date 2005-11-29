@@ -1,3 +1,11 @@
+2005-11-29  Thomas Hellström  <unichrome-at-shipmail-dot-org> 
+
+	* unichrome/via_accel.c: (viaInitAccel):
+	* unichrome/via_memory.c: (VIAAllocLinear):
+
+	- Small cleanup of via_memory.c
+	- Make via_accel.c build without XF86DRI 
+	
 2005-11-26  Thomas Hellström  <unichrome-at-shipmail-dot-org> 
 
 	* unichrome/via_accel.c: (viaFlushDRIEnabled), (viaSetupCBuffer):
