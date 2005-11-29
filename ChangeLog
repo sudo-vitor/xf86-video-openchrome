@@ -1,5 +1,63 @@
 2005-11-29  Thomas Hellström  <unichrome-at-shipmail-dot-org>
 
+	* unichrome/Imakefile:
+	* unichrome/Makefile.am:
+	* unichrome/via.h:
+	* unichrome/via_accel.c:
+	* unichrome/via_bandwidth.c:
+	* unichrome/via_bios.h:
+	* unichrome/via_ch7xxx.c:
+	* unichrome/via_ch7xxx.h:
+	* unichrome/via_cursor.c:
+	* unichrome/via_dga.c:
+	* unichrome/via_dmabuffer.h:
+	* unichrome/via_dri.c:
+	* unichrome/via_dri.h:
+	* unichrome/via_driver.c:
+	* unichrome/via_driver.h:
+	* unichrome/via_drm.h:
+	* unichrome/via_drmclient.h:
+	* unichrome/via_i2c.c:
+	* unichrome/via_id.c:
+	* unichrome/via_id.h:
+	* unichrome/via_memcpy.c:
+	* unichrome/via_memcpy.h:
+	* unichrome/via_memory.c:
+	* unichrome/via_mode.c:
+	* unichrome/via_mode.h:
+	* unichrome/via_priv.h:
+	* unichrome/via_regs.h:
+	* unichrome/via_shadow.c:
+	* unichrome/via_swov.c:
+	* unichrome/via_swov.h:
+	* unichrome/via_vbe.c:
+	* unichrome/via_vgahw.c:
+	* unichrome/via_vgahw.h:
+	* unichrome/via_video.c:
+	* unichrome/via_video.h:
+	* unichrome/via_vt162x.c:
+	* unichrome/via_vt162x.h:
+	* unichrome/via_xvmc.c:
+	* unichrome/via_xvmc.h:
+	* unichrome/via_xvpriv.h:
+	* unichrome/xvmc/Imakefile:
+	* unichrome/xvmc/Makefile.am:
+	* unichrome/xvmc/driDrawable.c:
+	* unichrome/xvmc/driDrawable.h:
+	* unichrome/xvmc/viaLowLevel.c:
+	* unichrome/xvmc/viaLowLevel.h:
+	* unichrome/xvmc/viaLowLevelPro.c:
+	* unichrome/xvmc/viaXvMC.c:
+	* unichrome/xvmc/viaXvMCPriv.h:
+	* unichrome/xvmc/vldXvMC.h:
+	* unichrome/xvmc/xf86dri.c:
+	* unichrome/xvmc/xf86dri.h:
+	* unichrome/xvmc/xf86dristr.h:
+
+	mv unichrome/man->man, unichrome->src
+	
+2005-11-29  Thomas Hellström  <unichrome-at-shipmail-dot-org>
+
 	* Makefile.am:
 	* acinclude.m4:
 	* autogen.sh:
