@@ -1,3 +1,9 @@
+2005-11-29  Thomas Hellström  <unichrome-at-shipmail-dot-org>
+
+	* README.build:
+
+	- Add a README.build file.
+	
 2005-11-29  Thomas Hellström <unichrome-at-shipmail-dot-org> 
 
 	* src/Imakefile:

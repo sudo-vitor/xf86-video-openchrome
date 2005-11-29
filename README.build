@@ -1,0 +1,89 @@
+MODULAR:
+
+This module replaces the xf86-video-via module. To build you need to
+have a prebuilt modular tree and you need to know your
+PKG_CONFIG_PATH. This is typically /usr/X11R6/lib/pkgconfig or
+/usr/lib/pkgconfig, depending on where you have installed your Xorg tree.
+
+Here we assume that the Xorg tree is installed under /usr/X11R6
+
+Now issue the following commands:
+
+export PKG_CONFIG_PATH=/usr/X11R6/lib/pkgconfig
+sh autogen.sh --prefix=/usr/X11R6
+
+And for x86_64:
+
+export PKG_CONFIG_PATH=/usr/X11R6/lib/pkgconfig
+sh autogen.sh --prefix=/usr/X11R6 --libdir=/usr/X11R6/lib64
+
+The autogen.sh will create a "./configure" script, which is run
+automatically. If you want to fine-tune the build or compilation flags, run 
+
+./configure --help
+
+to see what options are available.
+
+then
+make
+make install
+
+and you should be done.
+To create a compressed tar distribution of openChrome, issue
+
+make distcheck
+
+MONOLITHIC:
+
+You need to have an at least partially built xorg source tree,
+corresponding to the X version you have installed on your computer. See www.x.org for
+details. Assume that your Xorg build directory is called
+/usr/local/xorg-src/build, Do the following:
+
+In the openChrome directory, do
+
+cd src;
+xmkmf /usr/local/xorg-src/build
+
+(If this returns an error of some sort, you didn't let the Xorg build
+complete long enough or you are not using the correct Xorg build
+directory)
+
+then
+
+make Makefiles
+make
+make Install
+
+and you should be done.
+
+Q/A:
+Q: For how long must I build the Xorg tree?
+A: Usually you can stop when the build process seems to start
+compiling c files. Note that this is provided you already have a
+binary Xorg distribution installed. Otherwise you need to complete the
+X build before compiling openChrome.
+
+Q: But I have an rpm distribution, what should I do?
+A: Get your hands on the Xorg source rpm. Then you can use that for
+building. On Mandriva (which is a RH derivative) you can for example
+do
+
+rpm -i <xorg-src-rpm-file>
+cd /usr/src/RPM/SPECS
+
+rpmbuild -q xorg-x11.spec
+(Here you probably will get complains about missing packages. Install
+them with your favourite package tool. On Mandriva, you should use
+"urpmi").
+
+Repeat the above step until rpmbuild -q succeeds.
+Now issue
+
+rpmbuild --short-circuit -bc xorg-x11.spec
+
+This will start compiling Xorg. Continue for a while until you see
+that c files are being comipiled.
+
+Now your build dir is /usr/src/RPM/BUILD/<xorg-distribution>/xc.
+Use that as the input to the xmkmf command above and continue from there.
