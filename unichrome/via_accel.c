@@ -30,6 +30,9 @@
  *  Content:    2D acceleration function for VIA/S3G UniChrome
  *
  ************************************************************************/
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 
 #include "Xarch.h"
 #include "xaalocal.h"

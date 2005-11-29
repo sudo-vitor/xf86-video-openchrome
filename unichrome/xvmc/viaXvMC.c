@@ -28,6 +28,9 @@
  *Bugfixes by among others Pascal Brisset and Terry Barnaby.
  *DRI protocol support by Thomas Hellström, 2005.
  */
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 
 #undef WAITPAUSE
 

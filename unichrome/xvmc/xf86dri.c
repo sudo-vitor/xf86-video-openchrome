@@ -36,6 +36,9 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
 /* THIS IS NOT AN X CONSORTIUM STANDARD */
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 
 #define NEED_REPLIES
 #include <X11/Xlibint.h>

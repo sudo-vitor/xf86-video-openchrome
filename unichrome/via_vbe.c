@@ -26,6 +26,9 @@
  * VBE Mode setting
  *
  */
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 
 #include "via_driver.h"
 #include "vbe.h"

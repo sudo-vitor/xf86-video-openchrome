@@ -1,5 +1,56 @@
 2005-11-29  Thomas Hellström  <unichrome-at-shipmail-dot-org>
 
+	* Makefile.am:
+	* acinclude.m4:
+	* autogen.sh:
+	* configure.ac:
+	* libxvmc/Imakefile:
+	* libxvmc/driDrawable.c:
+	* libxvmc/driDrawable.h:
+	* libxvmc/viaLowLevel.c:
+	* libxvmc/viaLowLevel.h:
+	* libxvmc/viaLowLevelPro.c:
+	* libxvmc/viaXvMC.c:
+	* libxvmc/viaXvMCPriv.h:
+	* libxvmc/vldXvMC.h:
+	* libxvmc/xf86dri.c:
+	* libxvmc/xf86dri.h:
+	* libxvmc/xf86dristr.h:
+	* unichrome/Makefile.am:
+	* unichrome/man/Makefile.am:
+	* unichrome/via.man:
+	* unichrome/via_accel.c:
+	* unichrome/via_bandwidth.c:
+	* unichrome/via_ch7xxx.c:
+	* unichrome/via_cursor.c:
+	* unichrome/via_dga.c:
+	* unichrome/via_dri.c:
+	* unichrome/via_driver.c:
+	* unichrome/via_i2c.c:
+	* unichrome/via_id.c:
+	* unichrome/via_memcpy.c:
+	* unichrome/via_memory.c:
+	* unichrome/via_mode.c:
+	* unichrome/via_shadow.c:
+	* unichrome/via_swov.c:
+	* unichrome/via_vbe.c:
+	* unichrome/via_vgahw.c:
+	* unichrome/via_video.c:
+	* unichrome/via_vt162x.c:
+	* unichrome/via_xvmc.c:
+	* unichrome/xvmc/Makefile.am:
+	* unichrome/xvmc/driDrawable.c:
+	* unichrome/xvmc/viaLowLevel.c:
+	* unichrome/xvmc/viaLowLevelPro.c:
+	* unichrome/xvmc/viaXvMC.c:
+	* unichrome/xvmc/viaXvMCPriv.h:
+	* unichrome/xvmc/xf86dri.c:
+
+	- Initial restructuring. Add scripts and Makefile templates and
+	  conditional inclusion of Makefile.am
+
+2005-11-29  Thomas Hellström  <unichrome-at-shipmail-dot-org>
+
 	* unichrome/via_accel.c: (viaInitAccel):
 	* unichrome/via_memory.c: (VIAAllocLinear):
 

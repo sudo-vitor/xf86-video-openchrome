@@ -28,6 +28,9 @@
  *  Content:    Hardware cursor support for VIA/S3G UniChrome
  *
  ************************************************************************/
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 
 #include "via_driver.h"
 

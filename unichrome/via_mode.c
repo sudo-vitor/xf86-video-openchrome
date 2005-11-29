@@ -29,6 +29,9 @@
  * Everything to do with setting and changing modes.
  *
  */
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 
 #include "via_driver.h"
 #include "via_vgahw.h"
