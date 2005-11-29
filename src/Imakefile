@@ -85,6 +85,13 @@ EXAINCLUDES = -I$(XF86SRC)/exa
 EXADEFINES = -DVIA_HAVE_EXA
 #endif
 
+#if (defined(i386Architecture) || defined(AMD64Architecture)) && BuildXF86DRI
+#define IHaveSubdirs
+SUBDIRS = xvmc
+MakeSubdirs($(SUBDIRS))
+DependSubdirs($(SUBDIRS))
+#endif
+
 SRCS = via_driver.c \
     via_accel.c \
     via_bandwidth.c \
@@ -162,6 +169,7 @@ InstallObjectModule(via,$(MODULEDIR),drivers)
 #endif
 
 #if !defined(XF86DriverSDK)
+LinkSourceFile(via.man,../man)
 CppManTarget(via,)
 InstallModuleManPage(via)
 #endif

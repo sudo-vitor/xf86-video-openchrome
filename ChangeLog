@@ -1,3 +1,10 @@
+2005-11-29  Thomas Hellström <unichrome-at-shipmail-dot-org> 
+
+	* src/Imakefile:
+	* src/xvmc/Imakefile:
+
+	- Fix up Imakefiles. Now also builds with old building system.
+	
 2005-11-29  Thomas Hellström  <unichrome-at-shipmail-dot-org>
 
 	* Makefile.am:

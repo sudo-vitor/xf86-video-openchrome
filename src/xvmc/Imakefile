@@ -1,4 +1,4 @@
-#define DoNormalLib NormalLibXvMC
+#define DoNormalLib 0
 #define DoSharedLib SharedLibXvMC
 #define DoDebugLib DebugLibXvMC
 #define DoProfileLib ProfileLibXvMC
@@ -14,7 +14,7 @@
 #define OUTOFTREE
 
 #ifdef OUTOFTREE
-VIADRIVERSRC=../unichrome
+VIADRIVERSRC=../
 #else
 VIADRIVERSRC=$(XF86DRIVERSRC)/via
 #endif
@@ -37,6 +37,10 @@ ALLOC_DEFINES = -DMALLOC_0_RETURNS_NULL
          OBJSPRO = viaXvMC.o viaLowLevelPro.o xf86drm.o xf86drmHash.o \
 	        xf86drmRandom.o xf86drmSL.o xf86dri.o driDrawable.o
      LINTLIBS = $(LINTXLIB)
+
+#if defined(AMD64Architecture)
+	DEFINES += -fPIC
+#endif
 
 #include <Library.tmpl>
 
