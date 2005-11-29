@@ -23,7 +23,7 @@
 AC_PREREQ(2.57)
 AC_INIT([xf86-video-openchrome],
         0.1.32,
-        [https://www.openchrome.org/trac],
+        [https://www.openchrome.org/trac/report],
         xf86-video-openchrome)
 
 AC_CONFIG_SRCDIR([Makefile.am])
@@ -122,13 +122,16 @@ AC_DEFINE(X_USE_LINEARFB,1,[Compatibility define for older Xen])
 AC_DEFINE(X_USE_REGION_NULL,1,[Compatibility define for older Xen])
 AC_DEFINE(X_HAVE_XAAGETROP,1,[Compatibility define for older Xen])
 AC_DEFINE(X_NEED_I2CSTART,1,[Compatibility define for older Xen])
+AC_DEFINE(VIA_HAVE_EXA,1,[Compatibility define for older Xen])
 
-XORG_MANPAGE_SECTIONS
+DRIVER_MAN_SUFFIX="4x"
+AC_SUBST([DRIVER_MAN_SUFFIX])
+
 XORG_RELEASE_VERSION
 
 AC_OUTPUT([
 	Makefile
-	unichrome/Makefile
-	unichrome/xvmc/Makefile
-	unichrome/man/Makefile
+	src/Makefile
+	src/xvmc/Makefile
+	man/Makefile
 ])

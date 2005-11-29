@@ -26,7 +26,7 @@
 #endif
 
 #include <X11/Xlibint.h>
-#include <Xutil.h>
+#include <X11/Xutil.h>
 #include "xf86drm.h"
 #include "drm.h"
 #include "xf86dri.h"

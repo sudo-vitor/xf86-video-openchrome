@@ -38,7 +38,7 @@
 
 #include "globals.h"
 #define DPMS_SERVER
-#include "extensions/dpms.h"
+#include <X11/extensions/dpms.h>
 
 
 #include "via_driver.h"

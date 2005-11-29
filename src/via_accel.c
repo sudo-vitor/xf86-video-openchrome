@@ -34,7 +34,7 @@
 #include "config.h"
 #endif
 
-#include "Xarch.h"
+#include <X11/Xarch.h>
 #include "xaalocal.h"
 #include "xaarop.h"
 #include "miline.h"

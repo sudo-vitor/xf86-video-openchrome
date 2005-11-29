@@ -18,7 +18,7 @@
 #  IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 #  CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-SUBDIRS = xvmc man
+SUBDIRS = xvmc
 # this is obnoxious:
 # -module lets us name the module exactly how we want
 # -avoid-version prevents gratuitous .0.0.0 version numbers on the end
@@ -37,6 +37,7 @@ via_drv_la_SOURCES = \
 	 via_ch7xxx.h \
          via_cursor.c \
          via_dga.c \
+	 via_dmabuffer.h \
          via_driver.c \
          via_driver.h \
          via.h \

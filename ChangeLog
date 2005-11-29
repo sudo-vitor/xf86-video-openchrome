@@ -1,5 +1,20 @@
 2005-11-29  Thomas Hellström  <unichrome-at-shipmail-dot-org>
 
+	* Makefile.am:
+	* acinclude.m4:
+	* configure.ac:
+	* src/Makefile.am:
+	* src/via_accel.c:
+	* src/via_driver.c:
+	* src/via_xvmc.c:
+	* src/xvmc/driDrawable.c:
+	* src/xvmc/viaXvMC.c:
+	* src/xvmc/xf86dri.c:
+
+	- Various build fixes. Now builds modular and makes distcheck. Imakefiles remaining.
+	
+2005-11-29  Thomas Hellström  <unichrome-at-shipmail-dot-org>
+
 	* unichrome/Imakefile:
 	* unichrome/Makefile.am:
 	* unichrome/via.h:
