@@ -1,3 +1,9 @@
+2005-12-05  Thomas Hellström  <unichrome-at-shipmail-dot-org>
+
+	* configure.ac:
+
+	- Adapt configure.ac to bugfix in Xorg.
+	
 2005-11-29  Thomas Hellström  <unichrome-at-shipmail-dot-org>
 
 	* README.build:

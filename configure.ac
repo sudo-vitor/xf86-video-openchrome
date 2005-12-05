@@ -57,13 +57,7 @@ XORG_DRIVER_CHECK_EXT(RANDR, randrproto)
 XORG_DRIVER_CHECK_EXT(RENDER, renderproto)
 XORG_DRIVER_CHECK_EXT(XF86DRI, xextproto x11)
 XORG_DRIVER_CHECK_EXT(DPMSExtension, xextproto)
-SAVED_RM="$REQUIRED_MODULES"
-REQUIRED_MODULES=""
 XORG_DRIVER_CHECK_EXT(XV, videoproto)
-if test "x$REQUIRED_MODULES" != "x"; then
-   AC_DEFINE(XvExtension,1,[Enable X Video support])
-fi
-REQUIRED_MODULES="$SAVED_RM$REQUIRED_MODULES"
 
 # Checks for pkg-config packages
 PKG_CHECK_MODULES(XORG, [xorg-server xproto xvmc fontsproto $REQUIRED_MODULES])
