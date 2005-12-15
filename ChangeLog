@@ -1,3 +1,41 @@
+2005-12-15  Thomas Hellström <unichrome-at-shipmail-dot-org>  
+
+	* unichrome/Imakefile:
+	* unichrome/via_3d_reg.h:
+	* unichrome/via_accel.c: (viaFlushDRIEnabled),
+	(viaAccelClippingHelper), (viaAccelSolidHelper),
+	(viaAccelTransparentHelper), (viaAccelCopyHelper),
+	(viaSetupForScreenToScreenCopy), (viaSubsequentScreenToScreenCopy),
+	(viaSetupForSolidFill), (viaSubsequentSolidFillRect),
+	(viaSetupForMono8x8PatternFill),
+	(viaSubsequentMono8x8PatternFillRect),
+	(viaSetupForColor8x8PatternFill),
+	(viaSubsequentColor8x8PatternFillRect),
+	(viaSetupForCPUToScreenColorExpandFill),
+	(viaSubsequentScanlineCPUToScreenColorExpandFill),
+	(viaSetupForImageWrite), (viaSubsequentImageWriteRect),
+	(viaSetupForSolidLine), (viaSubsequentSolidTwoPointLine),
+	(viaSubsequentSolidHorVertLine), (viaSetupForDashedLine),
+	(viaAccelMarkSync), (viaExaPrepareSolid), (viaExaSolid),
+	(viaExaPrepareCopy), (viaExaCopy), (viaInitAccel),
+	(viaDGABlitRect), (viaDGAFillRect), (viaSet3DDestination),
+	(viaSet3DBlending), (viaSet3Dflags), (viaSet3DDrawing), (viaOrder),
+	(viaSet3DTexture), (viaEmit3DState), (viaEmitQuad), (test3d):
+	* unichrome/via_dmabuffer.h:
+	* unichrome/via_driver.h:
+
+	- Renamed and extended ring-buffer macros.
+	- Added ring-buffer macros for 3D engine AGP DMA.
+	- Added stripped down functions for basic 3D engine
+	
+	  *solid color drawing
+	  *alpha blending
+	  *texturing
+	  *multitexturing
+		
+          These will be used to accelerate composite, but composite callbacks
+	  are not yet implemented.
+
 R2005-12-02  Thomas Hellström  <unichrome-at-shipmail-dot-org> 
 
 	* unichrome/via_accel.c: (viaAccelPlaneMaskHelper),

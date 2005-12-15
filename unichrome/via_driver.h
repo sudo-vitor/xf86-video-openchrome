@@ -163,6 +163,57 @@ typedef struct _twodContext {
     int clipY2;
 } ViaTwodContext;
 
+#define VIA_NUM_TEXUINTS 2
+
+typedef enum{
+    via_argb8888,
+    via_rgb888,
+    via_rgb565,
+    via_a1,
+    via_a2,
+    via_a4,
+    via_a8
+} ViaImageFormats;
+
+typedef enum{
+    via_single,
+    via_clamp,
+    via_repeat,
+    via_mirror,
+    via_warp
+} ViaTextureModes;
+
+#define VIA_NUM_TEXUNITS 2
+
+typedef struct _Via3DState{
+    CARD32 rop;
+    CARD32 planeMask;
+    CARD32 solidColor;
+    CARD32 solidAlpha;
+    CARD32 destOffset;
+    CARD32 destPitch;
+    ViaImageFormats destFormat;
+    Bool alphaBuffer;
+    CARD32 alphaOffset;
+    CARD32 alphaPitch;
+    CARD32 alphaFormat;
+    CARD32 textureLevel0Offset[VIA_NUM_TEXUNITS];
+    CARD32 textureLevel0Pitch[VIA_NUM_TEXUNITS];
+    CARD32 textureLevel0Exp[VIA_NUM_TEXUNITS];
+    CARD32 textureLevel0WExp[VIA_NUM_TEXUNITS];
+    CARD32 textureLevel0HExp[VIA_NUM_TEXUNITS];
+    ViaImageFormats textureFormat[VIA_NUM_TEXUNITS];
+    CARD32 textureModesT[VIA_NUM_TEXUNITS];
+    CARD32 textureModesS[VIA_NUM_TEXUNITS];
+    Bool textureCol[VIA_NUM_TEXUNITS];
+    Bool textureAlpha[VIA_NUM_TEXUNITS];
+    int numTextures;
+    Bool blend;
+    Bool writeAlpha;
+    Bool writeColor;
+    Bool useDestAlpha;
+} Via3DState;
+
 typedef struct{
     /* textMode */
     CARD8 *state, *pstate; /* SVGA state */
@@ -229,10 +280,13 @@ typedef struct _VIA {
     /* Support for XAA acceleration */
     XAAInfoRecPtr       AccelInfoRec;
     ViaTwodContext      td;
+    Via3DState          v3d;
     ViaCommandBuffer    cb;
     int                 dgaMarker;
     CARD32              markerOffset;
     CARD32             *markerBuf;
+    CARD32              testOffset;
+    char               *testBuf;
     CARD32              curMarker;
     CARD32              lastMarkerRead;
     Bool                agpDMA;
