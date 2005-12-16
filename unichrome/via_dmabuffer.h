@@ -26,7 +26,8 @@
 
 #include "via_3d_reg.h"
 
-typedef struct _ViaCommandBuffer {
+typedef struct _ViaCommandBuffer
+{
     ScrnInfoPtr pScrn;
     CARD32 *buf;
     CARD32 waitFlags;
@@ -35,7 +36,8 @@ typedef struct _ViaCommandBuffer {
     int mode;
     int header_start;
     int rindex;
-    void (*flushFunc)(struct _ViaCommandBuffer *cb);
+    Bool has3dState;
+    void (*flushFunc) (struct _ViaCommandBuffer * cb);
 } ViaCommandBuffer;
 
 #define VIA_DMASIZE 16384
@@ -63,12 +65,14 @@ typedef struct _ViaCommandBuffer {
     cb->mode = 2;					\
     OUT_RING(HALCYON_HEADER2);				\
     OUT_RING(paraType << 16);				\
+    if (!cb->has3dState && ((paraType) != HC_ParaType_CmdVdata)) {	\
+      cb->has3dState == TRUE;						\
+    }									\
   } while(0);
-
 
 #define OUT_RING(val) do{	\
 	(cb)->buf[(cb)->pos++] = (val);	\
-    } while(0);		
+    } while(0);
 
 #define OUT_RING_QW(val1, val2)			\
     do {						\
@@ -88,8 +92,9 @@ typedef struct _ViaCommandBuffer {
 #define OUT_RING_SubA(val1, val2) \
   OUT_RING(((val1) << HC_SubA_SHIFT) | ((val2) & HC_Para_MASK))
 
-extern int viaSetupCBuffer(ScrnInfoPtr pScrn, ViaCommandBuffer *buf, unsigned size);
-extern void viaTearDownCBuffer(ViaCommandBuffer *buf);
-extern void viaFlushPCI(ViaCommandBuffer *buf);
+extern int viaSetupCBuffer(ScrnInfoPtr pScrn, ViaCommandBuffer * buf,
+    unsigned size);
+extern void viaTearDownCBuffer(ViaCommandBuffer * buf);
+extern void viaFlushPCI(ViaCommandBuffer * buf);
 
 #endif

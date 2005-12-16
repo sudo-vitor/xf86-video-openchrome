@@ -1613,16 +1613,15 @@ static void VIALeaveVT(int scrnIndex, int flags)
 
     viaAccelSync(pScrn);
 
+    /*
+     * Next line apparently helps fix 3D hang on VT switch.
+     * No idea why. Taken from VIA's binary drivers.
+     */
+
+    hwp->writeSeq(hwp, 0x1A, pVia->SavedReg.SR1A | 0x40);
 
 #ifdef XF86DRI
     if (pVia->directRenderingEnabled) {
-
-	/*
-	 * Next line apparently helps fix 3D hang on VT switch.
-	 * No idea why. Taken from VIA's binary drivers.
-	 */
-
-        hwp->writeSeq(hwp, 0x1A, pVia->SavedReg.SR1A | 0x40);
 
 	VIADRIRingBufferCleanup(pScrn); 
     }
@@ -2308,7 +2307,7 @@ VIAWriteMode(ScrnInfoPtr pScrn, DisplayModePtr mode)
     if (!pVia->NoAccel)
 	viaInitialize2DEngine(pScrn);
     
-#ifdef XF86DRI
+#if defined(XF86DRI) || defined(VIA_HAVE_EXA)
     VIAInitialize3DEngine(pScrn);
 #endif 
 
@@ -2337,12 +2336,8 @@ static Bool VIACloseScreen(int scrnIndex, ScreenPtr pScreen)
         viaAccelSync(pScrn);
  
 
-#ifdef XF86DRI
 	/* Fix 3D Hang after X restart */
-
-	if (pVia->directRenderingEnabled)
-	    hwp->writeSeq(hwp, 0x1A, pVia->SavedReg.SR1A | 0x40);
-#endif 
+	hwp->writeSeq(hwp, 0x1A, pVia->SavedReg.SR1A | 0x40);
 
 	if (!pVia->IsSecondary) {
             /* Turn off all video activities */
@@ -2535,7 +2530,7 @@ static void VIADPMS(ScrnInfoPtr pScrn, int mode, int flags)
     return;
 }
 
-#ifdef XF86DRI
+#if defined(XF86DRI) || defined(VIA_HAVE_EXA)
 void
 VIAInitialize3DEngine(ScrnInfoPtr pScrn)
 {

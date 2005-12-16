@@ -58,31 +58,54 @@ static void test3d(ScrnInfoPtr pScrn);
 void
 viaFlushPCI(ViaCommandBuffer * buf)
 {
-    unsigned size = buf->pos >> 1;
-    int i;
     register CARD32 *bp = buf->buf;
+    CARD32 transSetting;
+    CARD32 *endp = bp + buf->pos;
     unsigned loop = 0;
-    register unsigned offset;
-    register unsigned value;
+    register CARD32 offset = 0;
+    register CARD32 value;
     VIAPtr pVia = VIAPTR(buf->pScrn);
 
-    /*
-     * Not doing this wait will probably stall the processor
-     * for an unacceptable amount of time in VIASETREG while other high
-     * priority interrupts may be pending.
-     */
+    while (bp < endp) {
+	if (*bp == HALCYON_HEADER2) {
+	    if (++bp == endp)
+		return;
+	    VIASETREG(VIA_REG_TRANSET, transSetting = *bp++);
+	    while (bp < endp) {
+		if ((transSetting != HC_ParaType_CmdVdata) &&
+		    ((*bp == HALCYON_HEADER2)
+			|| (*bp & HALCYON_HEADER1MASK) == HALCYON_HEADER1))
+		    break;
+		VIASETREG(VIA_REG_TRANSPACE, *bp++);
+	    }
+	} else if ((*bp & HALCYON_HEADER1MASK) == HALCYON_HEADER1) {
 
-    while (!(VIAGETREG(VIA_REG_STATUS) & VIA_VR_QUEUE_BUSY)
-	&& (loop++ < MAXLOOP)) ;
-    while ((VIAGETREG(VIA_REG_STATUS) & (VIA_CMD_RGTR_BUSY | VIA_2D_ENG_BUSY))
-	&& (loop++ < MAXLOOP)) ;
-
-    for (i = 0; i < size; ++i) {
-	offset = (*bp++ & 0x0FFFFFFF) << 2;
-	value = *bp++;
-	VIASETREG(offset, value);
+	    while (bp < endp) {
+		if (*bp == HALCYON_HEADER2)
+		    break;
+		if (offset == 0) {
+		    /*
+		     * Not doing this wait will probably stall the processor
+		     * for an unacceptable amount of time in VIASETREG while other high
+		     * priority interrupts may be pending.
+		     */
+		    while (!(VIAGETREG(VIA_REG_STATUS) & VIA_VR_QUEUE_BUSY)
+			&& (loop++ < MAXLOOP)) ;
+		    while ((VIAGETREG(VIA_REG_STATUS) & (VIA_CMD_RGTR_BUSY |
+				VIA_2D_ENG_BUSY))
+			&& (loop++ < MAXLOOP)) ;
+		}
+		offset = (*bp++ & 0x0FFFFFFF) << 2;
+		value = *bp++;
+		VIASETREG(offset, value);
+	    }
+	} else {
+	    ErrorF("Command stream parser error.\n");
+	}
     }
     buf->pos = 0;
+    buf->mode = 0;
+    buf->has3dState = FALSE;
 }
 
 /*
@@ -100,24 +123,29 @@ viaFlushDRIEnabled(ViaCommandBuffer * cb)
     int tmpSize = cb->pos * sizeof(CARD32);
     drm_via_cmdbuffer_t b;
 
-    if (pVia->agpDMA) {
+    if (pVia->agpDMA || (pVia->directRenderingEnabled && cb->has3dState)) {
 	cb->mode = 0;
 	while (tmpSize > 0) {
 	    b.size = (tmpSize > VIA_DMASIZE) ? VIA_DMASIZE : tmpSize;
 	    tmpSize -= b.size;
 	    b.buf = tmp;
 	    tmp += b.size;
-	    if (drmCommandWrite(pVia->drmFD, DRM_VIA_PCICMD, &b, sizeof(b))) {
-		ErrorF("AGP DMA command submission failed.\n");
+	    if (drmCommandWrite(pVia->drmFD,
+		    ((pVia->agpDMA) ? DRM_VIA_CMDBUFFER : DRM_VIA_PCICMD), &b,
+		    sizeof(b))) {
+		ErrorF("DRM DMA command submission failed.\n");
 		pVia->agpDMA = FALSE;
 		cb->flushFunc = viaFlushPCI;
 		return;
 	    }
 	}
 	cb->pos = 0;
+	cb->mode = 0;
+	cb->has3dState = 0;
     } else {
-	cb->flushFunc = viaFlushPCI;
 	viaFlushPCI(cb);
+	if (!pVia->directRenderingEnabled)
+	    cb->flushFunc = viaFlushPCI;
     }
 }
 #endif
@@ -140,6 +168,7 @@ viaSetupCBuffer(ScrnInfoPtr pScrn, ViaCommandBuffer * buf, unsigned size)
     buf->mode = 0;
     buf->header_start = 0;
     buf->rindex = 0;
+    buf->has3dState = FALSE;
 #ifdef XF86DRI
     buf->flushFunc = viaFlushDRIEnabled;
 #else
@@ -661,11 +690,11 @@ viaSubsequentColor8x8PatternFillRect(ScrnInfoPtr pScrn, int patOffx,
 {
     VIAPtr pVia = VIAPTR(pScrn);
     CARD32 patAddr;
-
-    RING_VARS;
     ViaTwodContext *tdc = &pVia->td;
     CARD32 dstBase;
     int sub;
+
+    RING_VARS;
 
     if (!w || !h)
 	return;
@@ -700,9 +729,9 @@ viaSetupForCPUToScreenColorExpandFill(ScrnInfoPtr pScrn, int fg, int bg,
 {
     VIAPtr pVia = VIAPTR(pScrn);
     int cmd;
+    ViaTwodContext *tdc = &pVia->td;
 
     RING_VARS;
-    ViaTwodContext *tdc = &pVia->td;
 
     cmd = VIA_GEC_BLT | VIA_GEC_SRC_SYS | VIA_GEC_SRC_MONO |
 	VIAACCELCOPYROP(rop);
@@ -725,10 +754,10 @@ viaSubsequentScanlineCPUToScreenColorExpandFill(ScrnInfoPtr pScrn, int x,
     int y, int w, int h, int skipleft)
 {
     VIAPtr pVia = VIAPTR(pScrn);
-
-    RING_VARS;
     ViaTwodContext *tdc = &pVia->td;
     int sub;
+
+    RING_VARS;
 
     if (skipleft) {
 	viaSetClippingRectangle(pScrn, (x + skipleft), y, (x + w - 1),
@@ -752,9 +781,9 @@ viaSetupForImageWrite(ScrnInfoPtr pScrn, int rop, unsigned planemask,
     int trans_color, int bpp, int depth)
 {
     VIAPtr pVia = VIAPTR(pScrn);
+    ViaTwodContext *tdc = &pVia->td;
 
     RING_VARS;
-    ViaTwodContext *tdc = &pVia->td;
 
     tdc->cmd = VIA_GEC_BLT | VIA_GEC_SRC_SYS | VIAACCELCOPYROP(rop);
     ADVANCE_RING;
@@ -767,10 +796,10 @@ viaSubsequentImageWriteRect(ScrnInfoPtr pScrn, int x, int y, int w, int h,
     int skipleft)
 {
     VIAPtr pVia = VIAPTR(pScrn);
-
-    RING_VARS;
     ViaTwodContext *tdc = &pVia->td;
     int sub;
+
+    RING_VARS;
 
     if (skipleft) {
 	viaSetClippingRectangle(pScrn, (x + skipleft), y, (x + w - 1),
@@ -791,9 +820,9 @@ viaSetupForSolidLine(ScrnInfoPtr pScrn, int color, int rop,
     unsigned int planemask)
 {
     VIAPtr pVia = VIAPTR(pScrn);
+    ViaTwodContext *tdc = &pVia->td;
 
     RING_VARS;
-    ViaTwodContext *tdc = &pVia->td;
 
     viaAccelTransparentHelper(tdc, cb, 0x00, 0x00, FALSE);
     tdc->cmd = VIA_GEC_FIXCOLOR_PAT | VIAACCELPATTERNROP(rop);
@@ -811,11 +840,11 @@ viaSubsequentSolidTwoPointLine(ScrnInfoPtr pScrn, int x1, int y1,
 {
     VIAPtr pVia = VIAPTR(pScrn);
     int dx, dy, cmd, tmp, error = 1;
-
-    RING_VARS;
     ViaTwodContext *tdc = &pVia->td;
     CARD32 dstBase;
     int sub;
+
+    RING_VARS;
 
     cmd = tdc->cmd | VIA_GEC_LINE;
 
@@ -875,11 +904,11 @@ viaSubsequentSolidHorVertLine(ScrnInfoPtr pScrn, int x, int y, int len,
     int dir)
 {
     VIAPtr pVia = VIAPTR(pScrn);
-
-    RING_VARS;
     ViaTwodContext *tdc = &pVia->td;
     CARD32 dstBase;
     int sub;
+
+    RING_VARS;
 
     sub = viaAccelClippingHelper(cb, y, tdc);
     dstBase = pScrn->fbOffset + sub * pVia->Bpl;
@@ -907,9 +936,9 @@ viaSetupForDashedLine(ScrnInfoPtr pScrn, int fg, int bg, int rop,
     VIAPtr pVia = VIAPTR(pScrn);
     int cmd;
     CARD32 pat = *(CARD32 *) pattern;
+    ViaTwodContext *tdc = &pVia->td;
 
     RING_VARS;
-    ViaTwodContext *tdc = &pVia->td;
 
     viaAccelTransparentHelper(tdc, cb, 0x00, 0x00, FALSE);
     cmd = VIA_GEC_LINE | VIA_GEC_FIXCOLOR_PAT | VIAACCELPATTERNROP(rop);
@@ -1119,9 +1148,9 @@ viaExaPrepareSolid(PixmapPtr pPixmap, int alu, Pixel planeMask, Pixel fg)
 {
     ScrnInfoPtr pScrn = xf86Screens[pPixmap->drawable.pScreen->myNum];
     VIAPtr pVia = VIAPTR(pScrn);
+    ViaTwodContext *tdc = &pVia->td;
 
     RING_VARS;
-    ViaTwodContext *tdc = &pVia->td;
 
     if (exaGetPixmapPitch(pPixmap) & 7)
 	return FALSE;
@@ -1145,10 +1174,10 @@ viaExaSolid(PixmapPtr pPixmap, int x1, int y1, int x2, int y2)
 {
     ScrnInfoPtr pScrn = xf86Screens[pPixmap->drawable.pScreen->myNum];
     VIAPtr pVia = VIAPTR(pScrn);
-
-    RING_VARS;
     ViaTwodContext *tdc = &pVia->td;
     CARD32 dstPitch, dstOffset;
+
+    RING_VARS;
 
     int w = x2 - x1, h = y2 - y1;
 
@@ -1171,9 +1200,9 @@ viaExaPrepareCopy(PixmapPtr pSrcPixmap, PixmapPtr pDstPixmap, int xdir,
 {
     ScrnInfoPtr pScrn = xf86Screens[pDstPixmap->drawable.pScreen->myNum];
     VIAPtr pVia = VIAPTR(pScrn);
+    ViaTwodContext *tdc = &pVia->td;
 
     RING_VARS;
-    ViaTwodContext *tdc = &pVia->td;
 
     if (pSrcPixmap->drawable.bitsPerPixel !=
 	pDstPixmap->drawable.bitsPerPixel)
@@ -1199,7 +1228,7 @@ viaExaPrepareCopy(PixmapPtr pSrcPixmap, PixmapPtr pDstPixmap, int xdir,
     if (!viaAccelPlaneMaskHelper(tdc, planeMask))
 	return FALSE;
     viaAccelTransparentHelper(tdc, cb, 0x0, 0x0, TRUE);
-    /*    test3d(pScrn); */
+    test3d(pScrn);
 
     return TRUE;
 }
@@ -1210,11 +1239,11 @@ viaExaCopy(PixmapPtr pDstPixmap, int srcX, int srcY, int dstX, int dstY,
 {
     ScrnInfoPtr pScrn = xf86Screens[pDstPixmap->drawable.pScreen->myNum];
     VIAPtr pVia = VIAPTR(pScrn);
-
-    RING_VARS;
     ViaTwodContext *tdc = &pVia->td;
     CARD32 srcOffset = tdc->srcOffset;
     CARD32 dstOffset = exaGetPixmapOffset(pDstPixmap);
+
+    RING_VARS;
 
     if (!width || !height)
 	return;
@@ -1549,10 +1578,10 @@ viaDGABlitRect(ScrnInfoPtr pScrn, int srcx, int srcy, int w, int h,
 {
     VIAPtr pVia = VIAPTR(pScrn);
     ViaTwodContext *tdc = &pVia->td;
-
-    RING_VARS;
     unsigned dstOffset = pScrn->fbOffset + dsty * pVia->Bpl;
     unsigned srcOffset = pScrn->fbOffset + srcy * pVia->Bpl;
+
+    RING_VARS;
 
     if (!w || !h)
 	return;
@@ -1584,10 +1613,9 @@ viaDGAFillRect(ScrnInfoPtr pScrn, int x, int y, int w, int h,
     VIAPtr pVia = VIAPTR(pScrn);
     unsigned dstBase = pScrn->fbOffset + y * pVia->Bpl;
     ViaTwodContext *tdc = &pVia->td;
-
-    RING_VARS;
     CARD32 cmd = VIA_GEC_BLT | VIA_GEC_FIXCOLOR_PAT |
 	VIAACCELPATTERNROP(GXcopy);
+    RING_VARS;
 
     if (!w || !h)
 	return;
@@ -1672,7 +1700,7 @@ static Bool
 viaSet3DTexture(ScrnInfoPtr pScrn, Via3DState * v3d, int tex, CARD32 offset,
     CARD32 pitch, CARD32 width, CARD32 height, ViaImageFormats format,
     ViaTextureModes sMode, ViaTextureModes tMode, Bool textureCol,
-    Bool textureAlpha)
+    Bool textureAlpha, Bool agpTexture)
 {
     v3d->textureLevel0Offset[tex] = offset;
     if (!viaOrder(pitch, v3d->textureLevel0Exp + tex))
@@ -1693,6 +1721,19 @@ viaSet3DTexture(ScrnInfoPtr pScrn, Via3DState * v3d, int tex, CARD32 offset,
 
     v3d->textureCol[tex] = textureCol;
     v3d->textureAlpha[tex] = textureAlpha;
+#ifdef XF86DRI
+    if (agpTexture) {
+	VIAPtr pVia = VIAPTR(pScrn);
+
+	if (!pVia->directRenderingEnabled)
+	    return FALSE;
+	v3d->textureLevel0Offset[tex] += pVia->agpAddr;
+    }
+#else
+    if (agpTexture)
+	return FALSE;
+#endif
+    v3d->agpTexture[tex] = agpTexture;
     return TRUE;
 }
 
@@ -1795,7 +1836,8 @@ viaEmit3DState(ScrnInfoPtr pScrn, Via3DState * v3d)
 	BEGIN_H2((HC_ParaType_Tex |
 		(((i == 0) ? HC_SubType_Tex0 : HC_SubType_Tex1) << 8)), 13);
 
-	OUT_RING_SubA(HC_SubA_HTXnFM, v3d->textureFormat[i]);
+	OUT_RING_SubA(HC_SubA_HTXnFM, (v3d->textureFormat[i] |
+		(v3d->agpTexture[i] ? HC_HTXnLoc_AGP : HC_HTXnLoc_Local)));
 	OUT_RING_SubA(HC_SubA_HTXnL0BasL,
 	    v3d->textureLevel0Offset[i] & 0x00FFFFFF);
 	OUT_RING_SubA(HC_SubA_HTXnL012BasH,
@@ -1974,7 +2016,8 @@ test3d(ScrnInfoPtr pScrn)
     viaSet3DDrawing(pScrn, v3d, 0x0c, 0xFFFFFFFF, 0x000000FF, 0x00);
     viaSet3Dflags(pScrn, v3d, 1, FALSE, TRUE);
     if (!viaSet3DTexture(pScrn, v3d, 0, pVia->testOffset, 1024,
-	    256, 256, via_argb8888, via_repeat, via_repeat, TRUE, TRUE)) {
+	    256, 256, via_argb8888, via_repeat, via_repeat, TRUE, TRUE,
+	    FALSE)) {
 	ErrorF("Texture Error\n");
 	return;
     }

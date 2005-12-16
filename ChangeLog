@@ -1,3 +1,26 @@
+2005-12-16  Thomas Hellström <unichrome-at-shipmail-dot-org>  
+
+	* unichrome/via_accel.c: (viaFlushPCI), (viaFlushDRIEnabled),
+	(viaSetupCBuffer), (viaSubsequentColor8x8PatternFillRect),
+	(viaSetupForCPUToScreenColorExpandFill),
+	(viaSubsequentScanlineCPUToScreenColorExpandFill),
+	(viaSetupForImageWrite), (viaSubsequentImageWriteRect),
+	(viaSetupForSolidLine), (viaSubsequentSolidTwoPointLine),
+	(viaSubsequentSolidHorVertLine), (viaSetupForDashedLine),
+	(viaExaPrepareSolid), (viaExaSolid), (viaExaPrepareCopy),
+	(viaExaCopy), (viaDGABlitRect), (viaDGAFillRect),
+	(viaSet3DTexture), (viaEmit3DState), (test3d):
+	* unichrome/via_dmabuffer.h:
+	* unichrome/via_driver.c: (VIALeaveVT), (VIAWriteMode),
+	(VIACloseScreen):
+	* unichrome/via_driver.h:
+
+	- Some formatting fixes.
+	- Enable 3D engine when EXA is compiled in, even if DRI is not enabled.
+	- Extend the local command buffer parser to handle header2 3D commands.
+
+	We can now use the 3D functions without DRI.
+	
 2005-12-15  Thomas Hellström <unichrome-at-shipmail-dot-org>  
 
 	* unichrome/Imakefile:

@@ -207,6 +207,7 @@ typedef struct _Via3DState{
     CARD32 textureModesS[VIA_NUM_TEXUNITS];
     Bool textureCol[VIA_NUM_TEXUNITS];
     Bool textureAlpha[VIA_NUM_TEXUNITS];
+    Bool agpTexture[VIA_NUM_TEXUNITS];
     int numTextures;
     Bool blend;
     Bool writeAlpha;
@@ -398,7 +399,7 @@ typedef struct
 } VIAEntRec, *VIAEntPtr;
 
 /* Prototypes. */
-#ifdef XF86DRI
+#if defined(XF86DRI) || defined(VIA_HAVE_EXA)
 void VIAInitialize3DEngine(ScrnInfoPtr pScrn);
 #endif 
 
