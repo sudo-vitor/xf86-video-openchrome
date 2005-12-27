@@ -1,3 +1,21 @@
+2005-12-27  Thomas Hellström <unichrome-at-shipmail-dot-org>
+
+	* unichrome/via_accel.c: (viaExaPrepareCopy),
+	(viaExaCheckComposite), (viaExaPrepareComposite),
+	(viaExaComposite), (viaExaUploadToScreen), (viaInitExa),
+	(viaInitAccel), (viaOrder), (viaFinishInitAccel),
+	(viaSet3DDestination), (viaSet3DBlending), (viaSet3Dflags),
+	(viaSet3DDrawing), (viaSet3DTexture), (viaEmit3DState),
+	(viaEmitQuad), (test3d), (viaExaTexUploadToScreen):
+	* unichrome/via_driver.c: (VIAScreenInit):
+	* unichrome/via_driver.h:
+
+	- Implement an experimental upload to screen using AGP texturing.
+	  Works nicely on K8M800 but requires DRI to hand us AGP memory.
+	- Various temporary testing code implemented.
+	- Various 3D fixes. Probably broke AGP DMA (due to command alignments)
+	  on the way.
+
 2005-12-16  Thomas Hellström <unichrome-at-shipmail-dot-org>  
 
 	* unichrome/via_accel.c: (viaFlushPCI), (viaFlushDRIEnabled),

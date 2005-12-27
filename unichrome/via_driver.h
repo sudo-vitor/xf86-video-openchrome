@@ -186,17 +186,18 @@ typedef enum{
 #define VIA_NUM_TEXUNITS 2
 
 typedef struct _Via3DState{
+    Bool destDirty;
+    Bool blendDirty;
+    Bool enableDirty;
+    Bool drawingDirty;
     CARD32 rop;
     CARD32 planeMask;
     CARD32 solidColor;
     CARD32 solidAlpha;
     CARD32 destOffset;
     CARD32 destPitch;
-    ViaImageFormats destFormat;
-    Bool alphaBuffer;
-    CARD32 alphaOffset;
-    CARD32 alphaPitch;
-    CARD32 alphaFormat;
+    CARD32 destFormat;
+    int destDepth;
     CARD32 textureLevel0Offset[VIA_NUM_TEXUNITS];
     CARD32 textureLevel0Pitch[VIA_NUM_TEXUNITS];
     CARD32 textureLevel0Exp[VIA_NUM_TEXUNITS];
@@ -208,6 +209,7 @@ typedef struct _Via3DState{
     Bool textureCol[VIA_NUM_TEXUNITS];
     Bool textureAlpha[VIA_NUM_TEXUNITS];
     Bool agpTexture[VIA_NUM_TEXUNITS];
+    Bool textureDirty[VIA_NUM_TEXUNITS];
     int numTextures;
     Bool blend;
     Bool writeAlpha;
@@ -282,6 +284,7 @@ typedef struct _VIA {
     XAAInfoRecPtr       AccelInfoRec;
     ViaTwodContext      td;
     Via3DState          v3d;
+    Via3DState          *lastToUpload;
     ViaCommandBuffer    cb;
     int                 dgaMarker;
     CARD32              markerOffset;
@@ -346,6 +349,9 @@ typedef struct _VIA {
     int                 drmVerMinor;
     int                 drmVerPL;
     VIAMem              driOffScreenMem;
+    drm_via_mem_t       texAGPBuffer;
+    unsigned            texOffset;
+    char *              texAddr;
 #endif
     Bool		DRIIrqEnable;
     Bool                agpEnable;
@@ -419,6 +425,7 @@ void viaExitAccel(ScreenPtr);
 void viaDGABlitRect(ScrnInfoPtr, int, int, int, int, int, int);
 void viaDGAFillRect(ScrnInfoPtr, int, int, int, int, unsigned long);
 void viaDGAWaitMarker(ScrnInfoPtr);
+void viaFinishInitAccel(ScreenPtr);
 
 /* In via_shadow.c */
 void ViaShadowFBInit(ScrnInfoPtr pScrn, ScreenPtr pScreen);

@@ -2207,6 +2207,8 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
         xf86DrvMsg(pScrn->scrnIndex, X_INFO, "direct rendering disabled\n");
     }
 #endif
+    if (!pVia->NoAccel)
+        viaFinishInitAccel(pScreen);
 
     viaInitVideo(pScreen);
 
