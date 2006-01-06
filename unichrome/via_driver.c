@@ -2148,26 +2148,6 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
         }
     }
 
-    if (pVia->NoAccel) {
-
-	/*
-	 * This is only for Xv in Noaccel path, and since Xv is in some
-	 * sense accelerated, it might be a better idea to disable it
-	 * altogether.
-	 */ 
-
-        BoxRec AvailFBArea;
-
-        AvailFBArea.x1 = 0;
-        AvailFBArea.y1 = 0;
-        AvailFBArea.x2 = pScrn->displayWidth;
-        AvailFBArea.y2 = pScrn->virtualY + 1;
-	pVia->FBFreeStart=(AvailFBArea.y2 + 1)*pVia->Bpl;
-	xf86InitFBManager(pScreen, &AvailFBArea);
-	VIAInitLinear(pScreen);
-	pVia->driSize = (pVia->FBFreeEnd - pVia->FBFreeStart - pVia->Bpl);
-    }
-
     if (pVia->shadowFB)
 	ViaShadowFBInit(pScrn, pScreen);
 
@@ -2209,6 +2189,26 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
 #endif
     if (!pVia->NoAccel)
         viaFinishInitAccel(pScreen);
+
+    if (pVia->NoAccel) {
+
+	/*
+	 * This is only for Xv in Noaccel path, and since Xv is in some
+	 * sense accelerated, it might be a better idea to disable it
+	 * altogether.
+	 */ 
+
+        BoxRec AvailFBArea;
+
+        AvailFBArea.x1 = 0;
+        AvailFBArea.y1 = 0;
+        AvailFBArea.x2 = pScrn->displayWidth;
+        AvailFBArea.y2 = pScrn->virtualY + 1;
+	pVia->FBFreeStart=(AvailFBArea.y2 + 1)*pVia->Bpl;
+	xf86InitFBManager(pScreen, &AvailFBArea);
+	VIAInitLinear(pScreen);
+	pVia->driSize = (pVia->FBFreeEnd - pVia->FBFreeStart - pVia->Bpl);
+    }
 
     viaInitVideo(pScreen);
 

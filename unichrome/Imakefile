@@ -94,6 +94,7 @@ EXADEFINES = -DVIA_HAVE_EXA
 #endif
 
 SRCS = via_driver.c \
+    via_3d.c \
     via_accel.c \
     via_bandwidth.c \
     via_ch7xxx.c \
@@ -113,6 +114,7 @@ SRCS = via_driver.c \
     $(DRISRCS)
 
 OBJS = via_driver.o \
+    via_3d.o \
     via_accel.o \
     via_bandwidth.o \
     via_ch7xxx.o \
@@ -178,6 +180,8 @@ DependTarget()
 
 InstallDriverSDKNonExecFile(Imakefile,$(DRIVERSDKDIR)/drivers/via)
 InstallDriverSDKNonExecFile(via.h,$(DRIVERSDKDIR)/drivers/via)
+InstallDriverSDKNonExecFile(via_3d.c,$(DRIVERSDKDIR)/drivers/via)
+InstallDriverSDKNonExecFile(via_3d.h,$(DRIVERSDKDIR)/drivers/via)
 InstallDriverSDKNonExecFile(via_accel.c,$(DRIVERSDKDIR)/drivers/via)
 InstallDriverSDKNonExecFile(via_bandwidth.c,$(DRIVERSDKDIR)/drivers/via)
 InstallDriverSDKNonExecFile(via_bios.h,$(DRIVERSDKDIR)/drivers/via)

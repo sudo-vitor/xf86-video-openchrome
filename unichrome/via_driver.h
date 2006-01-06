@@ -65,6 +65,7 @@
 #include "via_priv.h"
 #include "via_swov.h"
 #include "via_dmabuffer.h"
+#include "via_3d.h"
 
 #ifdef XF86DRI
 #define _XF86DRI_SERVER_
@@ -76,6 +77,8 @@
 
 #ifdef VIA_HAVE_EXA
 #include "exa.h"
+#define VIA_AGP_UPL_SIZE        (1024*128)
+#define VIA_DMA_DL_SIZE         (1024*128)
 #endif
 
 #define DRIVER_NAME     "via"
@@ -163,60 +166,6 @@ typedef struct _twodContext {
     int clipY2;
 } ViaTwodContext;
 
-#define VIA_NUM_TEXUINTS 2
-
-typedef enum{
-    via_argb8888,
-    via_rgb888,
-    via_rgb565,
-    via_a1,
-    via_a2,
-    via_a4,
-    via_a8
-} ViaImageFormats;
-
-typedef enum{
-    via_single,
-    via_clamp,
-    via_repeat,
-    via_mirror,
-    via_warp
-} ViaTextureModes;
-
-#define VIA_NUM_TEXUNITS 2
-
-typedef struct _Via3DState{
-    Bool destDirty;
-    Bool blendDirty;
-    Bool enableDirty;
-    Bool drawingDirty;
-    CARD32 rop;
-    CARD32 planeMask;
-    CARD32 solidColor;
-    CARD32 solidAlpha;
-    CARD32 destOffset;
-    CARD32 destPitch;
-    CARD32 destFormat;
-    int destDepth;
-    CARD32 textureLevel0Offset[VIA_NUM_TEXUNITS];
-    CARD32 textureLevel0Pitch[VIA_NUM_TEXUNITS];
-    CARD32 textureLevel0Exp[VIA_NUM_TEXUNITS];
-    CARD32 textureLevel0WExp[VIA_NUM_TEXUNITS];
-    CARD32 textureLevel0HExp[VIA_NUM_TEXUNITS];
-    ViaImageFormats textureFormat[VIA_NUM_TEXUNITS];
-    CARD32 textureModesT[VIA_NUM_TEXUNITS];
-    CARD32 textureModesS[VIA_NUM_TEXUNITS];
-    Bool textureCol[VIA_NUM_TEXUNITS];
-    Bool textureAlpha[VIA_NUM_TEXUNITS];
-    Bool agpTexture[VIA_NUM_TEXUNITS];
-    Bool textureDirty[VIA_NUM_TEXUNITS];
-    int numTextures;
-    Bool blend;
-    Bool writeAlpha;
-    Bool writeColor;
-    Bool useDestAlpha;
-} Via3DState;
-
 typedef struct{
     /* textMode */
     CARD8 *state, *pstate; /* SVGA state */
@@ -286,11 +235,9 @@ typedef struct _VIA {
     Via3DState          v3d;
     Via3DState          *lastToUpload;
     ViaCommandBuffer    cb;
-    int                 dgaMarker;
+    int                 accelMarker;
     CARD32              markerOffset;
     CARD32             *markerBuf;
-    CARD32              testOffset;
-    char               *testBuf;
     CARD32              curMarker;
     CARD32              lastMarkerRead;
     Bool                agpDMA;
@@ -300,6 +247,10 @@ typedef struct _VIA {
     unsigned int        exa_scratch_next;
     Bool                useEXA;
 #ifdef XF86DRI
+    drm_via_mem_t       texAGPBuffer;
+    unsigned            texOffset;
+    char *              texAddr;
+    char *              dBounce;
 #endif
 #endif
 
@@ -349,9 +300,6 @@ typedef struct _VIA {
     int                 drmVerMinor;
     int                 drmVerPL;
     VIAMem              driOffScreenMem;
-    drm_via_mem_t       texAGPBuffer;
-    unsigned            texOffset;
-    char *              texAddr;
 #endif
     Bool		DRIIrqEnable;
     Bool                agpEnable;
@@ -422,10 +370,14 @@ void viaInitialize2DEngine(ScrnInfoPtr);
 void viaAccelSync(ScrnInfoPtr);
 void viaDisableVQ(ScrnInfoPtr);
 void viaExitAccel(ScreenPtr);
-void viaDGABlitRect(ScrnInfoPtr, int, int, int, int, int, int);
-void viaDGAFillRect(ScrnInfoPtr, int, int, int, int, unsigned long);
-void viaDGAWaitMarker(ScrnInfoPtr);
+void viaAccelBlitRect(ScrnInfoPtr, int, int, int, int, int, int);
+void viaAccelFillRect(ScrnInfoPtr, int, int, int, int, unsigned long);
+void viaAccelSyncMarker(ScrnInfoPtr);
 void viaFinishInitAccel(ScreenPtr);
+void viaAccelWaitMarker(ScreenPtr, int);
+int viaAccelMarkSync(ScreenPtr);
+
+
 
 /* In via_shadow.c */
 void ViaShadowFBInit(ScrnInfoPtr pScrn, ScreenPtr pScreen);

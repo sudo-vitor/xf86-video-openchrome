@@ -1,3 +1,30 @@
+2006-01-06  Thomas Hellström <unichrome-at-shipmail-dot-org>
+
+	* unichrome/Imakefile:
+	* unichrome/via_3d.c: (viaSet3DDestination), (viaSet3DDrawing),
+	(viaSet3DFlags), (viaOrder), (viaSet3DTexture),
+	(viaSet3DTexBlendCol), (viaSet3DCompositeOperator),
+	(via3DEmitQuad), (via3DEmitState), (viaInit3DState):
+	* unichrome/via_3d.h:
+	* unichrome/via_accel.c: (viaDumpDMA), (viaFlushDRIEnabled),
+	(viaSetupCBuffer), (viaExaPrepareCopy), (viaExaCompositePictDesc),
+	(viaExaPrintComposite), (viaBitExpandHelper), (viaPixelARGB8888),
+	(viaExpandablePixel), (viaCheckUpload), (viaOrder),
+	(viaExaDownloadFromScreen), (viaExaTexUploadToScreen),
+	(viaExaUploadToScreen), (viaExaCheckComposite),
+	(viaExaPrepareComposite), (viaExaComposite), (viaInitExa),
+	(viaInitAccel), (viaExitAccel), (viaFinishInitAccel),
+	(viaAccelBlitRect), (viaAccelFillRect), (viaAccelSyncMarker):
+	* unichrome/via_dga.c:
+	* unichrome/via_dmabuffer.h:
+	* unichrome/via_driver.c: (VIAScreenInit):
+	* unichrome/via_driver.h:
+
+	- Sort of working composite acceleration. Some things are still slow, 
+	  some picture formats not implemented, and single pixel mask is 
+	  probably somewhat buggy. But translucent windows and window shadows
+	  work nicely, although not at Nvidia speeds.
+
 2005-12-27  Thomas Hellström <unichrome-at-shipmail-dot-org>
 
 	* unichrome/via_accel.c: (viaExaPrepareCopy),

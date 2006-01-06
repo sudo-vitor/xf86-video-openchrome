@@ -1,6 +1,7 @@
 /*
  * Copyright 1998-2003 VIA Technologies, Inc. All Rights Reserved.
  * Copyright 2001-2003 S3 Graphics, Inc. All Rights Reserved.
+ * Copyright 2006 Thomas Hellström. All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -40,6 +41,8 @@
 #include "via_regs.h"
 #include "via_id.h"
 #include "via_dmabuffer.h"
+#include <time.h>
+#include <sys/time.h>
 
 #ifdef X_HAVE_XAAGETROP
 #define VIAACCELPATTERNROP(vRop) (XAAGetPatternROP(vRop) << 24)
@@ -53,10 +56,20 @@
  * Use PCI MMIO to flush the command buffer. When AGP DMA is not available.
  */
 
-static void test3d(ScrnInfoPtr pScrn);
-static Bool
-viaExaTexUploadToScreen(PixmapPtr pDst, int x, int y, int w, int h, char *src,
-    int src_pitch);
+static void
+viaDumpDMA(ViaCommandBuffer * buf)
+{
+    register CARD32 *bp = buf->buf;
+    CARD32 *endp = bp + buf->pos;
+
+    while (bp != endp) {
+	if (((bp - buf->buf) & 3) == 0) {
+	    ErrorF("\n %04lx: ", (unsigned long)(bp - buf->buf));
+	}
+	ErrorF("0x%08x ", (unsigned)*bp++);
+    }
+    ErrorF("\n");
+}
 
 void
 viaFlushPCI(ViaCommandBuffer * buf)
@@ -112,8 +125,9 @@ viaFlushPCI(ViaCommandBuffer * buf)
 }
 
 /*
- * Use AGP DMA to flush the command buffer. If it fails it skips the current
- * command buffer and reverts to PCI MMIO until the server is reset.
+ * Flush the command buffer using DRM. If in PCI mode, we can bypass DRM,
+ * but not for command buffers that contains 3D engine state, since then
+ * the DRM command verifier will lose track of the 3D engine state.
  */
 
 #ifdef XF86DRI
@@ -123,11 +137,22 @@ viaFlushDRIEnabled(ViaCommandBuffer * cb)
     ScrnInfoPtr pScrn = cb->pScrn;
     VIAPtr pVia = VIAPTR(pScrn);
     char *tmp = (char *)cb->buf;
-    int tmpSize = cb->pos * sizeof(CARD32);
+    int tmpSize;
     drm_via_cmdbuffer_t b;
 
+    /*
+     * Align command buffer end for AGP DMA.
+     */
+
+    if (pVia->agpDMA && cb->mode == 2 && cb->rindex != HC_ParaType_CmdVdata
+	&& (cb->pos & 1)) {
+	OUT_RING(HC_DUMMY);
+    }
+
+    tmpSize = cb->pos * sizeof(CARD32);
     if (pVia->agpDMA || (pVia->directRenderingEnabled && cb->has3dState)) {
 	cb->mode = 0;
+	cb->has3dState = FALSE;
 	while (tmpSize > 0) {
 	    b.size = (tmpSize > VIA_DMASIZE) ? VIA_DMASIZE : tmpSize;
 	    tmpSize -= b.size;
@@ -136,19 +161,14 @@ viaFlushDRIEnabled(ViaCommandBuffer * cb)
 	    if (drmCommandWrite(pVia->drmFD,
 		    ((pVia->agpDMA) ? DRM_VIA_CMDBUFFER : DRM_VIA_PCICMD), &b,
 		    sizeof(b))) {
-		ErrorF("DRM DMA command submission failed.\n");
-		pVia->agpDMA = FALSE;
-		cb->flushFunc = viaFlushPCI;
+		ErrorF("DRM command buffer submission failed.\n");
+		viaDumpDMA(cb);
 		return;
 	    }
 	}
 	cb->pos = 0;
-	cb->mode = 0;
-	cb->has3dState = 0;
     } else {
 	viaFlushPCI(cb);
-	if (!pVia->directRenderingEnabled)
-	    cb->flushFunc = viaFlushPCI;
     }
 }
 #endif
@@ -161,6 +181,8 @@ viaFlushDRIEnabled(ViaCommandBuffer * cb)
 int
 viaSetupCBuffer(ScrnInfoPtr pScrn, ViaCommandBuffer * buf, unsigned size)
 {
+    VIAPtr pVia = VIAPTR(pScrn);
+
     buf->pScrn = pScrn;
     buf->bufSize = ((size == 0) ? VIA_DMASIZE : size) >> 2;
     buf->buf = (CARD32 *) xcalloc(buf->bufSize, sizeof(CARD32));
@@ -172,10 +194,11 @@ viaSetupCBuffer(ScrnInfoPtr pScrn, ViaCommandBuffer * buf, unsigned size)
     buf->header_start = 0;
     buf->rindex = 0;
     buf->has3dState = FALSE;
-#ifdef XF86DRI
-    buf->flushFunc = viaFlushDRIEnabled;
-#else
     buf->flushFunc = viaFlushPCI;
+#ifdef XF86DRI
+    if (pVia->directRenderingEnabled) {
+	buf->flushFunc = viaFlushDRIEnabled;
+    }
 #endif
     return Success;
 }
@@ -1094,7 +1117,7 @@ viaInitXAA(ScreenPtr pScreen)
  * write to the PCI DMA engines from the AGP command stream.
  */
 
-static int
+int
 viaAccelMarkSync(ScreenPtr pScreen)
 {
     ScrnInfoPtr pScrn = xf86Screens[pScreen->myNum];
@@ -1125,7 +1148,7 @@ viaAccelMarkSync(ScreenPtr pScreen)
  * Wait for the value to get blitted, or in the PCI case for engine idle.
  */
 
-static void
+void
 viaAccelWaitMarker(ScreenPtr pScreen, int marker)
 {
     ScrnInfoPtr pScrn = xf86Screens[pScreen->myNum];
@@ -1231,7 +1254,6 @@ viaExaPrepareCopy(PixmapPtr pSrcPixmap, PixmapPtr pDstPixmap, int xdir,
     if (!viaAccelPlaneMaskHelper(tdc, planeMask))
 	return FALSE;
     viaAccelTransparentHelper(tdc, cb, 0x0, 0x0, TRUE);
-    /*    test3d(pScrn); */
 
     return TRUE;
 }
@@ -1257,32 +1279,221 @@ viaExaCopy(PixmapPtr pDstPixmap, int srcX, int srcY, int dstX, int dstY,
     ADVANCE_RING;
 }
 
-static Bool
-viaExaCheckComposite(int op, PicturePtr pSrcPicture,
-    PicturePtr pMaskPicture, PicturePtr pDstPicture)
+#if 0
+static void
+viaExaCompositePictDesc(PicturePtr pict, char *string, int n)
 {
-    return FALSE;
-}
+    char format[20];
+    char size[20];
 
-static Bool
-viaExaPrepareComposite(int op, PicturePtr pSrcPicture,
-    PicturePtr pMaskPicture, PicturePtr pDstPicture,
-    PixmapPtr pSrc, PixmapPtr pMask, PixmapPtr pDst)
-{
-    return FALSE;
+    if (!pict) {
+	snprintf(string, n, "None");
+	return;
+    }
+
+    switch (pict->format) {
+    case PICT_x8r8g8b8:
+	snprintf(format, 20, "RGB8888");
+	break;
+    case PICT_a8r8g8b8:
+	snprintf(format, 20, "ARGB8888");
+	break;
+    case PICT_r5g6b5:
+	snprintf(format, 20, "RGB565  ");
+	break;
+    case PICT_x1r5g5b5:
+	snprintf(format, 20, "RGB555  ");
+	break;
+    case PICT_a8:
+	snprintf(format, 20, "A8      ");
+	break;
+    case PICT_a1:
+	snprintf(format, 20, "A1      ");
+	break;
+    default:
+	snprintf(format, 20, "0x%x", (int)pict->format);
+	break;
+    }
+
+    snprintf(size, 20, "%dx%d%s", pict->pDrawable->width,
+	pict->pDrawable->height, pict->repeat ? " R" : "");
+
+    snprintf(string, n, "0x%lx: fmt %s (%s)", (long)pict->pDrawable, format,
+	size);
 }
 
 static void
-viaExaComposite(PixmapPtr pDst, int srcX, int srcY, int maskX, int maskY,
-    int dstX, int dstY, int width, int height)
+viaExaPrintComposite(CARD8 op,
+    PicturePtr pSrc, PicturePtr pMask, PicturePtr pDst)
 {
+    char sop[20];
+    char srcdesc[40], maskdesc[40], dstdesc[40];
+
+    switch (op) {
+    case PictOpSrc:
+	sprintf(sop, "Src");
+	break;
+    case PictOpOver:
+	sprintf(sop, "Over");
+	break;
+    default:
+	sprintf(sop, "0x%x", (int)op);
+	break;
+    }
+
+    viaExaCompositePictDesc(pSrc, srcdesc, 40);
+    viaExaCompositePictDesc(pMask, maskdesc, 40);
+    viaExaCompositePictDesc(pDst, dstdesc, 40);
+
+    ErrorF("Composite fallback: op %s, \n"
+	"                    src  %s, \n"
+	"                    mask %s, \n"
+	"                    dst  %s, \n", sop, srcdesc, maskdesc, dstdesc);
+}
+#endif
+
+/*
+ * Helper for bitdepth expansion.
+ */
+
+static CARD32
+viaBitExpandHelper(CARD32 component, CARD32 bits)
+{
+    CARD32 tmp, mask;
+
+    mask = (1 << (8 - bits)) - 1;
+    tmp = component << (8 - bits);
+    return ((component & 1) ? tmp | mask : tmp);
+}
+
+/*
+ * Extract the components from a pixel of format "format" to an
+ * argb8888 pixel. This is used to extract data from one-pixel repeat pixmaps.
+ * Assumes little endian.
+ */
+
+static void
+viaPixelARGB8888(unsigned format, void *pixelP, CARD32 * argb8888)
+{
+    CARD32 bits, shift, pixel, bpp;
+
+    bpp = PICT_FORMAT_BPP(format);
+
+    if (bpp <= 8) {
+	pixel = *((CARD8 *) pixelP);
+    } else if (bpp <= 16) {
+	pixel = *((CARD16 *) pixelP);
+    } else {
+	pixel = *((CARD32 *) pixelP);
+    }
+
+    switch (PICT_FORMAT_TYPE(format)) {
+    case PICT_TYPE_A:
+	bits = PICT_FORMAT_A(format);
+	*argb8888 = viaBitExpandHelper(pixel & ((1 << bits) - 1), bits) << 24;
+	return;
+    case PICT_TYPE_ARGB:
+	shift = 0;
+	bits = PICT_FORMAT_B(format);
+	*argb8888 = viaBitExpandHelper(pixel & ((1 << bits) - 1), bits);
+	shift += bits;
+	bits = PICT_FORMAT_G(format);
+	*argb8888 |=
+	    viaBitExpandHelper((pixel >> shift) & ((1 << bits) - 1),
+	    bits) << 8;
+	shift += bits;
+	bits = PICT_FORMAT_R(format);
+	*argb8888 |=
+	    viaBitExpandHelper((pixel >> shift) & ((1 << bits) - 1),
+	    bits) << 16;
+	shift += bits;
+	bits = PICT_FORMAT_A(format);
+	*argb8888 |=
+	    viaBitExpandHelper((pixel >> shift) & ((1 << bits) - 1),
+	    bits) << 24;
+	return;
+    case PICT_TYPE_ABGR:
+	shift = 0;
+	bits = PICT_FORMAT_B(format);
+	*argb8888 = viaBitExpandHelper(pixel & ((1 << bits) - 1), bits) << 16;
+	shift += bits;
+	bits = PICT_FORMAT_G(format);
+	*argb8888 |=
+	    viaBitExpandHelper((pixel >> shift) & ((1 << bits) - 1),
+	    bits) << 8;
+	shift += bits;
+	bits = PICT_FORMAT_R(format);
+	*argb8888 |=
+	    viaBitExpandHelper((pixel >> shift) & ((1 << bits) - 1), bits);
+	shift += bits;
+	bits = PICT_FORMAT_A(format);
+	*argb8888 |=
+	    viaBitExpandHelper((pixel >> shift) & ((1 << bits) - 1),
+	    bits) << 24;
+	return;
+    default:
+	break;
+    }
+    return;
+}
+
+/*
+ * Check if the above function will work.
+ */
+
+static Bool
+viaExpandablePixel(int format)
+{
+    int formatType = PICT_FORMAT_TYPE(format);
+
+    return (formatType == PICT_TYPE_A ||
+	formatType == PICT_TYPE_ABGR || formatType == PICT_TYPE_ARGB);
+}
+
+/*
+ * Check if we need to force upload of the whole 3D state (if other clients or)
+ * subsystems have touched the 3D engine). Also tell DRI clients and subsystems * that we have touched the 3D engine.
+ */
+
+static Bool
+viaCheckUpload(ScrnInfoPtr pScrn, Via3DState * v3d)
+{
+    VIAPtr pVia = VIAPTR(pScrn);
+    Bool forceUpload;
+
+    forceUpload = (pVia->lastToUpload != v3d);
+    pVia->lastToUpload = v3d;
+
+#ifdef XF86DRI
+
+    if (pVia->directRenderingEnabled) {
+	volatile drm_via_sarea_t *saPriv = (drm_via_sarea_t *)
+	    DRIGetSAREAPrivate(pScrn->pScreen);
+	int myContext = DRIGetContext(pScrn->pScreen);
+
+	forceUpload = forceUpload || (saPriv->ctxOwner != myContext);
+	saPriv->ctxOwner = myContext;
+    }
+#endif
+    return forceUpload;
+}
+
+static Bool
+viaOrder(CARD32 val, CARD32 * shift)
+{
+    *shift = 0;
+
+    while (val > (1 << *shift))
+	(*shift)++;
+    return (val == (1 << *shift));
 }
 
 #ifdef XF86DRI
 
 /*
- * Use PCI DMA if we can. Really, if the system alignments don't match it is worth doing 
- * an extra copy to avoid reading from the frame-buffer which is painfully slow.
+ * Use PCI DMA if we can. If the system alignments don't match we're using 
+ * an aligned bounce buffer for pipelined PCI DMA and memcpy.
+ * throughput for large transfers is around 65 MB/s.
  */
 
 static Bool
@@ -1291,15 +1502,16 @@ viaExaDownloadFromScreen(PixmapPtr pSrc, int x, int y, int w, int h,
 {
     ScrnInfoPtr pScrn = xf86Screens[pSrc->drawable.pScreen->myNum];
     VIAPtr pVia = VIAPTR(pScrn);
-    drm_via_dmablit_t blit;
+    drm_via_dmablit_t blit[2], *curBlit;
     unsigned srcPitch = exaGetPixmapPitch(pSrc);
     unsigned bytesPerPixel = pSrc->drawable.bitsPerPixel >> 3;
     unsigned srcOffset =
 	exaGetPixmapOffset(pSrc) + y * srcPitch + x * bytesPerPixel;
-    int err;
-    char *bounce = NULL;
+    int err, buf, height, i;
     char *bounceAligned = NULL;
     unsigned bouncePitch = 0;
+    Bool sync[2], useBounceBuffer;
+    unsigned totSize;
 
     if (!pVia->directRenderingEnabled)
 	return FALSE;
@@ -1309,49 +1521,198 @@ viaExaDownloadFromScreen(PixmapPtr pSrc, int x, int y, int w, int h,
 	return FALSE;
     }
 
-    blit.num_lines = h;
-    blit.line_length = w * bytesPerPixel;
-    blit.fb_addr = srcOffset;
-    blit.fb_stride = srcPitch;
-    blit.mem_addr = dst;
-    blit.mem_stride = dst_pitch;
-    blit.bounce_buffer = 0;
-    blit.to_fb = 0;
-
-    if (((unsigned long)dst & 15) || (dst_pitch & 15)) {
-	bouncePitch = (w * bytesPerPixel + 15) & ~15;
-	bounce = (char *)xalloc(bouncePitch * h + 15);
-	if (!bounce)
-	    return FALSE;
-	bounceAligned = (char *)(((unsigned long)bounce + 15) & ~15);
-	blit.mem_addr = bounceAligned;
-	blit.mem_stride = bouncePitch;
-    }
-
-    while (-EAGAIN == (err =
-	    drmCommandWriteRead(pVia->drmFD, DRM_VIA_DMA_BLIT, &blit,
-		sizeof(blit)))) ;
-    if (!err) {
-	while (-EAGAIN == (err =
-		drmCommandWrite(pVia->drmFD, DRM_VIA_BLIT_SYNC, &blit.sync,
-		    sizeof(blit.sync)))) ;
-    }
-    if (!err && bounce) {
-	unsigned i;
-
+    totSize = bytesPerPixel * w * h;
+    if (totSize < 400) {
+	bounceAligned = pVia->FBBase + srcOffset;
 	for (i = 0; i < h; ++i) {
-	    memcpy(dst, bounceAligned, blit.line_length);
+	    memcpy(dst, bounceAligned, w * bytesPerPixel);
 	    dst += dst_pitch;
-	    bounceAligned += bouncePitch;
+	    bounceAligned += srcPitch;
+	}
+	return TRUE;
+    }
+
+    useBounceBuffer = (((unsigned long)dst & 15) || (dst_pitch & 15));
+
+    height = h;
+
+    if (useBounceBuffer) {
+	bounceAligned = (char *)(((unsigned long)pVia->dBounce + 15) & ~15);
+	bouncePitch = (dst_pitch + 15) & ~15;
+	height = VIA_DMA_DL_SIZE / bouncePitch;
+    }
+
+    sync[0] = FALSE;
+    sync[1] = FALSE;
+    buf = 0;
+    err = 0;
+
+    while (h && !err) {
+	curBlit = blit + buf;
+
+	curBlit->num_lines = (h > height) ? height : h;
+	h -= curBlit->num_lines;
+	curBlit->line_length = w * bytesPerPixel;
+	curBlit->fb_addr = srcOffset;
+	curBlit->fb_stride = srcPitch;
+	curBlit->mem_addr =
+	    (useBounceBuffer) ? bounceAligned + VIA_DMA_DL_SIZE * buf : dst;
+	curBlit->mem_stride = (useBounceBuffer) ? bouncePitch : dst_pitch;
+	curBlit->bounce_buffer = 0;
+	curBlit->to_fb = 0;
+
+	while (-EAGAIN == (err =
+		drmCommandWriteRead(pVia->drmFD, DRM_VIA_DMA_BLIT, curBlit,
+		    sizeof(*curBlit)))) ;
+	sync[buf] = TRUE;
+	buf = (buf) ? 0 : 1;
+	curBlit = blit + buf;
+
+	if (sync[buf] && !err) {
+	    while (-EAGAIN == (err =
+		    drmCommandWrite(pVia->drmFD, DRM_VIA_BLIT_SYNC,
+			&curBlit->sync, sizeof(curBlit->sync)))) ;
+	    sync[buf] = FALSE;
+	    if (!err && useBounceBuffer) {
+		for (i = 0; i < curBlit->num_lines; ++i) {
+		    memcpy(dst, curBlit->mem_addr, curBlit->line_length);
+		    dst += dst_pitch;
+		    curBlit->mem_addr += curBlit->mem_stride;
+		}
+	    }
+	}
+	srcOffset += height * srcPitch;
+    }
+
+    buf = (buf) ? 0 : 1;
+    curBlit = blit + buf;
+
+    if (sync[buf] && !err) {
+	while (-EAGAIN == (err =
+		drmCommandWrite(pVia->drmFD, DRM_VIA_BLIT_SYNC,
+		    &curBlit->sync, sizeof(curBlit->sync)))) ;
+	if (!err && useBounceBuffer) {
+	    for (i = 0; i < curBlit->num_lines; ++i) {
+		memcpy(dst, curBlit->mem_addr, curBlit->line_length);
+		dst += dst_pitch;
+		curBlit->mem_addr += curBlit->mem_stride;
+	    }
 	}
     }
-    if (bounce)
-	xfree(bounce);
+
     return (err == 0);
 }
 
 /*
- * I'm not sure upload is necessary. Seems buggy for widths below 65, and I'd guess that in
+ * Upload to framebuffer memory using memcpy to AGP pipelined with a 
+ * 3D engine texture operation from AGP to framebuffer. The AGP buffers (2) 
+ * should be kept rather small for optimal pipelining.
+ */
+
+static Bool
+viaExaTexUploadToScreen(PixmapPtr pDst, int x, int y, int w, int h, char *src,
+    int src_pitch)
+{
+    ScrnInfoPtr pScrn = xf86Screens[pDst->drawable.pScreen->myNum];
+    VIAPtr pVia = VIAPTR(pScrn);
+    unsigned dstPitch = exaGetPixmapPitch(pDst);
+    unsigned bytesPerPixel = pDst->drawable.bitsPerPixel >> 3;
+    unsigned dstOffset = exaGetPixmapOffset(pDst);
+    CARD32 texWidth, texHeight, texPitch;
+    int format;
+    unsigned char *dst;
+    int i, sync[2], yOffs, bufH, bufOffs, height, pitch;
+    Bool buf;
+    Via3DState *v3d = &pVia->v3d;
+
+    if (!pVia->texAddr)
+	return FALSE;
+
+    switch (bytesPerPixel) {
+    case 4:
+    case 1:
+	format = PICT_a8r8g8b8;
+	break;
+    case 2:
+	format = PICT_r5g6b5;
+	break;
+    default:
+	return FALSE;
+    }
+
+    pitch = w * bytesPerPixel;
+    if (pitch * h < 400) {
+	dst =
+	    (char *)pVia->FBBase + dstOffset + y * dstPitch +
+	    x * bytesPerPixel;
+	for (i = 0; i < h; ++i) {
+	    memcpy(dst, src, pitch);
+	    dst += dstPitch;
+	    src += src_pitch;
+	}
+	return TRUE;
+    }
+
+    if (bytesPerPixel == 1)
+	return FALSE;
+
+    viaOrder((w == 1) ? pitch << 1 : pitch, &texPitch);
+    height = VIA_AGP_UPL_SIZE >> texPitch;
+    if (height > 1024)
+	height = 1024;
+    texPitch = 1 << texPitch;
+    viaOrder(w, &texWidth);
+    texWidth = 1 << texWidth;
+
+    texHeight = height << 1;
+    bufOffs = texPitch * height;
+
+    v3d->setDestination(v3d, dstOffset, dstPitch, format);
+    v3d->setDrawing(v3d, 0x0c, 0xFFFFFFFF, 0x000000FF, 0x00);
+    v3d->setFlags(v3d, 1, TRUE, TRUE, FALSE);
+    if (!v3d->setTexture(v3d, 0, pVia->texOffset + pVia->agpAddr, texPitch,
+	    texWidth, texHeight, format, via_single, via_single, via_src,
+	    NULL, TRUE))
+	return FALSE;
+
+    v3d->emitState(v3d, &pVia->cb, viaCheckUpload(pScrn, v3d));
+
+    buf = 1;
+    yOffs = 0;
+    sync[0] = -1;
+    sync[1] = -1;
+
+    while (h) {
+	buf = (buf) ? 0 : 1;
+	bufH = (h > height) ? height : h;
+	dst = pVia->texAddr + ((buf) ? bufOffs : 0);
+
+	if (sync[buf] >= 0)
+	    viaAccelWaitMarker(pScrn->pScreen, sync[buf]);
+
+	for (i = 0; i < bufH; ++i) {
+	    memcpy(dst, src, pitch);
+	    dst += texPitch;
+	    src += src_pitch;
+	}
+
+	v3d->emitQuad(v3d, &pVia->cb, x, y + yOffs, 0, (buf) ? height : 0, 0,
+	    0, w, bufH);
+
+	sync[buf] = viaAccelMarkSync(pScrn->pScreen);
+
+	h -= bufH;
+	yOffs += bufH;
+    }
+
+    if (sync[buf] >= 0)
+	viaAccelWaitMarker(pScrn->pScreen, sync[buf]);
+
+    return TRUE;
+}
+
+/*
+ * I'm not sure PCI DMA upload is necessary. Seems buggy for widths below 65, and I'd guess that in
  * most situations, CPU direct writes are faster. Use DMA only when alignments match. At least
  * it saves some CPU cycles.
  */
@@ -1371,10 +1732,7 @@ viaExaUploadToScreen(PixmapPtr pDst, int x, int y, int w, int h, char *src,
 
     if (!pVia->directRenderingEnabled)
 	return FALSE;
-#if 1
-    if (viaExaTexUploadToScreen(pDst, x, y, w, h, src, src_pitch))
-	return TRUE;
-#endif
+
     if (((unsigned long)src & 15) || (src_pitch & 15))
 	return FALSE;
 
@@ -1406,6 +1764,101 @@ viaExaUploadToScreen(PixmapPtr pDst, int x, int y, int w, int h, char *src,
 
 #endif
 
+static Bool
+viaExaCheckComposite(int op, PicturePtr pSrcPicture,
+    PicturePtr pMaskPicture, PicturePtr pDstPicture)
+{
+
+    ScrnInfoPtr pScrn = xf86Screens[pDstPicture->pDrawable->pScreen->myNum];
+    VIAPtr pVia = VIAPTR(pScrn);
+
+    if (!pVia->v3d.setCompositeOperator(NULL, op))
+	return FALSE;
+
+    if (pDstPicture->format != PICT_x8r8g8b8 &&
+	pDstPicture->format != PICT_r5g6b5) {
+	return FALSE;
+    }
+
+    if (pSrcPicture->format == PICT_a8r8g8b8 && !pMaskPicture) {
+	return TRUE;
+    }
+
+    if ((pSrcPicture->format == PICT_a8r8g8b8 ||
+	    pSrcPicture->format == PICT_x8r8g8b8 ||
+	    pSrcPicture->format == PICT_r5g6b5) &&
+	pMaskPicture->format == PICT_a8) {
+	return TRUE;
+    }
+
+    return FALSE;
+}
+
+static Bool
+viaExaPrepareComposite(int op, PicturePtr pSrcPicture,
+    PicturePtr pMaskPicture, PicturePtr pDstPicture,
+    PixmapPtr pSrc, PixmapPtr pMask, PixmapPtr pDst)
+{
+    CARD32 height, width, col;
+
+    ScrnInfoPtr pScrn = xf86Screens[pDst->drawable.pScreen->myNum];
+    VIAPtr pVia = VIAPTR(pScrn);
+    Via3DState *v3d = &pVia->v3d;
+    void *maskP = NULL;
+
+    v3d->setDestination(v3d, exaGetPixmapOffset(pDst),
+	exaGetPixmapPitch(pDst), pDstPicture->format);
+    v3d->setCompositeOperator(v3d, op);
+    v3d->setDrawing(v3d, 0x0c, 0xFFFFFFFF, 0x000000FF, 0xFF);
+
+    viaOrder(pSrc->drawable.width, &width);
+    viaOrder(pSrc->drawable.height, &height);
+    if (pMaskPicture &&
+	(pMaskPicture->pDrawable->height == 1) &&
+	(pMaskPicture->pDrawable->width == 1) &&
+	pMaskPicture->repeat && viaExpandablePixel(pMaskPicture->format)) {
+
+	maskP = pVia->FBBase + exaGetPixmapOffset(pMask);
+	viaPixelARGB8888(pMaskPicture->format, maskP, &col);
+	v3d->setTexBlendCol(v3d, 0, FALSE, col);
+    }
+
+    v3d->setFlags(v3d, (pMaskPicture && !maskP) ? 2 : 1, FALSE, TRUE, TRUE);
+
+    if (!v3d->setTexture(v3d, 0, exaGetPixmapOffset(pSrc),
+	    exaGetPixmapPitch(pSrc), 1 << width, 1 << height,
+	    pSrcPicture->format, via_repeat, via_repeat,
+	    (maskP) ? via_src_onepix_mask : via_src, maskP, FALSE)) {
+	return FALSE;
+    }
+    if (pMaskPicture && !maskP) {
+	viaOrder(pMask->drawable.width, &width);
+	viaOrder(pMask->drawable.height, &height);
+	if (!v3d->setTexture(v3d, 1, exaGetPixmapOffset(pMask),
+		exaGetPixmapPitch(pMask), 1 << width, 1 << height,
+		pMaskPicture->format, via_repeat, via_repeat, via_mask, NULL,
+		FALSE)) {
+	    return FALSE;
+	}
+    }
+
+    v3d->emitState(v3d, &pVia->cb, viaCheckUpload(pScrn, v3d));
+
+    return TRUE;
+}
+
+static void
+viaExaComposite(PixmapPtr pDst, int srcX, int srcY, int maskX, int maskY,
+    int dstX, int dstY, int width, int height)
+{
+    ScrnInfoPtr pScrn = xf86Screens[pDst->drawable.pScreen->myNum];
+    VIAPtr pVia = VIAPTR(pScrn);
+    Via3DState *v3d = &pVia->v3d;
+
+    v3d->emitQuad(v3d, &pVia->cb, dstX, dstY, srcX, srcY, maskX, maskY, width,
+	height);
+}
+
 /*
  * Init EXA. Alignments are 2D engine constraints.
  */
@@ -1425,7 +1878,7 @@ viaInitExa(ScreenPtr pScreen)
     pExa->card.offScreenBase = pScrn->virtualY * pVia->Bpl;
     pExa->card.pixmapOffsetAlign = 32;
     pExa->card.pixmapPitchAlign = 16;
-    pExa->card.flags = EXA_OFFSCREEN_PIXMAPS;
+    pExa->card.flags = EXA_OFFSCREEN_PIXMAPS | EXA_OFFSCREEN_ALIGN_POT;
     pExa->card.maxX = 2047;
     pExa->card.maxY = 2047;
 
@@ -1442,7 +1895,11 @@ viaInitExa(ScreenPtr pScreen)
     if (pVia->directRenderingEnabled) {
 	if ((pVia->drmVerMajor > 2) ||
 	    ((pVia->drmVerMajor == 2) && (pVia->drmVerMinor >= 7))) {
-	    pExa->accel.UploadToScreen = viaExaUploadToScreen;
+	    if (pVia->Chipset != VIA_K8M800) {
+		pExa->accel.UploadToScreen = viaExaUploadToScreen;
+	    } else {
+		pExa->accel.UploadToScreen = viaExaTexUploadToScreen;
+	    }		
 	    pExa->accel.DownloadFromScreen = viaExaDownloadFromScreen;
 	}
     }
@@ -1451,12 +1908,14 @@ viaInitExa(ScreenPtr pScreen)
     pExa->accel.CheckComposite = viaExaCheckComposite;
     pExa->accel.PrepareComposite = viaExaPrepareComposite;
     pExa->accel.Composite = viaExaComposite;
+    pExa->accel.DoneComposite = viaExaDoneSolidCopy;
 
     if (!exaDriverInit(pScreen, pExa)) {
 	xfree(pExa);
 	return NULL;
     }
 
+    viaInit3DState(&pVia->v3d);
     return pExa;
 }
 
@@ -1490,11 +1949,6 @@ viaInitAccel(ScreenPtr pScreen)
 	pVia->CursorStart = pVia->FBFreeEnd;
     }
 
-    if (Success != viaSetupCBuffer(pScrn, &pVia->cb, 0)) {
-	pVia->NoAccel = TRUE;
-	return FALSE;
-    }
-
     /*
      * Sync marker space.
      */
@@ -1502,12 +1956,12 @@ viaInitAccel(ScreenPtr pScreen)
     pVia->FBFreeEnd -= 32;
     pVia->markerOffset = (pVia->FBFreeEnd + 31) & ~31;
     pVia->markerBuf = (CARD32 *) ((char *)pVia->FBBase + pVia->markerOffset);
-    pVia->FBFreeEnd -= 1024 * 1024 * 4;
-    pVia->testOffset = (pVia->FBFreeEnd + 31) & ~31;
-    pVia->testBuf = (char *)pVia->FBBase + pVia->testOffset;
 
 #ifdef VIA_HAVE_EXA
-
+#ifdef XF86DRI
+    pVia->texAddr = NULL;
+    pVia->dBounce = NULL;
+#endif
     if (pVia->useEXA) {
 	pVia->exaDriverPtr = viaInitExa(pScreen);
 	if (!pVia->exaDriverPtr) {
@@ -1585,6 +2039,17 @@ viaExitAccel(ScreenPtr pScreen)
 	xfree(pVia->exaDriverPtr);
 	pVia->exaDriverPtr = NULL;
 	viaTearDownCBuffer(&pVia->cb);
+#ifdef XF86DRI
+	if (pVia->texAddr) {
+	    if (pVia->directRenderingEnabled) {
+		drmCommandWriteRead(pVia->drmFD, DRM_VIA_FREEMEM,
+		    &pVia->texAGPBuffer, sizeof(drm_via_mem_t));
+	    }
+	    pVia->texAddr = NULL;
+	}
+	if (pVia->dBounce)
+	    xfree(pVia->dBounce);
+#endif
 	return;
     }
 #endif
@@ -1595,29 +2060,19 @@ viaExitAccel(ScreenPtr pScreen)
     }
 }
 
-static Bool
-viaOrder(CARD32 val, CARD32 * shift)
-{
-    *shift = 0;
-
-    while (val > (1 << *shift))
-	(*shift)++;
-    return (val == (1 << *shift));
-}
-
 void
 viaFinishInitAccel(ScreenPtr pScreen)
 {
-#ifdef XF86DRI
     ScrnInfoPtr pScrn = xf86Screens[pScreen->myNum];
     VIAPtr pVia = VIAPTR(pScrn);
-    int order, size, ret;
 
-    pVia->texAddr = NULL;
+#ifdef XF86DRI
+    int size, ret;
+
     if (pVia->directRenderingEnabled) {
+	pVia->dBounce = xcalloc(VIA_DMA_DL_SIZE * 2, 1);
 	if (!pVia->IsPCI) {
-	    viaOrder(pScrn->displayWidth * pVia->Bpp, &order);
-	    size = (1 << order) * pScrn->virtualY + 32;
+	    size = VIA_AGP_UPL_SIZE * 2 + 32;
 	    pVia->texAGPBuffer.context = 1;
 	    pVia->texAGPBuffer.size = size;
 	    pVia->texAGPBuffer.type = VIA_MEM_AGP;
@@ -1636,6 +2091,11 @@ viaFinishInitAccel(ScreenPtr pScreen)
 	}
     }
 #endif
+    if (Success != viaSetupCBuffer(pScrn, &pVia->cb, 0)) {
+	pVia->NoAccel = TRUE;
+	viaExitAccel(pScreen);
+	return;
+    }
 }
 
 /*
@@ -1644,7 +2104,7 @@ viaFinishInitAccel(ScreenPtr pScreen)
  */
 
 void
-viaDGABlitRect(ScrnInfoPtr pScrn, int srcx, int srcy, int w, int h,
+viaAccelBlitRect(ScrnInfoPtr pScrn, int srcx, int srcy, int w, int h,
     int dstx, int dsty)
 {
     VIAPtr pVia = VIAPTR(pScrn);
@@ -1672,13 +2132,13 @@ viaDGABlitRect(ScrnInfoPtr pScrn, int srcx, int srcy, int w, int h,
 	viaAccelTransparentHelper(tdc, cb, 0x0, 0x0, FALSE);
 	viaAccelCopyHelper(cb, srcx, 0, dstx, 0, w, h, srcOffset, dstOffset,
 	    tdc->mode, pVia->Bpl, pVia->Bpl, cmd);
-	pVia->dgaMarker = viaAccelMarkSync(pScrn->pScreen);
+	pVia->accelMarker = viaAccelMarkSync(pScrn->pScreen);
 	ADVANCE_RING;
     }
 }
 
 void
-viaDGAFillRect(ScrnInfoPtr pScrn, int x, int y, int w, int h,
+viaAccelFillRect(ScrnInfoPtr pScrn, int x, int y, int w, int h,
     unsigned long color)
 {
     VIAPtr pVia = VIAPTR(pScrn);
@@ -1696,490 +2156,15 @@ viaDGAFillRect(ScrnInfoPtr pScrn, int x, int y, int w, int h,
 	viaAccelTransparentHelper(tdc, cb, 0x0, 0x0, FALSE);
 	viaAccelSolidHelper(cb, x, 0, w, h, dstBase, tdc->mode,
 	    pVia->Bpl, color, cmd);
-	pVia->dgaMarker = viaAccelMarkSync(pScrn->pScreen);
+	pVia->accelMarker = viaAccelMarkSync(pScrn->pScreen);
 	ADVANCE_RING;
     }
 }
 
 void
-viaDGAWaitMarker(ScrnInfoPtr pScrn)
+viaAccelSyncMarker(ScrnInfoPtr pScrn)
 {
     VIAPtr pVia = VIAPTR(pScrn);
 
-    viaAccelWaitMarker(pScrn->pScreen, pVia->dgaMarker);
-}
-
-static void
-viaSet3DDestination(ScrnInfoPtr pScrn, Via3DState * v3d, CARD32 offset,
-    CARD32 pitch, ViaImageFormats format)
-{
-    v3d->drawingDirty = TRUE;	       /* Affects planemask format. */
-    v3d->destDirty = TRUE;
-    v3d->destOffset = offset;
-    v3d->destPitch = pitch;
-    switch (format) {
-    case via_argb8888:
-	v3d->destFormat = HC_HDBFM_ARGB8888;
-	v3d->destDepth = 32;
-	break;
-    case via_rgb888:
-	v3d->destFormat = HC_HDBFM_ARGB0888;
-	v3d->destDepth = 32;
-	break;
-    case via_rgb565:
-    default:
-	v3d->destFormat = HC_HDBFM_RGB565;
-	v3d->destDepth = 16;
-	break;
-    }
-}
-
-/*
- * Set blending mode.
- * 0 - No blending.
- * 1 - C_out = src_alpha * C_src + (1. - src_alpha) * C_dst
- * 2 - C_out = dst_alpha * C_src + (1. - dst_alpha) * C_dst
- * 3 - C_out = C_src * C_dst, alpha_out = src_alpha * dst_alpha
- */
-
-static void
-viaSet3DBlending(ScrnInfoPtr pScrn, Via3DState * v3d, int blend,
-    Bool useDestAlpha)
-{
-    v3d->blendDirty = TRUE;
-    v3d->blend = blend;
-}
-
-static void
-viaSet3Dflags(ScrnInfoPtr pScrn, Via3DState * v3d, int numTextures,
-    Bool writeAlpha, Bool writeColor)
-{
-    v3d->enableDirty = TRUE;
-    v3d->numTextures = numTextures;
-    v3d->writeAlpha = writeAlpha;
-    v3d->writeColor = writeColor;
-}
-
-static void
-viaSet3DDrawing(ScrnInfoPtr pScrn, Via3DState * v3d, int rop,
-    CARD32 planeMask, CARD32 solidColor, CARD32 solidAlpha)
-{
-    v3d->drawingDirty = TRUE;
-    v3d->rop = rop;
-    v3d->planeMask = planeMask;
-    v3d->solidColor = solidColor;
-    v3d->solidAlpha = solidAlpha;
-}
-
-static Bool
-viaSet3DTexture(ScrnInfoPtr pScrn, Via3DState * v3d, int tex, CARD32 offset,
-    CARD32 pitch, CARD32 width, CARD32 height, ViaImageFormats format,
-    ViaTextureModes sMode, ViaTextureModes tMode, Bool textureCol,
-    Bool textureAlpha, Bool agpTexture)
-{
-    v3d->textureLevel0Offset[tex] = offset;
-    if (!viaOrder(pitch, v3d->textureLevel0Exp + tex))
-	return FALSE;
-    v3d->textureLevel0Pitch[tex] = pitch;
-    if (!viaOrder(width, v3d->textureLevel0WExp + tex))
-	return FALSE;
-    if (!viaOrder(height, v3d->textureLevel0HExp + tex))
-	return FALSE;
-
-    switch (format) {
-    case via_rgb565:
-	v3d->textureFormat[tex] = HC_HTXnFM_RGB565;
-	break;
-    default:
-	v3d->textureFormat[tex] = HC_HTXnFM_ARGB8888;
-    }
-
-    v3d->textureDirty[tex] = TRUE;
-    v3d->textureModesS[tex] = sMode - via_single;
-    v3d->textureModesT[tex] = tMode - via_single;
-
-    v3d->textureCol[tex] = textureCol;
-    v3d->textureAlpha[tex] = textureAlpha;
-#ifdef XF86DRI
-    if (agpTexture) {
-	VIAPtr pVia = VIAPTR(pScrn);
-
-	if (!pVia->directRenderingEnabled)
-	    return FALSE;
-	v3d->textureLevel0Offset[tex] += pVia->agpAddr;
-    }
-#else
-    if (agpTexture)
-	return FALSE;
-#endif
-    v3d->agpTexture[tex] = agpTexture;
-    return TRUE;
-}
-
-static void
-viaEmit3DState(ScrnInfoPtr pScrn, Via3DState * v3d)
-{
-    VIAPtr pVia = VIAPTR(pScrn);
-    int i;
-    Bool forceUpload;
-
-    forceUpload = (pVia->lastToUpload != v3d);
-    pVia->lastToUpload = v3d;
-
-#ifdef XF86DRI
-
-    /*
-     * Tell DRI clients that we have uploaded a 3D state to the engine.
-     */
-
-    if (pVia->directRenderingEnabled) {
-	volatile drm_via_sarea_t *saPriv = (drm_via_sarea_t *)
-	    DRIGetSAREAPrivate(pScrn->pScreen);
-	int myContext = DRIGetContext(pScrn->pScreen);
-
-	forceUpload = forceUpload || (saPriv->ctxOwner != myContext);
-	saPriv->ctxOwner = myContext;
-    }
-#endif
-
-    RING_VARS;
-
-    /*
-     * Destination buffer location, format and pitch.
-     */
-
-    if (forceUpload || v3d->destDirty) {
-	v3d->destDirty = FALSE;
-	BEGIN_H2(HC_ParaType_NotTex, 3);
-
-	OUT_RING_SubA(HC_SubA_HDBBasL, v3d->destOffset & 0x00FFFFFF);
-	OUT_RING_SubA(HC_SubA_HDBBasH, v3d->destOffset >> 24);
-	OUT_RING_SubA(HC_SubA_HDBFM, v3d->destFormat |
-	    (v3d->destPitch & HC_HDBPit_MASK) | HC_HDBLoc_Local);
-    }
-
-    if (forceUpload || v3d->blendDirty) {
-	v3d->blendDirty = FALSE;
-	BEGIN_H2(HC_ParaType_NotTex, 6);
-
-	if (v3d->blend) {
-	    switch (v3d->blend) {
-	    case 1:
-	    case 2:
-		OUT_RING_SubA(HC_SubA_HABLCsat, (0x01 << 16) | (0x00 << 10) |
-		    (((v3d->blend == 2) ? 0x03 : 0x02) << 4));
-		OUT_RING_SubA(HC_SubA_HABLCop, (0x00 << 14) | (0x01 << 8) |
-		    (((v3d->blend == 2) ? 0x13 : 0x12) << 2));
-		break;
-	    case 3:
-		OUT_RING_SubA(HC_SubA_HABLCsat, (0x00 << 16) | (0x00 << 10) |
-		    (0x01 << 4));
-		OUT_RING_SubA(HC_SubA_HABLCop, (0x05 << 8) | (0x05 << 2));
-		OUT_RING_SubA(HC_SubA_HABLRCb, 0x00);
-		OUT_RING_SubA(HC_SubA_HABLRFCb, 0x00);
-		OUT_RING_SubA(HC_SubA_HABLAsat, (0x00 << 16) | (0x01 << 10) |
-		    (0x02 << 4));
-		OUT_RING_SubA(HC_SubA_HABLAop, 0x00);
-
-		break;
-	    default:
-		break;
-	    }
-	}
-    }
-
-    if (forceUpload || v3d->drawingDirty) {
-
-	CARD32 planeMaskLo, planeMaskHi;
-
-	v3d->drawingDirty = FALSE;
-	BEGIN_H2(HC_ParaType_NotTex, 4);
-
-	/*
-	 * Raster operation and Planemask.
-	 */
-
-	if (/* v3d->destDepth == 16 Bad Docs? */ FALSE ) {
-	    planeMaskLo = (v3d->planeMask & 0x000000FF) << 16;
-	    planeMaskHi = (v3d->planeMask & 0x0000FF00) >> 8;
-	} else {
-	    planeMaskLo = v3d->planeMask & 0x00FFFFFF;
-	    planeMaskHi = v3d->planeMask >> 24;
-	}
-
-	OUT_RING_SubA(HC_SubA_HROP, ((v3d->rop & 0x0F) << 8) | planeMaskHi);
-	OUT_RING_SubA(HC_SubA_HFBBMSKL, planeMaskLo);
-
-	/*
-	 * Solid shading color and alpha. Pixel center at 
-	 * floating coordinates (X.5,Y.5).
-	 */
-
-	OUT_RING_SubA(HC_SubA_HSolidCL,
-	    (v3d->solidColor & 0x00FFFFFF) | (0 << 23));
-	OUT_RING_SubA(HC_SubA_HPixGC,
-	    ((v3d->solidColor & 0xFF000000) >> 16) | (0 << 23) | (v3d->
-		solidAlpha & 0xFF));
-    }
-
-    if (forceUpload || v3d->enableDirty) {
-	v3d->enableDirty = FALSE;
-	BEGIN_H2(HC_ParaType_NotTex, 1);
-
-	/*
-	 * Enable setting
-	 */
-	OUT_RING_SubA(HC_SubA_HEnable,
-	    ((v3d->writeColor) ? HC_HenCW_MASK : 0) | ((v3d->
-		    blend) ? HC_HenABL_MASK : 0) | ((v3d->
-		    numTextures) ? HC_HenTXMP_MASK : 0) | ((v3d->
-		    writeAlpha) ? HC_HenAW_MASK : 0));
-
-	if (v3d->numTextures) {
-	    BEGIN_H2((HC_ParaType_Tex | (HC_SubType_TexGeneral << 8)), 2);
-	    OUT_RING_SubA(HC_SubA_HTXSMD, (0 << 7) | (0 << 6) |
-		(((v3d->numTextures - 1) & 0x1) << 3) | (0 << 1) | 1);
-	    OUT_RING_SubA(HC_SubA_HTXSMD, (0 << 7) | (0 << 6) |
-		(((v3d->numTextures - 1) & 0x1) << 3) | (0 << 1) | 0);
-	}
-    }
-
-    for (i = 0; i < v3d->numTextures; ++i) {
-	if (forceUpload || v3d->textureDirty[i]) {
-	    v3d->textureDirty[i] = FALSE;
-
-	    BEGIN_H2((HC_ParaType_Tex |
-		    (((i == 0) ? HC_SubType_Tex0 : HC_SubType_Tex1) << 8)),
-		13);
-
-	    OUT_RING_SubA(HC_SubA_HTXnFM, (v3d->textureFormat[i] |
-		    (v3d->
-			agpTexture[i] ? HC_HTXnLoc_AGP : HC_HTXnLoc_Local)));
-	    OUT_RING_SubA(HC_SubA_HTXnL0BasL,
-		v3d->textureLevel0Offset[i] & 0x00FFFFFF);
-	    OUT_RING_SubA(HC_SubA_HTXnL012BasH,
-		v3d->textureLevel0Offset[i] >> 24);
-	    OUT_RING_SubA(HC_SubA_HTXnL0Pit, v3d->textureLevel0Exp[i] << 20);
-	    OUT_RING_SubA(HC_SubA_HTXnL0_5WE, v3d->textureLevel0WExp[i]);
-	    OUT_RING_SubA(HC_SubA_HTXnL0_5HE, v3d->textureLevel0HExp[i]);
-	    OUT_RING_SubA(HC_SubA_HTXnL0OS, 0x00);
-	    OUT_RING_SubA(HC_SubA_HTXnTB, 0x00);
-	    OUT_RING_SubA(HC_SubA_HTXnMPMD,
-		(((unsigned)v3d->textureModesT[i]) << 19) | (((unsigned)v3d->
-			textureModesS[i]) << 16));
-
-	    OUT_RING_SubA(HC_SubA_HTXnTBLCsat, 0x00);
-	    OUT_RING_SubA(HC_SubA_HTXnTBLCop,
-		((v3d->textureCol[i] ? 3 : 4) << 14) | (2 << 11) | ((v3d->
-			textureAlpha[i] ? 4 : 2) << 3) | 2);
-
-	    OUT_RING_SubA(HC_SubA_HTXnTBLAsat, (3 << 14) | (3 << 7) | 3);
-	    OUT_RING_SubA(HC_SubA_HTXnTBLRAa, 0x00);
-	}
-    }
-
-    ADVANCE_RING;
-}
-
-static void
-viaEmitQuad(ScrnInfoPtr pScrn, Via3DState * v3d, int dstX, int dstY,
-    int src0X, int src0Y, int src1X, int src1Y, int w, int h)
-{
-    VIAPtr pVia = VIAPTR(pScrn);
-    CARD32 acmd;
-    float dx1, dx2, dy1, dy2, sx1[2], sx2[2], sy1[2], sy2[2], wf;
-    double scalex, scaley;
-    int i, numTex;
-
-    RING_VARS;
-
-    numTex = v3d->numTextures;
-    dx1 = dstX;
-    dx2 = dstX + w;
-    dy1 = dstY;
-    dy2 = dstY + h;
-
-    if (numTex) {
-	sx1[0] = src0X;
-	sx1[1] = src1X;
-	sy1[0] = src0Y;
-	sy1[1] = src1Y;
-	for (i = 0; i < numTex; ++i) {
-	    scalex = 1. / (double)((1 << v3d->textureLevel0WExp[i]));
-	    scaley = 1. / (double)((1 << v3d->textureLevel0HExp[i]));
-	    sx2[i] = sx1[i] + w;
-	    sy2[i] = sy1[i] + h;
-	    sx1[i] *= scalex;
-	    sy1[i] *= scaley;
-	    sx2[i] *= scalex;
-	    sy2[i] *= scaley;
-	}
-    }
-
-    wf = 0.05;
-
-    /*
-     * Cliprect
-     */
-
-    BEGIN_H2(HC_ParaType_NotTex, 4);
-    OUT_RING_SubA(HC_SubA_HClipTB, (dstY << 12) | (dstY + h));
-    OUT_RING_SubA(HC_SubA_HClipLR, (dstX << 12) | (dstX + w));
-
-    /*
-     * Vertex buffer. Emit two 3-point triangles. The W or Z coordinate
-     * is needed for AGP DMA, and the W coordinate is for some obscure
-     * reason needed for texture mapping to be done correctly. So emit
-     * a w value after the x and y coordinates.
-     */
-
-    BEGIN_H2(HC_ParaType_CmdVdata, 22 + numTex * 6);
-    acmd = ((1 << 14) | (1 << 13) | (1 << 11));
-    if (numTex)
-	acmd |= ((1 << 7) | (1 << 8));
-    OUT_RING_SubA(0xEC, acmd);
-
-    acmd = 2 << 16;
-    OUT_RING_SubA(0xEE, acmd);
-
-    OUT_RING(*((CARD32 *) (&dx1)));
-    OUT_RING(*((CARD32 *) (&dy1)));
-    OUT_RING(*((CARD32 *) (&wf)));
-    for (i = 0; i < numTex; ++i) {
-	OUT_RING(*((CARD32 *) (sx1 + i)));
-	OUT_RING(*((CARD32 *) (sy1 + i)));
-    }
-
-    OUT_RING(*((CARD32 *) (&dx2)));
-    OUT_RING(*((CARD32 *) (&dy1)));
-    OUT_RING(*((CARD32 *) (&wf)));
-    for (i = 0; i < numTex; ++i) {
-	OUT_RING(*((CARD32 *) (sx2 + i)));
-	OUT_RING(*((CARD32 *) (sy1 + i)));
-    }
-
-    OUT_RING(*((CARD32 *) (&dx1)));
-    OUT_RING(*((CARD32 *) (&dy2)));
-    OUT_RING(*((CARD32 *) (&wf)));
-    for (i = 0; i < numTex; ++i) {
-	OUT_RING(*((CARD32 *) (sx1 + i)));
-	OUT_RING(*((CARD32 *) (sy2 + i)));
-    }
-
-    OUT_RING(*((CARD32 *) (&dx1)));
-    OUT_RING(*((CARD32 *) (&dy2)));
-    OUT_RING(*((CARD32 *) (&wf)));
-    for (i = 0; i < numTex; ++i) {
-	OUT_RING(*((CARD32 *) (sx1 + i)));
-	OUT_RING(*((CARD32 *) (sy2 + i)));
-    }
-
-    OUT_RING(*((CARD32 *) (&dx2)));
-    OUT_RING(*((CARD32 *) (&dy1)));
-    OUT_RING(*((CARD32 *) (&wf)));
-    for (i = 0; i < numTex; ++i) {
-	OUT_RING(*((CARD32 *) (sx2 + i)));
-	OUT_RING(*((CARD32 *) (sy1 + i)));
-    }
-
-    OUT_RING(*((CARD32 *) (&dx2)));
-    OUT_RING(*((CARD32 *) (&dy2)));
-    OUT_RING(*((CARD32 *) (&wf)));
-    for (i = 0; i < numTex; ++i) {
-	OUT_RING(*((CARD32 *) (sx2 + i)));
-	OUT_RING(*((CARD32 *) (sy2 + i)));
-    }
-    OUT_RING_SubA(0xEE,
-	acmd | HC_HPLEND_MASK | HC_HPMValidN_MASK | HC_HE3Fire_MASK);
-    OUT_RING(0x00000000);
-
-    ADVANCE_RING;
-}
-
-static void
-test3d(ScrnInfoPtr pScrn)
-{
-    VIAPtr pVia = VIAPTR(pScrn);
-    Via3DState *v3d = &pVia->v3d;
-    static Bool done = FALSE;
-    int i, j;
-
-    if (!done) {
-	done = TRUE;
-	for (j = 0; j < 512; ++j) {
-	    for (i = 0; i < 512; i += 2) {
-		*((CARD32 *) (pVia->testBuf + (i * 4 + j * 2048))) =
-		    0x00FF0000;
-		*((CARD32 *) (pVia->testBuf + ((i + 1) * 4 + j * 2048))) =
-		    0x000000FF;
-	    }
-	}
-    }
-    viaSet3DDestination(pScrn, v3d, 0x00000000, pVia->Bpl, via_rgb888);
-    viaSet3DBlending(pScrn, v3d, FALSE, FALSE);
-    viaSet3DDrawing(pScrn, v3d, 0x0c, 0xFFFFFFFF, 0x000000FF, 0x00);
-    viaSet3Dflags(pScrn, v3d, 1, FALSE, TRUE);
-    if (!viaSet3DTexture(pScrn, v3d, 0, pVia->testOffset, 2048,
-	    512, 512, via_argb8888, via_repeat, via_repeat, TRUE, TRUE,
-	    FALSE)) {
-	ErrorF("Texture Error\n");
-	return;
-    }
-    viaEmit3DState(pScrn, v3d);
-    viaEmitQuad(pScrn, v3d, 600, 600, 0, 0, 0, 0, 512, 512);
-    viaAccelSync(pScrn);
-}
-
-static Bool
-viaExaTexUploadToScreen(PixmapPtr pDst, int x, int y, int w, int h, char *src,
-    int src_pitch)
-{
-    ScrnInfoPtr pScrn = xf86Screens[pDst->drawable.pScreen->myNum];
-    VIAPtr pVia = VIAPTR(pScrn);
-    unsigned dstPitch = exaGetPixmapPitch(pDst);
-    unsigned bytesPerPixel = pDst->drawable.bitsPerPixel >> 3;
-    unsigned dstOffset = exaGetPixmapOffset(pDst);
-    unsigned texWidth, texHeight, texPitch;
-    ViaImageFormats format;
-    int i;
-
-    if (!pVia->texAddr)
-	return FALSE;
-
-    switch (bytesPerPixel) {
-    case 4:
-	format = via_argb8888;
-	break;
-    case 2:
-	format = via_rgb565;
-	break;
-    default:
-	return FALSE;
-    }
-
-    viaOrder(w * bytesPerPixel, &texPitch);
-    texPitch = 1 << texPitch;
-    viaOrder(w, &texWidth);
-    texWidth = 1 << texWidth;
-    viaOrder(h, &texHeight);
-    texHeight = 1 << texHeight;
-
-    viaSet3DDestination(pScrn, &pVia->v3d, dstOffset, dstPitch, format);
-    viaSet3DBlending(pScrn, &pVia->v3d, FALSE, FALSE);
-    viaSet3DDrawing(pScrn, &pVia->v3d, 0x0c, 0xFFFFFFFF, 0x000000FF, 0x00);
-    viaSet3Dflags(pScrn, &pVia->v3d, 1, TRUE, TRUE);
-    if (!viaSet3DTexture(pScrn, &pVia->v3d, 0, pVia->texOffset, texPitch,
-	    texWidth, texHeight, format, via_single, via_single, TRUE, TRUE,
-	    TRUE))
-	return FALSE;
-    viaEmit3DState(pScrn, &pVia->v3d);
-
-    for (i = 0; i < h; ++i) {
-	memcpy(pVia->texAddr + i * texPitch, src + i * src_pitch,
-	    w * bytesPerPixel);
-    }
-    viaEmitQuad(pScrn, &pVia->v3d, x, y, 0, 0, 0, 0, w, h);
-    viaAccelSync(pScrn);
-
-    return TRUE;
+    viaAccelWaitMarker(pScrn->pScreen, pVia->accelMarker);
 }

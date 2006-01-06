@@ -48,15 +48,15 @@ typedef struct _ViaCommandBuffer
 
 #define BEGIN_RING(size)					\
     do {								\
-	if (cb->flushFunc && ((cb)->pos > ((cb)->bufSize-(size)))) {	\
+	if (cb->flushFunc && (cb->pos > (cb->bufSize-(size)))) {	\
 	    cb->flushFunc(cb);					\
 	}								\
     } while(0)
 
-#define BEGIN_H2(paraType, size)			\
+#define BEGIN_H2(paraType, h2size)			\
   do{							\
-    BEGIN_RING(size+3);					\
-    if (cb->mode == 2 && paraType == cb->rindex)	\
+    BEGIN_RING((h2size)+6);				\
+    if (cb->mode == 2 && (paraType) == cb->rindex)	\
       break;						\
     if (cb->pos & 1)					\
       OUT_RING(HC_DUMMY);				\
@@ -64,9 +64,9 @@ typedef struct _ViaCommandBuffer
     cb->rindex = paraType;				\
     cb->mode = 2;					\
     OUT_RING(HALCYON_HEADER2);				\
-    OUT_RING(paraType << 16);				\
+    OUT_RING((paraType) << 16);						\
     if (!cb->has3dState && ((paraType) != HC_ParaType_CmdVdata)) {	\
-      cb->has3dState == TRUE;						\
+      cb->has3dState = TRUE;						\
     }									\
   } while(0);
 
