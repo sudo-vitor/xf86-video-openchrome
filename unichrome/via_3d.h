@@ -1,5 +1,5 @@
 /*
- * Copyright 2006 Thomas Hellström. All Rights Reserved.
+ * Copyright 2006 Thomas Hellstrom. All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -64,7 +64,6 @@ typedef struct _ViaTextureUnit
     Bool agpTexture;
     Bool textureDirty;
     Bool texBColDirty;
-    void *texSingleAlpha;
 } ViaTextureUnit;
 
 typedef struct _Via3DState
@@ -100,16 +99,20 @@ typedef struct _Via3DState
         Bool(*setTexture) (struct _Via3DState * v3d, int tex, CARD32 offset,
 	CARD32 pitch, CARD32 width, CARD32 height, int format,
 	ViaTextureModes sMode, ViaTextureModes tMode,
-	ViaTexBlendingModes blendingMode, void *singleAlphaP,
-	Bool agpTexture);
+	ViaTexBlendingModes blendingMode, Bool agpTexture);
     void (*setTexBlendCol) (struct _Via3DState * v3d, int tex, Bool component,
 	CARD32 color);
-        Bool(*setCompositeOperator) (struct _Via3DState * v3d, CARD8 op);
+    void (*setCompositeOperator) (struct _Via3DState * v3d, CARD8 op);
+        Bool(*opSupported) (CARD8 op);
     void (*emitQuad) (struct _Via3DState * v3d, ViaCommandBuffer * cb,
 	int dstX, int dstY, int src0X, int src0Y, int src1X, int src1Y, int w,
 	int h);
     void (*emitState) (struct _Via3DState * v3d, ViaCommandBuffer * cb,
 	Bool forceUpload);
+    void (*emitClipRect) (struct _Via3DState * v3d, ViaCommandBuffer * cb,
+	int x, int y, int w, int h);
+        Bool(*dstSupported) (int format);
+        Bool(*texSupported) (int format);
 } Via3DState;
 
 void viaInit3DState(Via3DState * v3d);

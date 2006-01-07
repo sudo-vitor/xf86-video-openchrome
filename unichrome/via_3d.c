@@ -1,5 +1,5 @@
 /*
- * Copyright 2006 Thomas Hellström. All Rights Reserved.
+ * Copyright 2006 Thomas Hellstrom. All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -25,6 +25,103 @@
 #include "via_3d_reg.h"
 #include <picturestr.h>
 
+typedef struct
+{
+    Bool supported;
+    CARD32 col0;
+    CARD32 col1;
+    CARD32 al0;
+    CARD32 al1;
+} ViaCompositeOperator;
+
+typedef struct
+{
+    CARD32 pictFormat;
+    Bool dstSupported;
+    Bool texSupported;
+    CARD32 dstFormat;
+    CARD32 texFormat;
+} Via3DFormat;
+
+static ViaCompositeOperator viaOperatorModes[256];
+static Via3DFormat via3DFormats[256];
+
+#define VIA_NUM_3D_OPCODES 19
+#define VIA_NUM_3D_FORMATS 15
+#define VIA_FMT_HASH(arg) (((((arg) >> 1) + (arg)) >> 8) & 0xFF)
+
+static CARD32 viaOpCodes[VIA_NUM_3D_OPCODES][5] = {
+    {PictOpClear, 0x05, 0x45, 0x40, 0x80},
+    {PictOpSrc, 0x15, 0x45, 0x50, 0x80},
+    {PictOpDst, 0x05, 0x55, 0x40, 0x90},
+    {PictOpOver, 0x15, 0x52, 0x50, 0x91},
+    {PictOpOverReverse, 0x13, 0x45, 0x52, 0x90},
+    {PictOpIn, 0x03, 0x45, 0x42, 0x80},
+    {PictOpInReverse, 0x05, 0x42, 0x40, 0x81},
+    {PictOpOut, 0x13, 0x45, 0x52, 0x80},
+    {PictOpOutReverse, 0x05, 0x52, 0x40, 0x91},
+    {PictOpAtop, 0x03, 0x52, 0x42, 0x91},
+    {PictOpAtopReverse, 0x13, 0x42, 0x52, 0x81},
+    {PictOpXor, 0x15, 0x52, 0x52, 0x91},
+    {PictOpAdd, 0x15, 0x55, 0x50, 0x90},
+    {PictOpDisjointClear, 0x05, 0x45, 0x40, 0x80},
+    {PictOpDisjointSrc, 0x15, 0x45, 0x50, 0x80},
+    {PictOpDisjointDst, 0x05, 0x55, 0x40, 0x90},
+    {PictOpConjointClear, 0x05, 0x45, 0x40, 0x80},
+    {PictOpConjointSrc, 0x15, 0x45, 0x50, 0x80},
+    {PictOpConjointDst, 0x05, 0x55, 0x40, 0x90}
+};
+
+static CARD32 viaFormats[VIA_NUM_3D_FORMATS][5] = {
+    {PICT_x1r5g5b5, HC_HDBFM_RGB555, HC_HTXnFM_RGB555, 1, 1},
+    {PICT_r5g6b5, HC_HDBFM_RGB565, HC_HTXnFM_RGB565, 1, 1},
+    {PICT_a4r4g4b4, HC_HDBFM_ARGB4444, HC_HTXnFM_ARGB4444, 1, 1},
+    {PICT_a1r5g5b5, HC_HDBFM_ARGB1555, HC_HTXnFM_ARGB1555, 1, 1},
+    {PICT_x1b5g5r5, HC_HDBFM_BGR555, HC_HTXnFM_BGR555, 1, 1},
+    {PICT_b5g6r5, HC_HDBFM_BGR565, HC_HTXnFM_BGR565, 1, 1},
+    {PICT_a4b4g4r4, HC_HDBFM_ABGR4444, HC_HTXnFM_ABGR4444, 1, 1},
+    {PICT_a1b5g5r5, HC_HDBFM_ABGR1555, HC_HTXnFM_ABGR1555, 1, 1},
+    {PICT_x8r8g8b8, HC_HDBFM_ARGB0888, HC_HTXnFM_ARGB0888, 1, 1},
+    {PICT_a8r8g8b8, HC_HDBFM_ARGB8888, HC_HTXnFM_ARGB8888, 1, 1},
+    {PICT_x8b8g8r8, HC_HDBFM_ABGR0888, HC_HTXnFM_ABGR0888, 1, 1},
+    {PICT_a8b8g8r8, HC_HDBFM_ABGR8888, HC_HTXnFM_ABGR8888, 1, 1},
+    {PICT_a8, 0x00, HC_HTXnFM_A8, 0, 1},
+    {PICT_a4, 0x00, HC_HTXnFM_A4, 0, 1},
+    {PICT_a1, 0x00, HC_HTXnFM_A1, 0, 1}
+};
+
+static CARD32
+via3DDstFormat(int format)
+{
+    return via3DFormats[VIA_FMT_HASH(format)].dstFormat;
+}
+
+static CARD32
+via3DTexFormat(int format)
+{
+    return via3DFormats[VIA_FMT_HASH(format)].texFormat;
+}
+
+static Bool
+via3DDstSupported(int format)
+{
+    Via3DFormat *fm = via3DFormats + VIA_FMT_HASH(format);
+
+    if (fm->pictFormat != format)
+	return FALSE;
+    return fm->dstSupported;
+}
+
+static Bool
+via3DTexSupported(int format)
+{
+    Via3DFormat *fm = via3DFormats + VIA_FMT_HASH(format);
+
+    if (fm->pictFormat != format)
+	return FALSE;
+    return fm->texSupported;
+}
+
 static void
 viaSet3DDestination(Via3DState * v3d, CARD32 offset, CARD32 pitch, int format)
 {
@@ -32,21 +129,8 @@ viaSet3DDestination(Via3DState * v3d, CARD32 offset, CARD32 pitch, int format)
     v3d->destDirty = TRUE;
     v3d->destOffset = offset;
     v3d->destPitch = pitch;
-    switch (format) {
-    case PICT_a8r8g8b8:
-	v3d->destFormat = HC_HDBFM_ARGB8888;
-	v3d->destDepth = 32;
-	break;
-    case PICT_x8r8g8b8:
-	v3d->destFormat = HC_HDBFM_ARGB0888;
-	v3d->destDepth = 32;
-	break;
-    case PICT_r5g6b5:
-    default:
-	v3d->destFormat = HC_HDBFM_RGB565;
-	v3d->destDepth = 16;
-	break;
-    }
+    v3d->destFormat = via3DDstFormat(format);
+    v3d->destDepth = (v3d->destFormat < HC_HDBFM_ARGB0888) ? 16 : 32;
 }
 
 static void
@@ -85,7 +169,7 @@ static Bool
 viaSet3DTexture(Via3DState * v3d, int tex, CARD32 offset,
     CARD32 pitch, CARD32 width, CARD32 height, int format,
     ViaTextureModes sMode, ViaTextureModes tMode,
-    ViaTexBlendingModes blendingMode, void *singleAlphaP, Bool agpTexture)
+    ViaTexBlendingModes blendingMode, Bool agpTexture)
 {
     ViaTextureUnit *vTex = v3d->tex + tex;
 
@@ -101,22 +185,8 @@ viaSet3DTexture(Via3DState * v3d, int tex, CARD32 offset,
     if (pitch <= 4) {
 	ErrorF("Warning! texture pitch is leq 4\n");
     }
-    switch (format) {
-    case PICT_r5g6b5:
-	vTex->textureFormat = HC_HTXnFM_RGB565;
-	break;
-    case PICT_x1r5g5b5:
-	vTex->textureFormat = HC_HTXnFM_RGB555;
-	break;
-    case PICT_x8r8g8b8:
-	vTex->textureFormat = HC_HTXnFM_ARGB0888;
-	break;
-    case PICT_a8:
-	vTex->textureFormat = HC_HTXnFM_A8;
-	break;
-    default:
-	vTex->textureFormat = HC_HTXnFM_ARGB8888;
-    }
+
+    vTex->textureFormat = via3DTexFormat(format);
 
     switch (blendingMode) {
     case via_src:
@@ -124,7 +194,6 @@ viaSet3DTexture(Via3DState * v3d, int tex, CARD32 offset,
 	vTex->texAsat =
 	    (0x0B << 14) | ((PICT_FORMAT_A(format) ? 0x04 : 0x02) << 7) |
 	    0x03;
-	vTex->texSingleAlpha = NULL;
 	vTex->texRCa = 0x00000000;
 	vTex->texRAa = 0x00000000;
 	vTex->texBColDirty = TRUE;
@@ -134,24 +203,20 @@ viaSet3DTexture(Via3DState * v3d, int tex, CARD32 offset,
 	vTex->texAsat =
 	    (0x03 << 14) | ((PICT_FORMAT_A(format) ? 0x04 : 0x02) << 7) |
 	    0x03;
-	vTex->texSingleAlpha = singleAlphaP;
 	break;
     case via_src_onepix_comp_mask:
 	vTex->texCsat = (0x01 << 23) | (0x09 << 14) | (0x03 << 7) | 0x00;
 	vTex->texAsat =
 	    (0x03 << 14) | ((PICT_FORMAT_A(format) ? 0x04 : 0x02) << 7) |
 	    0x03;
-	vTex->texSingleAlpha = singleAlphaP;
 	break;
     case via_mask:
 	vTex->texCsat = (0x01 << 23) | (0x07 << 14) | (0x04 << 7) | 0x00;
 	vTex->texAsat = (0x01 << 23) | (0x04 << 14) | (0x02 << 7) | 0x03;
-	vTex->texSingleAlpha = NULL;
 	break;
     case via_comp_mask:
 	vTex->texCsat = (0x01 << 23) | (0x03 << 14) | (0x04 << 7) | 0x00;
 	vTex->texAsat = (0x01 << 23) | (0x04 << 14) | (0x02 << 7) | 0x03;
-	vTex->texSingleAlpha = NULL;
 	break;
     default:
 	return FALSE;
@@ -185,44 +250,23 @@ viaSet3DTexBlendCol(Via3DState * v3d, int tex, Bool component, CARD32 color)
  * Check if compositing operator is supported and return corresponding register setting.
  */
 
-static Bool
+static void
 viaSet3DCompositeOperator(Via3DState * v3d, CARD8 op)
 {
-    static CARD32 opCodes[19][5] = { {PictOpClear, 0x05, 0x45, 0x40, 0x80},
-    {PictOpSrc, 0x15, 0x45, 0x50, 0x80},
-    {PictOpDst, 0x05, 0x55, 0x40, 0x90},
-    {PictOpOver, 0x15, 0x52, 0x50, 0x91},
-    {PictOpOverReverse, 0x13, 0x45, 0x52, 0x90},
-    {PictOpIn, 0x03, 0x45, 0x42, 80},
-    {PictOpInReverse, 0x05, 0x42, 0x40, 0x81},
-    {PictOpOut, 0x13, 0x45, 0x52, 0x80},
-    {PictOpOutReverse, 0x05, 0x52, 0x40, 0x91},
-    {PictOpAtop, 0x03, 0x52, 0x42, 0x91},
-    {PictOpAtopReverse, 0x13, 0x42, 0x52, 0x81},
-    {PictOpXor, 0x15, 0x52, 0x52, 0x91},
-    {PictOpAdd, 0x15, 0x55, 0x50, 0x90},
-    {PictOpDisjointClear, 0x05, 0x45, 0x40, 0x80},
-    {PictOpDisjointSrc, 0x15, 0x45, 0x50, 0x80},
-    {PictOpDisjointDst, 0x05, 0x55, 0x40, 0x90},
-    {PictOpConjointClear, 0x05, 0x45, 0x40, 0x80},
-    {PictOpConjointSrc, 0x15, 0x45, 0x50, 0x80},
-    {PictOpConjointDst, 0x05, 0x55, 0x40, 0x90}
-    };
-    int i;
+    ViaCompositeOperator *vOp = viaOperatorModes + op;
 
-    for (i = 0; i < 19; ++i) {
-	if (op == opCodes[i][0]) {
-	    if (v3d) {
-		v3d->blendCol0 = opCodes[i][1] << 4;
-		v3d->blendCol1 = opCodes[i][2] << 2;
-		v3d->blendAl0 = opCodes[i][3] << 4;
-		v3d->blendAl1 = opCodes[i][4] << 2;
-		v3d->blendDirty = TRUE;
-	    }
-	    return TRUE;
-	}
+    if (v3d && vOp->supported) {
+	v3d->blendCol0 = vOp->col0 << 4;
+	v3d->blendCol1 = vOp->col1 << 2;
+	v3d->blendAl0 = vOp->al0 << 4;
+	v3d->blendAl1 = vOp->al1 << 2;
     }
-    return FALSE;
+}
+
+static Bool
+via3DOpSupported(CARD8 op)
+{
+    return viaOperatorModes[op].supported;
 }
 
 static void
@@ -233,10 +277,8 @@ via3DEmitQuad(Via3DState * v3d, ViaCommandBuffer * cb, int dstX, int dstY,
     float dx1, dx2, dy1, dy2, sx1[2], sx2[2], sy1[2], sy2[2], wf;
     double scalex, scaley;
     int i, numTex;
-    Bool saveHas3dState;
     ViaTextureUnit *vTex;
 
-    saveHas3dState = cb->has3dState;
     numTex = v3d->numTextures;
     dx1 = dstX;
     dx2 = dstX + w;
@@ -262,16 +304,6 @@ via3DEmitQuad(Via3DState * v3d, ViaCommandBuffer * cb, int dstX, int dstY,
     }
 
     wf = 0.05;
-
-    /*
-     * Cliprect. Considered not important for the DRM 3D State, so restore the
-     * has3dState flag afterwards.
-     */
-
-    BEGIN_H2(HC_ParaType_NotTex, 4);
-    OUT_RING_SubA(HC_SubA_HClipTB, (dstY << 12) | (dstY + h));
-    OUT_RING_SubA(HC_SubA_HClipLR, (dstX << 12) | (dstX + w));
-    cb->has3dState = saveHas3dState;
 
     /*
      * Vertex buffer. Emit two 3-point triangles. The W or Z coordinate
@@ -479,15 +511,72 @@ via3DEmitState(Via3DState * v3d, ViaCommandBuffer * cb, Bool forceUpload)
     }
 }
 
+/*
+ * Cliprect. Considered not important for the DRM 3D State, so restore the
+ * has3dState flag afterwards.
+ */
+
+static void
+via3DEmitClipRect(Via3DState * v3d, ViaCommandBuffer * cb, int x, int y,
+    int w, int h)
+{
+    Bool saveHas3dState;
+
+    saveHas3dState = cb->has3dState;
+    BEGIN_H2(HC_ParaType_NotTex, 4);
+    OUT_RING_SubA(HC_SubA_HClipTB, (y << 12) | (y + h));
+    OUT_RING_SubA(HC_SubA_HClipLR, (x << 12) | (x + w));
+    cb->has3dState = saveHas3dState;
+}
+
 void
 viaInit3DState(Via3DState * v3d)
 {
+    ViaCompositeOperator *op;
+    int i;
+    CARD32 tmp, hash;
+    Via3DFormat *format;
+
     v3d->setDestination = viaSet3DDestination;
     v3d->setDrawing = viaSet3DDrawing;
     v3d->setFlags = viaSet3DFlags;
     v3d->setTexture = viaSet3DTexture;
     v3d->setTexBlendCol = viaSet3DTexBlendCol;
+    v3d->opSupported = via3DOpSupported;
     v3d->setCompositeOperator = viaSet3DCompositeOperator;
     v3d->emitQuad = via3DEmitQuad;
     v3d->emitState = via3DEmitState;
+    v3d->emitClipRect = via3DEmitClipRect;
+    v3d->dstSupported = via3DDstSupported;
+    v3d->texSupported = via3DTexSupported;
+
+    for (i = 0; i < 256; ++i) {
+	viaOperatorModes[i].supported = FALSE;
+    }
+
+    for (i = 0; i < VIA_NUM_3D_OPCODES; ++i) {
+	op = viaOperatorModes + viaOpCodes[i][0];
+	op->supported = TRUE;
+	op->col0 = viaOpCodes[i][1];
+	op->col1 = viaOpCodes[i][2];
+	op->al0 = viaOpCodes[i][3];
+	op->al1 = viaOpCodes[i][4];
+    }
+
+    for (i = 0; i < 256; ++i) {
+	via3DFormats[i].pictFormat = 0x00;
+    }
+    for (i = 0; i < VIA_NUM_3D_FORMATS; ++i) {
+	tmp = viaFormats[i][0];
+	hash = VIA_FMT_HASH(tmp);
+	format = via3DFormats + hash;
+	if (format->pictFormat) {
+	    ErrorF("BUG: Bad hash function\n");
+	}
+	format->pictFormat = tmp;
+	format->dstSupported = (viaFormats[i][3] != 0x00);
+	format->texSupported = (viaFormats[i][4] != 0x00);
+	format->dstFormat = viaFormats[i][1];
+	format->texFormat = viaFormats[i][2];
+    }
 }

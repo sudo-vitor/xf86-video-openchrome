@@ -79,6 +79,8 @@
 #include "exa.h"
 #define VIA_AGP_UPL_SIZE        (1024*128)
 #define VIA_DMA_DL_SIZE         (1024*128)
+#define VIA_SCRATCH_SIZE    (2048*1024)
+#define VIA_SCRATCH_SIZE     (2048*1024)
 #endif
 
 #define DRIVER_NAME     "via"
@@ -246,7 +248,16 @@ typedef struct _VIA {
     ExaOffscreenArea   *exa_scratch;
     unsigned int        exa_scratch_next;
     Bool                useEXA;
+    void               *maskP;
+    CARD32              maskFormat;
+    Bool                componentAlpha;
+    void               *srcP;
+    CARD32              srcFormat;
+    ExaOffscreenArea   *scratchFBBuffer;
+    unsigned            scratchOffset;
+    char *              scratchAddr;
 #ifdef XF86DRI
+    drm_via_mem_t       scratchAGPBuffer;
     drm_via_mem_t       texAGPBuffer;
     unsigned            texOffset;
     char *              texAddr;

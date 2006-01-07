@@ -1,3 +1,23 @@
+2006-01-07  Thomas Hellström <unichrome-at-shipmail-dot-org>
+
+	* unichrome/via_3d.c: (via3DDstFormat), (via3DTexFormat),
+	(via3DDstSupported), (via3DTexSupported), (viaSet3DDestination),
+	(viaSet3DTexture), (viaSet3DCompositeOperator), (via3DOpSupported),
+	(via3DEmitQuad), (via3DEmitClipRect), (viaInit3DState):
+	* unichrome/via_3d.h:
+	* unichrome/via_accel.c: (viaSetupCBuffer),
+	(viaAccelPlaneMaskHelper), (viaCheckUpload),
+	(viaExaDownloadFromScreen), (viaExaTexUploadToScreen),
+	(viaExaUploadToScreen), (viaExaUploadToScratch),
+	(viaExaCheckComposite), (viaIsAGP), (viaIsOffscreen),
+	(viaExaPrepareComposite), (viaExaComposite), (viaInitExa),
+	(viaInitAccel), (viaExitAccel), (viaFinishInitAccel):
+	* unichrome/via_dri.c: (VIADRIFBInit):
+	* unichrome/via_driver.h:
+
+	- Bugfixes and optimizations. Only sort-of important composite operation that
+	  is not supported ATM is the A8 xor A8. 
+	
 2006-01-06  Thomas Hellström <unichrome-at-shipmail-dot-org>
 
 	* unichrome/Imakefile:
