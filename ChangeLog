@@ -1,3 +1,15 @@
+2006-01-11  Thomas Hellström <unichrome-at-shipmail-dot-org>  
+
+	* unichrome/via_accel.c: (viaExaDownloadFromScreen),
+	(viaExaTexUploadToScreen), (viaExaUploadToScreen),
+	(viaExaCheckComposite):
+	* unichrome/via_driver.h:
+
+	- Add min sizes below which we fall back to software rendering for
+	  maximum speed.
+	- Explicit sync in uploadToScreen and downloadFromScreen. Without this, 
+	  mozilla scrolling gives rendering errors. Probably an EXA bug.
+
 2006-01-08  Thomas Hellström <unichrome-at-shipmail-dot-org>  
 
 	* unichrome/via_accel.c: (viaPixelARGB8888):
