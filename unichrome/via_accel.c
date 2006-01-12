@@ -1528,7 +1528,7 @@ viaExaDownloadFromScreen(PixmapPtr pSrc, int x, int y, int w, int h,
 
     exaWaitSync(pScrn->pScreen);
     if (totSize < VIA_MIN_DOWNLOAD) {
-	bounceAligned = pVia->FBBase + srcOffset;
+        bounceAligned = (char *)pVia->FBBase + srcOffset;
 	while (h--) {
 	    memcpy(dst, bounceAligned, wBytes);
 	    dst += dst_pitch;
@@ -1568,8 +1568,8 @@ viaExaDownloadFromScreen(PixmapPtr pSrc, int x, int y, int w, int h,
 	curBlit->line_length = wBytes;
 	curBlit->fb_addr = srcOffset;
 	curBlit->fb_stride = srcPitch;
-	curBlit->mem_addr =
-	    (useBounceBuffer) ? bounceAligned + VIA_DMA_DL_SIZE * buf : dst;
+	curBlit->mem_addr = (unsigned char *)
+	  ((useBounceBuffer) ? bounceAligned + VIA_DMA_DL_SIZE * buf : dst);
 	curBlit->mem_stride = (useBounceBuffer) ? bouncePitch : dst_pitch;
 	curBlit->bounce_buffer = 0;
 	curBlit->to_fb = 0;
@@ -1633,7 +1633,7 @@ viaExaTexUploadToScreen(PixmapPtr pDst, int x, int y, int w, int h, char *src,
     unsigned dstOffset;
     CARD32 texWidth, texHeight, texPitch;
     int format;
-    unsigned char *dst;
+    char *dst;
     int i, sync[2], yOffs, bufH, bufOffs, height;
     Bool buf;
     Via3DState *v3d = &pVia->v3d;
@@ -1782,7 +1782,7 @@ viaExaUploadToScreen(PixmapPtr pDst, int x, int y, int w, int h, char *src,
     blit.num_lines = h;
     blit.fb_addr = dstOffset;
     blit.fb_stride = dstPitch;
-    blit.mem_addr = src;
+    blit.mem_addr = (unsigned char *) src;
     blit.mem_stride = src_pitch;
     blit.bounce_buffer = 0;
     blit.to_fb = 1;
