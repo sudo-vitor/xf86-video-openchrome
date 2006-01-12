@@ -161,7 +161,7 @@ ViaVbeSetMode(ScrnInfoPtr pScrn, DisplayModePtr pMode)
     pScrn->vtSema = TRUE;
 
     if (!pVia->NoAccel)
-	VIAInitialize2DEngine(pScrn);
+	viaInitialize2DEngine(pScrn);
     
 #ifdef XF86DRI
     VIAInitialize3DEngine(pScrn);

@@ -9,7 +9,13 @@ DRIINCLUDES = -I$(SERVERSRC)/GL/dri -I$(LIBSRC)/GL/dri \
 DRIDEFINES = $(GLX_DEFINES)
 #endif
 
+#ifdef XF86EXA
+EXAINCLUDES = -I$(XF86SRC)/exa
+EXADEFINES = -DVIA_HAVE_EXA
+#endif
+
 SRCS = via_driver.c \
+    via_3d.c \
     via_accel.c \
     via_bandwidth.c \
     via_mode.c \
@@ -28,6 +34,7 @@ SRCS = via_driver.c \
     $(DRISRCS)
 
 OBJS = via_driver.o \
+    via_3d.o \
     via_accel.o \
     via_bandwidth.o \
     via_mode.o \
@@ -57,10 +64,10 @@ INCLUDES = -I. -I$(XF86COMSRC) -I$(XF86OSSRC) \
            -I$(XF86SRC)/rac -I$(XF86SRC)/int10 -I$(SERVERSRC)/render \
            -I$(SERVERSRC)/include -I$(XINCLUDESRC) -I$(FONTINCSRC) \
            -I$(EXTINCSRC) -I$(XF86SRC)/vbe -I$(XF86SRC)/shadowfb \
-           -I$(SERVERSRC)/fb $(DRIINCLUDES)
+           -I$(SERVERSRC)/fb $(DRIINCLUDES) $(EXAINCLUDES)
 #endif
 
-DEFINES = $(DRIDEFINES)
+DEFINES = $(DRIDEFINES) $(EXADEFINES)
 
 #if MakeHasPosixVariableSubstitutions
 SubdirLibraryRule($(OBJS))
@@ -81,11 +88,14 @@ DependTarget()
 
 InstallDriverSDKNonExecFile(Imakefile,$(DRIVERSDKDIR)/drivers/via)
 InstallDriverSDKNonExecFile(via.h,$(DRIVERSDKDIR)/drivers/via)
+InstallDriverSDKNonExecFile(via_3d.c,$(DRIVERSDKDIR)/drivers/via)
+InstallDriverSDKNonExecFile(via_3d.h,$(DRIVERSDKDIR)/drivers/via)
 InstallDriverSDKNonExecFile(via_accel.c,$(DRIVERSDKDIR)/drivers/via)
 InstallDriverSDKNonExecFile(via_bandwidth.c,$(DRIVERSDKDIR)/drivers/via)
 InstallDriverSDKNonExecFile(via_bios.h,$(DRIVERSDKDIR)/drivers/via)
 InstallDriverSDKNonExecFile(via_cursor.c,$(DRIVERSDKDIR)/drivers/via)
 InstallDriverSDKNonExecFile(via_dga.c,$(DRIVERSDKDIR)/drivers/via)
+InstallDriverSDKNonExecFile(via_dmabuffer.h,$(DRIVERSDKDIR)/drivers/via)
 InstallDriverSDKNonExecFile(via_dri.c,$(DRIVERSDKDIR)/drivers/via)
 InstallDriverSDKNonExecFile(via_dri.h,$(DRIVERSDKDIR)/drivers/via)
 InstallDriverSDKNonExecFile(via_driver.c,$(DRIVERSDKDIR)/drivers/via)
