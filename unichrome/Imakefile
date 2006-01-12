@@ -88,6 +88,7 @@ DependTarget()
 
 InstallDriverSDKNonExecFile(Imakefile,$(DRIVERSDKDIR)/drivers/via)
 InstallDriverSDKNonExecFile(via.h,$(DRIVERSDKDIR)/drivers/via)
+InstallDriverSDKNonExecFile(via_3d_reg.h,$(DRIVERSDKDIR)/drivers/via)
 InstallDriverSDKNonExecFile(via_3d.c,$(DRIVERSDKDIR)/drivers/via)
 InstallDriverSDKNonExecFile(via_3d.h,$(DRIVERSDKDIR)/drivers/via)
 InstallDriverSDKNonExecFile(via_accel.c,$(DRIVERSDKDIR)/drivers/via)
