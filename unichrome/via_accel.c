@@ -465,7 +465,7 @@ viaAccelPlaneMaskHelper(ViaTwodContext * tdc, CARD32 planeMask)
 	 * Masking doesn't work in 8bpp.
 	 */
 
-	if (modeMask == 0x0F) {
+	if (modeMask == 0xFF) {
 	    tdc->keyControl &= 0x0FFFFFFF;
 	    return FALSE;
 	}
@@ -475,7 +475,7 @@ viaAccelPlaneMaskHelper(ViaTwodContext * tdc, CARD32 planeMask)
 	 */
 
 	for (i = 0; i < (1 << tdc->bytesPPShift); ++i) {
-	    curByteMask = (0xFF << i);
+	  curByteMask = (0xFF << (i << 3));
 
 	    if ((planeMask & curByteMask) == 0) {
 		curMask |= (1 << i);
@@ -2121,10 +2121,14 @@ viaInitExa(ScreenPtr pScreen)
 #endif
 
     pExa->accel.UploadToScratch = viaExaUploadToScratch;
-    pExa->accel.CheckComposite = viaExaCheckComposite;
-    pExa->accel.PrepareComposite = viaExaPrepareComposite;
-    pExa->accel.Composite = viaExaComposite;
-    pExa->accel.DoneComposite = viaExaDoneSolidCopy;
+
+    if (!pVia->noComposite) {
+	xf86DrvMsg(pScrn->scrnIndex, X_INFO,"[EXA] Disabling EXA accelerated composite.\n");
+	pExa->accel.CheckComposite = viaExaCheckComposite;
+	pExa->accel.PrepareComposite = viaExaPrepareComposite;
+	pExa->accel.Composite = viaExaComposite;
+	pExa->accel.DoneComposite = viaExaDoneSolidCopy;
+    }
 
     if (!exaDriverInit(pScreen, pExa)) {
 	xfree(pExa);
@@ -2197,6 +2201,7 @@ viaInitAccel(ScreenPtr pScreen)
 	if (pVia->driSize > (16 * 1024 * 1024))
 	    pVia->driSize = 16 * 1024 * 1024;
 
+	xf86DrvMsg(pScrn->scrnIndex, X_INFO,"[EXA] Enabled EXA acceleration.\n");
 	return TRUE;
     }
 #endif
@@ -2249,15 +2254,10 @@ viaExitAccel(ScreenPtr pScreen)
     VIAPtr pVia = VIAPTR(pScrn);
 
     viaAccelSync(pScrn);
+    viaTearDownCBuffer(&pVia->cb);
 
 #ifdef VIA_HAVE_EXA
     if (pVia->useEXA) {
-	if (pVia->exaDriverPtr) {
-	    exaDriverFini(pScreen);
-	}
-	xfree(pVia->exaDriverPtr);
-	pVia->exaDriverPtr = NULL;
-	viaTearDownCBuffer(&pVia->cb);
 #ifdef XF86DRI
 	if (pVia->directRenderingEnabled) {
 	    if (pVia->texAddr) {
@@ -2265,7 +2265,9 @@ viaExitAccel(ScreenPtr pScreen)
 		    &pVia->texAGPBuffer, sizeof(drm_via_mem_t));
 		pVia->texAddr = NULL;
 	    }
-	    if (pVia->scratchAddr) {
+	    if (pVia->scratchAddr && !pVia->IsPCI && 
+		((unsigned long)pVia->scratchAddr - 
+		 (unsigned long)pVia->agpMappedAddr == pVia->scratchOffset)) {
 		drmCommandWrite(pVia->drmFD, DRM_VIA_FREEMEM,
 		    &pVia->scratchAGPBuffer, sizeof(drm_via_mem_t));
 		pVia->scratchAddr = NULL;
@@ -2278,15 +2280,27 @@ viaExitAccel(ScreenPtr pScreen)
 	    exaOffscreenFree(pScreen, pVia->scratchFBBuffer);
 	    pVia->scratchAddr = NULL;
 	}
+	if (pVia->exaDriverPtr) {
+	    exaDriverFini(pScreen);
+	}
+	xfree(pVia->exaDriverPtr);
+	pVia->exaDriverPtr = NULL;
 	return;
     }
 #endif
     if (pVia->AccelInfoRec) {
 	XAADestroyInfoRec(pVia->AccelInfoRec);
 	pVia->AccelInfoRec = NULL;
-	viaTearDownCBuffer(&pVia->cb);
     }
 }
+
+
+/*
+ * Allocate command buffer and 
+ * buffers for accelerated upload, download and 
+ * the EXA scratch area. The Scratch area resides primarily in 
+ * AGP memory but reverts to FB if AGP is not available. 
+ */
 
 void
 viaFinishInitAccel(ScreenPtr pScreen)
@@ -2299,7 +2313,9 @@ viaFinishInitAccel(ScreenPtr pScreen)
     int size, ret;
 
     if (pVia->directRenderingEnabled && pVia->useEXA) {
+
 	pVia->dBounce = xcalloc(VIA_DMA_DL_SIZE * 2, 1);
+
 	if (!pVia->IsPCI) {
 
 	    /*
@@ -2308,6 +2324,7 @@ viaFinishInitAccel(ScreenPtr pScreen)
 
 	    if (pVia->exaDriverPtr->accel.UploadToScreen ==
 		viaExaTexUploadToScreen) {
+
 		size = VIA_AGP_UPL_SIZE * 2 + 32;
 		pVia->texAGPBuffer.context = 1;
 		pVia->texAGPBuffer.size = size;
@@ -2315,6 +2332,7 @@ viaFinishInitAccel(ScreenPtr pScreen)
 		ret =
 		    drmCommandWriteRead(pVia->drmFD, DRM_VIA_ALLOCMEM,
 		    &pVia->texAGPBuffer, sizeof(drm_via_mem_t));
+
 		if (ret || size != pVia->texAGPBuffer.size) {
 		    pVia->texAGPBuffer.size = 0;
 		} else {
@@ -2325,7 +2343,9 @@ viaFinishInitAccel(ScreenPtr pScreen)
 		    pVia->texAddr =
 			(char *)pVia->agpMappedAddr + pVia->texOffset;
 		}
+
 	    }
+
 	    size = VIA_SCRATCH_SIZE + 32;
 	    pVia->scratchAGPBuffer.context = 1;
 	    pVia->scratchAGPBuffer.size = size;
@@ -2344,10 +2364,12 @@ viaFinishInitAccel(ScreenPtr pScreen)
 		pVia->scratchAddr =
 		    (char *)pVia->agpMappedAddr + pVia->scratchOffset;
 	    }
+
 	}
     }
 #endif
     if (!pVia->scratchAddr && pVia->useEXA) {
+
 	pVia->scratchFBBuffer =
 	    exaOffscreenAlloc(pScreen, VIA_SCRATCH_SIZE, 32, TRUE, NULL,
 	    NULL);
@@ -2358,6 +2380,7 @@ viaFinishInitAccel(ScreenPtr pScreen)
 	    pVia->scratchOffset = pVia->scratchFBBuffer->offset;
 	    pVia->scratchAddr = (char *)pVia->FBBase + pVia->scratchOffset;
 	}
+
     }
 #endif
     if (Success != viaSetupCBuffer(pScrn, &pVia->cb, 0)) {

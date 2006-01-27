@@ -1,3 +1,14 @@
+2006-01-27  Thomas Hellström <thomas-at-tungstengraphics-dot-com>
+
+	* unichrome/via.man:
+	* unichrome/via_3d.c:
+	* unichrome/via_accel.c: (viaAccelPlaneMaskHelper), (viaInitExa),
+	(viaExitAccel), (viaFinishInitAccel):
+	* unichrome/via_driver.c: (VIAPreInit):
+	* unichrome/via_driver.h:
+
+	- Options - Planemask - and manual fixes.
+
 2006-01-12  Thomas Hellström <unichrome-at-shipmail-dot-org>
 
 	* unichrome/via_accel.c: (viaExaDownloadFromScreen),

@@ -146,7 +146,8 @@ typedef enum {
     OPTION_INSECUREDRI,
     OPTION_TVDEFLICKER,
     OPTION_AGP_DMA,
-    OPTION_2D_DMA
+    OPTION_2D_DMA,
+    OPTION_EXA_NOCOMPOSITE
 } VIAOpts;
 
 
@@ -183,6 +184,7 @@ static OptionInfoRec VIAOptions[] =
     {OPTION_DISABLEIRQ, "DisableIRQ", OPTV_BOOLEAN, {0}, FALSE},
     {OPTION_AGP_DMA, "EnableAGPDMA", OPTV_BOOLEAN, {0}, FALSE},
     {OPTION_2D_DMA, "NoAGPFor2D", OPTV_BOOLEAN, {0}, FALSE},
+    {OPTION_EXA_NOCOMPOSITE, "ExaNoComposite", OPTV_BOOLEAN, {0}, FALSE},
     {-1,                NULL,           OPTV_NONE,    {0}, FALSE}
 };
 
@@ -284,6 +286,7 @@ static const char *exaSymbols[] = {
   "exaOffscreenFree",
   "exaGetPixmapPitch",
   "exaGetPixmapOffset",
+  "exaWaitSync",
   NULL
 };
 #endif
@@ -908,6 +911,19 @@ static Bool VIAPreInit(ScrnInfoPtr pScrn, int flags)
 	}
 	xf86DrvMsg(pScrn->scrnIndex, from, "Using %s acceleration architecture\n",
 		   pVia->useEXA ? "EXA" : "XAA");
+
+	pVia->noComposite = FALSE;
+	if (pVia->useEXA) {
+	    if (xf86ReturnOptValBool(VIAOptions, OPTION_EXA_NOCOMPOSITE, FALSE)) {
+		pVia->noComposite = TRUE;
+		if (pVia->agpEnable) {
+		    xf86DrvMsg(pScrn->scrnIndex, X_CONFIG,
+			       "Option: ExaNoComposite - Disable Composite acceleration for EXA\n");
+		}
+	    } else {
+		pVia->noComposite = FALSE;
+	    }
+	}
     }
 #endif /* VIA_HAVE_EXA */
 
@@ -982,6 +998,7 @@ static Bool VIAPreInit(ScrnInfoPtr pScrn, int flags)
     } else {
         pVia->dma2d = TRUE;
     }
+
 
 #ifdef HAVE_DEBUG
     if (xf86ReturnOptValBool(VIAOptions, OPTION_VBEMODES, FALSE)) {
