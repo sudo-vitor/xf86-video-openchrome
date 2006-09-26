@@ -120,6 +120,7 @@ ViaVbeSetMode(ScrnInfoPtr pScrn, DisplayModePtr pMode)
     VIAPtr pVia;
     VbeModeInfoData *data;
     int mode;
+    int refresh;
 
     pVia = VIAPTR(pScrn);
 
@@ -136,7 +137,9 @@ ViaVbeSetMode(ScrnInfoPtr pScrn, DisplayModePtr pMode)
 	       (int) data->data->XResolution,
 	       (int) data->data->YResolution,
 	       mode & ~(1 << 11), (float) data->block->RefreshRate/100.);
+
     ViaVbeSetRefresh(pScrn, data->block->RefreshRate/100);
+
     if (VBESetVBEMode(pVia->pVbe, mode, data->block) == FALSE) {
 	xf86DrvMsg(pScrn->scrnIndex, X_INFO, "VBESetVBEMode failed");
 	if ((data->block || (data->mode & (1 << 11))) &&

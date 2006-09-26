@@ -101,6 +101,7 @@ static SymTabRec VIAChipsets[] = {
     {VIA_K8M800,   "K8M800"},
     {VIA_PM800,    "PM800/PM880/CN400"},
     {VIA_VM800,    "VM800"},
+    {VIA_K8M890,   "K8M890"},
     {-1,            NULL }
 };
 
@@ -112,6 +113,7 @@ static PciChipsets VIAPciChipsets[] = {
     {VIA_K8M800,   PCI_CHIP_VT3204,    RES_SHARED_VGA},
     {VIA_PM800,    PCI_CHIP_VT3259,    RES_SHARED_VGA},
     {VIA_VM800,    PCI_CHIP_VT3314,    RES_SHARED_VGA},
+    {VIA_K8M890,   PCI_CHIP_VT3336,    RES_SHARED_VGA},
     {-1,            -1,                RES_UNDEFINED}
 };
 
@@ -1468,8 +1470,9 @@ static Bool VIAPreInit(ScrnInfoPtr pScrn, int flags)
 
     if (pBIOSInfo->PanelActive && ((pVia->Chipset == VIA_K8M800) ||
 				   (pVia->Chipset == VIA_PM800) ||
-                    (pVia->Chipset == VIA_VM800))) {
-	xf86DrvMsg(pScrn->scrnIndex, X_WARNING, "Panel on K8M800, PM800 or VM800 is"
+                    (pVia->Chipset == VIA_VM800) ||
+                    (pVia->Chipset == VIA_K8M890))) {
+	xf86DrvMsg(pScrn->scrnIndex, X_WARNING, "Panel on K8M800, PM800 ,VM800, or K8M890 is"
 		   " currently not supported.\n");
 	xf86DrvMsg(pScrn->scrnIndex, X_WARNING, "Using VBE to set modes to"
 		   " work around this.\n");
@@ -1825,12 +1828,30 @@ VIASave(ScrnInfoPtr pScrn)
 
 	Regs->SR2E = hwp->readSeq(hwp, 0x2E);	
 
-	Regs->SR44 = hwp->readSeq(hwp, 0x44);
-	Regs->SR45 = hwp->readSeq(hwp, 0x45);
-	Regs->SR46 = hwp->readSeq(hwp, 0x46);
-	Regs->SR47 = hwp->readSeq(hwp, 0x47);
+        switch (pVia->Chipset)
+        {
+            case VIA_CLE266:
+            case VIA_KM400:
+                Regs->SR44 = hwp->readSeq(hwp, 0x44);
+                Regs->SR45 = hwp->readSeq(hwp, 0x45);
+                Regs->SR46 = hwp->readSeq(hwp, 0x46);
+                Regs->SR47 = hwp->readSeq(hwp, 0x47);
+                break;
 
-	DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "Crtc...\n"));
+            default:
+                Regs->SR44 = hwp->readSeq(hwp, 0x44);
+                Regs->SR45 = hwp->readSeq(hwp, 0x45);
+                Regs->SR46 = hwp->readSeq(hwp, 0x46);
+                Regs->SR47 = hwp->readSeq(hwp, 0x47);
+                /*Regs->SR4A = hwp->readSeq(hwp, 0x4a);
+                Regs->SR4B = hwp->readSeq(hwp, 0x4b);
+                Regs->SR4C = hwp->readSeq(hwp, 0x4c);*/
+                break;
+        }
+
+
+        DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "Crtc...\n"));
+
 	Regs->CR13 = hwp->readCrtc(hwp, 0x13);
 
 	Regs->CR32 = hwp->readCrtc(hwp, 0x32);
@@ -2165,10 +2186,11 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
     if (!VIAMapMMIO(pScrn))
         return FALSE;
 
-    if (pVia->pVbe && pVia->vbeSR)
+    if (pVia->pVbe && pVia->vbeSR) {
 	ViaVbeSaveRestore(pScrn, MODE_SAVE);
-    else 
+    } else {
 	VIASave(pScrn);
+    }
 
     vgaHWUnlock(hwp);
 
