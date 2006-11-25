@@ -1,3 +1,20 @@
+2006-11-25  Jon Nettleton  <jon-dot-nettleton-at-gmail-dot-com>
+	
+	* unichrome/via_id.c:
+	* unichrome/via_accel.c:
+ 	
+	Added additional ID's for the K8M890 cards
+        Changed memory allocation order for the HW cursor and 2d engine. 
+
+2006-10-29  Thomas Hellstrom  <thomas-at-tungstengraphics-dot-com> 
+
+	* libxvmc/viaLowLevel.c:
+	* libxvmc/viaLowLevelPro.c:
+	* unichrome/via_regs.h:
+
+	Via managed to mix up the 2D / 3D engine busy status bits.
+	Funny we never noticed this before.
+
 2006-09-22  Jon Nettleton  <jon-dot-nettleton-at-gmail-dot-com>
 
 	* unichrome/via_id.h

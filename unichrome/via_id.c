@@ -178,7 +178,9 @@ static struct ViaCardIdStruct ViaCardId[] = {
     {"Fujitsu/Siemens Amilo Pro V2035",       VIA_VM800,   0x1734, 0x10AE, VIA_DEVICE_CRT | VIA_DEVICE_LCD},
     {"ASRock P4VM800",                        VIA_VM800,   0x1849, 0x3344, VIA_DEVICE_CRT},
     {"Asustek P5V800-MX",                     VIA_VM800,   0x3344, 0x1122, VIA_DEVICE_CRT},
+    /* K8M890 */
     {"Averatec 226x",                         VIA_K8M890,  0x14FF, 0xA002, VIA_DEVICE_CRT | VIA_DEVICE_LCD},
+    {"ASUS A8V-VM",                           VIA_K8M890,  0x1043, 0x81B5, VIA_DEVICE_CRT},
     /* keep this */
     {NULL,                                    VIA_UNKNOWN, 0x0000, 0x0000, VIA_DEVICE_NONE}
 };

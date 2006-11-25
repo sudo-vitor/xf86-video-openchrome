@@ -2167,9 +2167,8 @@ viaInitExa(ScreenPtr pScreen)
     pExa->offScreenBase = pScrn->virtualY * pVia->Bpl;
     pExa->pixmapOffsetAlign = 32;
     pExa->pixmapPitchAlign = 16;
-    /* This needs to be fixed upstream for now it just causes hangs
-    pExa->flags = EXA_OFFSCREEN_PIXMAPS | EXA_OFFSCREEN_ALIGN_POT;*/
-    pExa->flags = EXA_OFFSCREEN_PIXMAPS;
+    /* This needs to be fixed upstream for now it just causes hangs*/
+    pExa->flags = EXA_OFFSCREEN_PIXMAPS | EXA_OFFSCREEN_ALIGN_POT;
     pExa->maxX = 2047;
     pExa->maxY = 2047;
     pExa->WaitMarker = viaAccelWaitMarker;
@@ -2317,12 +2316,12 @@ viaInitAccel(ScreenPtr pScreen)
 	pVia->FBFreeEnd -= VIA_VQ_SIZE;
     }
 
-    viaInitialize2DEngine(pScrn);
-
     if (pVia->hwcursor) {
 	pVia->FBFreeEnd -= VIA_CURSOR_SIZE;
 	pVia->CursorStart = pVia->FBFreeEnd;
     }
+
+    viaInitialize2DEngine(pScrn);
 
     /*
      * Sync marker space.
