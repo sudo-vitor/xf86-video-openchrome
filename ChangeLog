@@ -1,3 +1,12 @@
+2006-11-28  Jon Nettleton  <jon-dot-nettleton-at-gmail-dot-com>
+	
+	* unichrome/via_bandwidth.c:
+	* unichrome/via_accel.c:
+ 	
+	Patched via_bandwidth.c for dumb mistake I made thanks Gabriel Mansi 
+        For the second set of eyes.  Move HWCursor memory allocation even 
+        further in the driver initialization. 
+
 2006-11-25  Jon Nettleton  <jon-dot-nettleton-at-gmail-dot-com>
 	
 	* unichrome/via_id.c:

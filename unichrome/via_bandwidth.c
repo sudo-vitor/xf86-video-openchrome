@@ -225,9 +225,9 @@ ViaSetPrimaryFIFO(ScrnInfoPtr pScrn, DisplayModePtr mode)
 	    ViaSeqMask(hwp, 0x22, 0x00, 0x1F);
 	break;
     case VIA_K8M890:
-        hwp-writeSeq(hwp, 0x16, 0x92);
-        hwp-writeSeq(hwp, 0x17, 0xB3);
-        hwp-writeSeq(hwp, 0x18, 0x8A);
+        hwp->writeSeq(hwp, 0x16, 0x92);
+        hwp->writeSeq(hwp, 0x17, 0xB3);
+        hwp->writeSeq(hwp, 0x18, 0x8A);
         break;
     default:
 	xf86DrvMsg(pScrn->scrnIndex, X_ERROR, "ViaSetPrimaryFIFO:"
