@@ -2308,11 +2308,6 @@ viaInitAccel(ScreenPtr pScreen)
     BoxRec AvailFBArea;
     int maxY;
 
-    if (pVia->hwcursor) {
-	pVia->FBFreeEnd -= VIA_CURSOR_SIZE;
-	pVia->CursorStart = pVia->FBFreeEnd;
-    }
-
     pVia->VQStart = 0;
     if (((pVia->FBFreeEnd - pVia->FBFreeStart) >= VIA_VQ_SIZE) &&
 	pVia->VQEnable) {
@@ -2322,6 +2317,11 @@ viaInitAccel(ScreenPtr pScreen)
     }
 
     viaInitialize2DEngine(pScrn);
+
+    if (pVia->hwcursor) {
+	pVia->FBFreeEnd -= VIA_CURSOR_SIZE;
+	pVia->CursorStart = pVia->FBFreeEnd;
+    }
 
     /*
      * Sync marker space.
