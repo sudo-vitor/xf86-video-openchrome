@@ -1,3 +1,12 @@
+2006-11-30  Jon Nettleton  <jon-dot-nettleton-at-gmail-dot-com>
+	
+	* unichrome/via_mode.c:
+	* unichrome/via_accel.c:
+ 	
+        Added patch submitted by Gabriel Mansi 
+	<gabriel-dot-mansi-at-gmail-dot-com> to fix some of the K8M890
+	logic.
+
 2006-11-28  Jon Nettleton  <jon-dot-nettleton-at-gmail-dot-com>
 	
 	* unichrome/via_bandwidth.c:

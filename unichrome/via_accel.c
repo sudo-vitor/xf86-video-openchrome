@@ -1172,7 +1172,7 @@ viaInitXAA(ScreenPtr pScreen)
      * test with x11perf -shmput500!
      */
 
-    if (pVia->Chipset != VIA_K8M800 || pVia->Chipset != VIA_K8M890)
+    if (pVia->Chipset != VIA_K8M800 && pVia->Chipset != VIA_K8M890)
 	xaaptr->ImageWriteFlags |= NO_GXCOPY;
 
     xaaptr->SetupForImageWrite = viaSetupForImageWrite;
