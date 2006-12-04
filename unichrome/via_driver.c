@@ -1731,8 +1731,8 @@ static void VIALeaveVT(int scrnIndex, int flags)
      * Next line apparently helps fix 3D hang on VT switch.
      * No idea why. Taken from VIA's binary drivers.
      */
-
-    hwp->writeSeq(hwp, 0x1A, pVia->SavedReg.SR1A | 0x40);
+    if (pVia->Chipset != VIA_K8M890)
+        hwp->writeSeq(hwp, 0x1A, pVia->SavedReg.SR1A | 0x40);
 
 #ifdef XF86DRI
     if (pVia->directRenderingEnabled) {
@@ -2493,8 +2493,8 @@ static Bool VIACloseScreen(int scrnIndex, ScreenPtr pScreen)
  
 
 	/* Fix 3D Hang after X restart */
-
-	hwp->writeSeq(hwp, 0x1A, pVia->SavedReg.SR1A | 0x40);
+        if (pVia->Chipset != VIA_K8M890)	
+            hwp->writeSeq(hwp, 0x1A, pVia->SavedReg.SR1A | 0x40);
 
 	if (!pVia->IsSecondary) {
             /* Turn off all video activities */
