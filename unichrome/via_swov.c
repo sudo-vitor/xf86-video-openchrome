@@ -746,6 +746,7 @@ viaCalculateVideoColor(VIAPtr pVia, int hue, int saturation, int brightness,
     case PCI_CHIP_VT3204:
     case PCI_CHIP_VT3259:
     case PCI_CHIP_VT3314:
+    case PCI_CHIP_VT3336:
 	model = 0;
 	break;
     case PCI_CHIP_CLE3122:
@@ -874,6 +875,7 @@ viaSetColorSpace(VIAPtr pVia, int hue, int saturation, int brightness,
     case PCI_CHIP_VT3204:
     case PCI_CHIP_VT3259:
     case PCI_CHIP_VT3314:
+    case PCI_CHIP_VT3336:
 	VIDOutD(V3_ColorSpaceReg_1, col1);
 	VIDOutD(V3_ColorSpaceReg_2, col2);
 	DBG_DD(ErrorF("000002C4 %08lx\n", col1));
@@ -902,6 +904,7 @@ ViaInitVideoStatusFlag(VIAPtr pVia)
     case PCI_CHIP_VT3204:
     case PCI_CHIP_VT3259:
     case PCI_CHIP_VT3314:
+    case PCI_CHIP_VT3336:
 	return VIDEO_HQV_INUSE | SW_USE_HQV | VIDEO_3_INUSE;
     case PCI_CHIP_CLE3122:
 	return VIDEO_HQV_INUSE | SW_USE_HQV | VIDEO_1_INUSE;
@@ -933,6 +936,7 @@ ViaSetVidCtl(VIAPtr pVia, unsigned int videoFlag)
 	case PCI_CHIP_VT3204:
 	case PCI_CHIP_VT3259:
 	case PCI_CHIP_VT3314:
+	case PCI_CHIP_VT3336:
 	    return V3_ENABLE | V3_EXPIRE_NUM_3205;
 
 	case PCI_CHIP_CLE3122:
@@ -1270,6 +1274,9 @@ static void
 SetFIFO_V3_64or32or32(VIAPtr pVia)
 {
     switch (pVia->ChipId) {
+    case PCI_CHIP_VT3336:
+	SetFIFO_V3(pVia, 225, 200, 250);
+	break;
     case PCI_CHIP_VT3204:
 	SetFIFO_V3(pVia, 100, 89, 89);
 	break;
@@ -1297,6 +1304,9 @@ static void
 SetFIFO_V3_64or32or16(VIAPtr pVia)
 {
     switch (pVia->ChipId) {
+    case PCI_CHIP_VT3336:
+	SetFIFO_V3(pVia, 225, 200, 250);
+	break;
     case PCI_CHIP_VT3204:
 	SetFIFO_V3(pVia, 100, 89, 89);
 	break;
