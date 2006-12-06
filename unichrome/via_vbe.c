@@ -161,12 +161,12 @@ ViaVbeSetMode(ScrnInfoPtr pScrn, DisplayModePtr pMode)
 
     pScrn->vtSema = TRUE;
 
-    if (!pVia->NoAccel)
-	viaInitialize2DEngine(pScrn);
-    
-#ifdef XF86DRI
-    VIAInitialize3DEngine(pScrn);
+    if (!pVia->NoAccel) {
+#ifdef XF86DRI || defined(VIA_HAVE_EXA)
+	VIAInitialize3DEngine(pScrn);
 #endif 
+	viaInitialize2DEngine(pScrn);
+    }
 
     ViaVbeAdjustFrame(pScrn->scrnIndex, pScrn->frameX0, pScrn->frameY0, 0);
 

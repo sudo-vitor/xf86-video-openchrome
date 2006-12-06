@@ -81,7 +81,8 @@
 #define VIA_MEM_DDR266  0x04
 #define VIA_MEM_DDR333  0x05
 #define VIA_MEM_DDR400  0x06
-#define VIA_MEM_END     0x07
+#define VIA_MEM_DDR533  0x07
+#define VIA_MEM_END     0x08
 #define VIA_MEM_NONE    0xFF
 
 /* Digital Output Bus Width */
@@ -105,7 +106,6 @@ typedef struct _VIABIOSINFO {
     Bool        ForcePanel;
     int         PanelIndex;
     int         PanelSize;
-    Bool	LCDDualEdge;	/* mean add-on card is 2CH or Dual or DDR */
     Bool        Center;
     CARD8	BusWidth;		/* Digital Output Bus Width */
     Bool        SetDVI;
@@ -121,7 +121,6 @@ typedef struct _VIABIOSINFO {
     Bool        TVActive;
     I2CDevPtr   TVI2CDev;
     int         TVType;
-    Bool        TVProgressive;
     Bool        TVDotCrawl;
     int         TVDeflicker;
     CARD8       TVRegs[0xFF];

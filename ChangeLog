@@ -1,3 +1,81 @@
+2006-12-06  Jon Nettleton  <jon-dot-nettleton-at-gmail-dot-com>
+	
+	* unichrome/via_driver.c:
+ 	
+	Fixed some of the boolean option changes that are
+	inverses such as DisableIRQ. 
+
+2006-12-06  Thomas Hellstrom  <thomas-at-tungstengraphics-dot-com> 
+
+	* unichrome/via_memory.c: (viaExaFBSave), (viaOffScreenLinear):
+
+	Cause a "FatalError" if EXA is used with an un-patched Xserver,
+	and an illegal save locked memory action is requested.
+	
+2006-12-06  Thomas Hellstrom  <thomas-at-tungstengraphics-dot-com> 
+
+	* unichrome/via_driver.c: (VIAInitialize3DEngine):
+
+	Proper register names in VIAInitialize3DEngine.
+	
+2006-12-06  Thomas Hellstrom  <thomas-at-tungstengraphics-dot-com> 
+
+	* unichrome/via_driver.c: (VIALeaveVT), (VIAWriteMode),
+	(VIACloseScreen):
+	* unichrome/via_vbe.c: (ViaVbeSetMode):
+
+	Now that we initialize the 3D engine every time we write
+	mode, make sure this is done before setting up VQ and AGP
+	so that those settings persist. The GPU will be unstable
+	otherwise.
+	Also fix some code comments.
+	
+2006-12-06  Thomas Hellstrom  <thomas-at-tungstengraphics-dot-com> 
+
+	* unichrome/via_driver.c: (VIALeaveVT):
+
+	Force 3D context upload after a VT switch.
+	
+2006-12-06  Thomas Hellstrom  <thomas-at-tungstengraphics-dot-com> 
+
+	* unichrome/via_dri.c: (viaDRIFBMemcpy), (viaDRIOffscreenSave):
+
+	Fix up previous commit for > 16MB sizes. 
+
+2006-12-06  Thomas Hellstrom  <thomas-at-tungstengraphics-dot-com> 
+
+	* unichrome/via_dri.c: (viaDRIOffscreenSave),
+	(viaDRIOffscreenRestore):
+	* unichrome/via_driver.c: (VIAEnterVT), (VIALeaveVT):
+	* unichrome/via_driver.h:
+
+	Back up DRI offscreen memory before leaving VT and restore it
+	when entering VT. It may be overwritten in between.
+	Use PCI DMA blit for this if available.
+	
+2006-12-05  Thomas Hellstrom  <thomas-at-tungstengraphics-dot-com> 
+
+	* unichrome/via_driver.c: (VIAWriteMode), (VIAInitialize3DEngine):
+	* unichrome/via_vbe.c: (ViaVbeSetMode):
+
+	With EXA + 3D we need to reinitialize the 3D engine after
+	a mode switch (possibly the soft reset + 2D engine
+	initialization). Otherwise the GPU will hang.
+
+2006-12-05 Thomas Hellstrom  <thomas-at-tungstengraphics-dot-com> 
+	
+	* unichrome/via_driver.c: (VIAPreInit):
+
+	Fix the dma2d option setting.
+
+2006-12-05  Thomas Hellstrom  <thomas-at-tungstengraphics-dot-com> 
+
+	* unichrome/via_bandwidth.c: (ViaSetPrimaryFIFO):
+
+	Use a more aggressive fifo setting for CLE266 Cx.
+	Boosts performance.
+	Please report problems with this.
+
 2006-12-05  Jon Nettleton  <jon-dot-nettleton-at-gmail-dot-com>
 	
 	* unichrome/via_video.c:
@@ -13,6 +91,19 @@
 	<gabriel-dot-mansi-at-gmail-dot-com> to fix the K8M890 hang on 
 	VT switch.
 
+2006-12-01  Thomas Hellstrom  <thomas-at-tungstengraphics-dot-com> 
+
+	* unichrome/via.man:
+	* unichrome/via_bios.h:
+	* unichrome/via_dri.c: (VIADRIScreenInit):
+	* unichrome/via_driver.c: (VIAPreInit):
+	* unichrome/via_driver.h:
+
+	Remove unused options.
+	First pass cleaning up option handling.
+	Make most boolean options work as expected;
+	(that is, accepting both a "true" and a "false" argument).
+	
 2006-11-30  Jon Nettleton  <jon-dot-nettleton-at-gmail-dot-com>
 	
 	* unichrome/via_mode.c:
@@ -47,6 +138,24 @@
 
 	Via managed to mix up the 2D / 3D engine busy status bits.
 	Funny we never noticed this before.
+
+2006-10-24 Thomas Hellstrom  <thomas-at-tungstengraphics-dot-com> 
+
+	* unichrome/via_xvmc.c: (ViaXvMCCreateContext):
+
+	Remove VT3314 (CN700, VM800 etc.) mpeg2 AGP DMA support.
+
+2006-10-11  Xavier Bachelot <xb_ml-at-kelkoo-dot-net>
+
+	reviewed by: Ivor
+
+	* unichrome/via_bios.h:
+	* unichrome/via_id.c:
+	* unichrome/via_mode.h:
+	* unichrome/via_video.c: (DecideOverlaySupport):
+
+	DDR533 memory support and small clean up.
+	Fujitsu/Siemens Amilo L7320 pci id (reported by DeNayGo).
 
 2006-09-22  Jon Nettleton  <jon-dot-nettleton-at-gmail-dot-com>
 
