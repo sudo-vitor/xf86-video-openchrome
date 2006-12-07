@@ -1641,6 +1641,9 @@ static Bool VIAEnterVT(int scrnIndex, int flags)
     }
     vgaHWUnlock(hwp);
 
+    VIASaveScreen(pScrn->pScreen, SCREEN_SAVER_ON);
+
+
     /* Patch for APM suspend resume, HWCursor has garbage */
     if (pVia->hwcursor)
 	ViaCursorRestore(pScrn); 
@@ -1649,12 +1652,24 @@ static Bool VIAEnterVT(int scrnIndex, int flags)
     if (!pVia->IsSecondary)
         viaRestoreVideo(pScrn);
 
-
 #ifdef XF86DRI
     if (pVia->directRenderingEnabled) {
         kickVblank(pScrn);
-	viaDRIOffscreenRestore(pScrn);
 	VIADRIRingBufferInit(pScrn);
+	viaDRIOffscreenRestore(pScrn);
+    }
+#endif 
+
+    if (pVia->NoAccel) {
+	memset(pVia->FBBase, 0x00, pVia->Bpl * pScrn->virtualY);
+    } else {
+	viaAccelFillRect(pScrn, 0, 0, pScrn->displayWidth, pScrn->virtualY,
+			 0x00000000);
+	viaAccelSyncMarker(pScrn);
+    }
+
+#ifdef XF86DRI
+    if (pVia->directRenderingEnabled) {
 	DRIUnlock(screenInfo.screens[scrnIndex]);
     }
 #endif 
