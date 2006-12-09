@@ -1277,10 +1277,10 @@ SetFIFO_V3_64or32or32(VIAPtr pVia)
     case PCI_CHIP_VT3204:
 	SetFIFO_V3(pVia, 100, 89, 89);
 	break;
-    case PCI_CHIP_VT3336:
     case PCI_CHIP_VT3314:
 	SetFIFO_V3(pVia, 64, 61, 61);
 	break;
+    case PCI_CHIP_VT3336:
     case PCI_CHIP_VT3205:
     case PCI_CHIP_VT3259:
 	SetFIFO_V3(pVia, 32, 29, 29);
@@ -1305,10 +1305,10 @@ SetFIFO_V3_64or32or16(VIAPtr pVia)
     case PCI_CHIP_VT3204:
 	SetFIFO_V3(pVia, 100, 89, 89);
 	break;
-    case PCI_CHIP_VT3336:
     case PCI_CHIP_VT3314:
 	SetFIFO_V3(pVia, 64, 61, 61);
 	break;
+    case PCI_CHIP_VT3336:
     case PCI_CHIP_VT3205:
     case PCI_CHIP_VT3259:
 	SetFIFO_V3(pVia, 32, 29, 29);
