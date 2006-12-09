@@ -364,8 +364,8 @@ static void libc_YUV42X(unsigned char *dst,
 }
 #endif
 
-#if defined(__i386__) || defined (__x86_64__)
-
+//#if defined(__i386__) || defined (__x86_64__)
+#if defined(__i386__)
 
 
 /* linux kernel __memcpy */
