@@ -319,7 +319,8 @@
 	fence;								\
     }									\
 
-#if !defined(__i386__) || (defined(linux) && defined(__i386__)) 
+#if !defined(__i386__) || (defined(linux) \
+	&& (defined(__i386__) || defined(__x86_64__))) 
 
 static void libc_YUV42X(unsigned char *dst,
 			const unsigned char *src,
@@ -363,7 +364,7 @@ static void libc_YUV42X(unsigned char *dst,
 }
 #endif
 
-#ifdef __i386__
+#if defined(__i386__) || defined (__x86_64__)
 
 
 
