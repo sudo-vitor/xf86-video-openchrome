@@ -1275,8 +1275,8 @@ SetFIFO_V3_64or32or32(VIAPtr pVia)
 {
     switch (pVia->ChipId) {
     case PCI_CHIP_VT3336:
-	SetFIFO_V3(pVia, 225, 200, 250);
-	break;
+/*	SetFIFO_V3(pVia, 225, 200, 250);
+	break;*/
     case PCI_CHIP_VT3204:
 	SetFIFO_V3(pVia, 100, 89, 89);
 	break;
@@ -1305,8 +1305,8 @@ SetFIFO_V3_64or32or16(VIAPtr pVia)
 {
     switch (pVia->ChipId) {
     case PCI_CHIP_VT3336:
-	SetFIFO_V3(pVia, 225, 200, 250);
-	break;
+/*	SetFIFO_V3(pVia, 225, 200, 250);
+	break;*/
     case PCI_CHIP_VT3204:
 	SetFIFO_V3(pVia, 100, 89, 89);
 	break;
