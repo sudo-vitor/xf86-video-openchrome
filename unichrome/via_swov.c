@@ -875,12 +875,17 @@ viaSetColorSpace(VIAPtr pVia, int hue, int saturation, int brightness,
     case PCI_CHIP_VT3204:
     case PCI_CHIP_VT3259:
     case PCI_CHIP_VT3314:
-    case PCI_CHIP_VT3336:
 	VIDOutD(V3_ColorSpaceReg_1, col1);
 	VIDOutD(V3_ColorSpaceReg_2, col2);
 	DBG_DD(ErrorF("000002C4 %08lx\n", col1));
 	DBG_DD(ErrorF("000002C8 %08lx\n", col2));
 	break;
+    case PCI_CHIP_VT3336:
+        VIDOutD(V1_ColorSpaceReg_1, col1);
+        VIDOutD(V1_ColorSpaceReg_2, col2);
+        DBG_DD(ErrorF("00000284 %08lx\n", col1));
+        DBG_DD(ErrorF("00000288 %08lx\n", col2));
+        break;
     case PCI_CHIP_CLE3122:
 	VIDOutD(V1_ColorSpaceReg_2, col2);
 	VIDOutD(V1_ColorSpaceReg_1, col1);
