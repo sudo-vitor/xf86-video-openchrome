@@ -1093,6 +1093,10 @@ Flip(VIAPtr pVia, viaPortPrivPtr pPriv, int fourcc,
 	    VIDOutD(HQV_SRC_STARTADDR_V,
 		pVia->swov.SWDevice.dwSWCrPhysicalAddr[DisplayBufferIndex]);
 	}
+
+    	if (pVia->ChipId == PCI_CHIP_VT3336)
+	    proReg = 0;
+
 	VIDOutD(HQV_CONTROL + proReg,
 	    (VIDInD(HQV_CONTROL +
 		    proReg) & ~HQV_FLIP_ODD) | HQV_SW_FLIP | HQV_FLIP_STATUS);
