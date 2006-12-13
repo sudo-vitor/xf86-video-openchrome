@@ -1084,7 +1084,7 @@ Flip(VIAPtr pVia, viaPortPrivPtr pPriv, int fourcc,
 
 	VIDOutD(HQV_SRC_STARTADDR_Y + proReg,
 	    pVia->swov.SWDevice.dwSWPhysicalAddr[DisplayBufferIndex]);
-	if (pVia->ChipId == PCI_CHIP_VT3259 && pVia->ChipId == PCI_CHIP_VT3336) {
+	if (pVia->ChipId == PCI_CHIP_VT3259 || pVia->ChipId == PCI_CHIP_VT3336) {
 	    VIDOutD(HQV_SRC_STARTADDR_U + proReg,
 		pVia->swov.SWDevice.dwSWCrPhysicalAddr[DisplayBufferIndex]);
 	} else {
