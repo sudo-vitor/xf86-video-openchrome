@@ -1,3 +1,9 @@
+2006-12-13  Jon Nettleton  <jon-dot-nettleton-at-gmail-dot-com>
+
+	* unichrome/via_video.c:
+
+	Don't use HQV Offset for HQV_CONTROL
+
 2006-12-11  Jon Nettleton  <jon-dot-nettleton-at-gmail-dot-com>
 
 	* unichrome/via_video.c:

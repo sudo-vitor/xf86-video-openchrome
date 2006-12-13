@@ -1057,7 +1057,7 @@ Flip(VIAPtr pVia, viaPortPrivPtr pPriv, int fourcc,
 {
     unsigned long proReg = 0;
 
-    if ((pVia->ChipId == PCI_CHIP_VT3259 || pVia->ChipId == PCI_CHIP_VT3336) &&
+    if (pVia->ChipId == PCI_CHIP_VT3259 &&
 	!(pVia->swov.gdwVideoFlagSW & VIDEO_1_INUSE))
 	proReg = PRO_HQV1_OFFSET;
 
@@ -1078,6 +1078,10 @@ Flip(VIAPtr pVia, viaPortPrivPtr pPriv, int fourcc,
     case FOURCC_YV12:
     default:
 	while ((VIDInD(HQV_CONTROL + proReg) & HQV_SW_FLIP)) ;
+
+    	if (pVia->ChipId == PCI_CHIP_VT3336)
+	    proReg = 0;
+
 	VIDOutD(HQV_SRC_STARTADDR_Y + proReg,
 	    pVia->swov.SWDevice.dwSWPhysicalAddr[DisplayBufferIndex]);
 	if (pVia->ChipId == PCI_CHIP_VT3259 && pVia->ChipId == PCI_CHIP_VT3336) {
