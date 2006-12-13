@@ -1080,7 +1080,7 @@ Flip(VIAPtr pVia, viaPortPrivPtr pPriv, int fourcc,
 	while ((VIDInD(HQV_CONTROL + proReg) & HQV_SW_FLIP)) ;
 
     	if (pVia->ChipId == PCI_CHIP_VT3336)
-	    proReg = 0;
+	    proReg = PRO_HQV1_OFFSET;
 
 	VIDOutD(HQV_SRC_STARTADDR_Y + proReg,
 	    pVia->swov.SWDevice.dwSWPhysicalAddr[DisplayBufferIndex]);
