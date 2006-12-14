@@ -1057,7 +1057,7 @@ Flip(VIAPtr pVia, viaPortPrivPtr pPriv, int fourcc,
 {
     unsigned long proReg = 0;
 
-    if (pVia->ChipId == PCI_CHIP_VT3259 &&
+    if ((pVia->ChipId == PCI_CHIP_VT3259 || pVia->ChipId == PCI_CHIP_VT3336) &&
 	!(pVia->swov.gdwVideoFlagSW & VIDEO_1_INUSE))
 	proReg = PRO_HQV1_OFFSET;
 
@@ -1078,10 +1078,6 @@ Flip(VIAPtr pVia, viaPortPrivPtr pPriv, int fourcc,
     case FOURCC_YV12:
     default:
 	while ((VIDInD(HQV_CONTROL + proReg) & HQV_SW_FLIP)) ;
-
-    	if (pVia->ChipId == PCI_CHIP_VT3336)
-	    proReg = PRO_HQV1_OFFSET;
-
 	VIDOutD(HQV_SRC_STARTADDR_Y + proReg,
 	    pVia->swov.SWDevice.dwSWPhysicalAddr[DisplayBufferIndex]);
 	if (pVia->ChipId == PCI_CHIP_VT3259 || pVia->ChipId == PCI_CHIP_VT3336) {
@@ -1093,10 +1089,6 @@ Flip(VIAPtr pVia, viaPortPrivPtr pPriv, int fourcc,
 	    VIDOutD(HQV_SRC_STARTADDR_V,
 		pVia->swov.SWDevice.dwSWCrPhysicalAddr[DisplayBufferIndex]);
 	}
-
-    	if (pVia->ChipId == PCI_CHIP_VT3336)
-	    proReg = 0;
-
 	VIDOutD(HQV_CONTROL + proReg,
 	    (VIDInD(HQV_CONTROL +
 		    proReg) & ~HQV_FLIP_ODD) | HQV_SW_FLIP | HQV_FLIP_STATUS);
@@ -1142,7 +1134,7 @@ viaDmaBlitImage(VIAPtr pVia,
     Bool nv12Conversion;
 
     bounceBuffer = ((unsigned long)src & 15);
-    nv12Conversion = ((pVia->ChipId == PCI_CHIP_VT3259)
+    nv12Conversion = ((pVia->ChipId == PCI_CHIP_VT3259 || pVia->ChipId == PCI_CHIP_VT3336)
 	&& (id == FOURCC_YV12));
 
     switch (id) {
@@ -1335,7 +1327,7 @@ viaPutImage(ScrnInfoPtr pScrn,
 		} else {
 		    switch (id) {
 		    case FOURCC_YV12:
-			if (pVia->ChipId == PCI_CHIP_VT3259) {
+			if (pVia->ChipId == PCI_CHIP_VT3259 || pVia->ChipId == PCI_CHIP_VT3336) {
 			    nv12cp(pVia->swov.SWDevice.
 				lpSWOverlaySurface[pVia->dwFrameNum & 1], buf,
 				dstPitch, width, height, 0);
