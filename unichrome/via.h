@@ -199,7 +199,7 @@
 #define RAM_TABLE_CONTROL       0x1C8
 #define RAM_TABLE_READ          0x1CC
 
-/* HQV Registers 
+/* HQV Registers*/ 
 #define HQV_CONTROL             0x1D0
 #define HQV_SRC_STARTADDR_Y     0x1D4
 #define HQV_SRC_STARTADDR_U     0x1D8
@@ -211,21 +211,7 @@
 #define HQV_DST_STARTADDR1      0x1F0
 #define HQV_DST_STARTADDR2      0x1FC
 #define HQV_DST_STRIDE          0x1F4
-#define HQV_SRC_STRIDE          0x1F8*/
-
-/* HQV Registers*/ 
-#define HQV_CONTROL             0x3D0
-#define HQV_SRC_STARTADDR_Y     0x3D4
-#define HQV_SRC_STARTADDR_U     0x3D8
-#define HQV_SRC_STARTADDR_V     0x3DC
-#define HQV_SRC_FETCH_LINE      0x3E0
-#define HQV_FILTER_CONTROL      0x3E4
-#define HQV_MINIFY_CONTROL      0x3E8
-#define HQV_DST_STARTADDR0      0x3EC
-#define HQV_DST_STARTADDR1      0x3F0
-#define HQV_DST_STARTADDR2      0x3FC
-#define HQV_DST_STRIDE          0x3F4
-#define HQV_SRC_STRIDE          0x3F8
+#define HQV_SRC_STRIDE          0x1F8
 
 #define PRO_HQV1_OFFSET         0x1000
 /*
