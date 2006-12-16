@@ -911,6 +911,8 @@ ViaInitVideoStatusFlag(VIAPtr pVia)
     case PCI_CHIP_VT3314:
 	return VIDEO_HQV_INUSE | SW_USE_HQV | VIDEO_3_INUSE;
     case PCI_CHIP_VT3336:
+	return VIDEO_HQV_INUSE | SW_USE_HQV | VIDEO_1_INUSE | \
+               VIDEO_ACTIVE | VIDEO_SHOW;
     case PCI_CHIP_CLE3122:
 	return VIDEO_HQV_INUSE | SW_USE_HQV | VIDEO_1_INUSE;
     default:
@@ -1678,7 +1680,7 @@ Upd_Video(ScrnInfoPtr pScrn, unsigned long videoFlag,
     vidCtl = ViaSetVidCtl(pVia, videoFlag);
 
     if(hwDiff->dwNeedV1Prefetch) {
-        DBG_DD(ErrorF("NEEDV1PREFETCH"));
+        DBG_DD(ErrorF("NEEDV1PREFETCH\n"));
         vidCtl |= V1_PREFETCH_ON_3336;
     }
 

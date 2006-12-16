@@ -41,12 +41,16 @@
 
 /* Video status flag */
 
+#define VIDEO_HIDE              0x00000000  /*Video off*/
+#define VIDEO_SHOW              0x80000000  /*Video on*/
+#define VIDEO_ACTIVE            0x10000000  /*Video active*/
 #define VIDEO_MPEG_INUSE        0x08000000  /*Video is used with MPEG */
 #define VIDEO_HQV_INUSE         0x04000000  /*Video is used with HQV*/
 #define VIDEO_CAPTURE0_INUSE    0x02000000  /*Video is used with CAPTURE 0*/
 #define VIDEO_CAPTURE1_INUSE    0x00000000  /*Video is used with CAPTURE 1*/
 #define VIDEO_1_INUSE           0x01000000  /*Video 1 is used with software flip*/
 #define VIDEO_3_INUSE           0x00000000  /*Video 3 is used with software flip*/
+#define VIDEO_ON                0x00100000
 #define MPEG_USE_V1             0x00010000  /*[16] : 1:MPEG use V1, 0:MPEG use V3*/
 #define MPEG_USE_V3             0x00000000  /*[16] : 1:MPEG use V1, 0:MPEG use V3*/
 #define MPEG_USE_HQV            0x00020000  /*[17] : 1:MPEG use HQV,0:MPEG not use HQV*/
