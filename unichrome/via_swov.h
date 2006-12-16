@@ -60,6 +60,7 @@ typedef struct __VIAHWDiff
     /*unsigned long dwUpdFlip; *//* Set HQV3D0[15] to flip video */
     unsigned long dwHQVDisablePatch;   /* Change Video Engine Clock setting for HQV disable bug */
     /*unsigned long dwSUBFlip; *//* Set HQV3D0[15] to flip video for sub-picture blending */
+    unsigned long dwNeedV1Prefetch;             /*V1 pre-fetch function for K8*/
     /*unsigned long dwNeedV3Prefetch; *//* V3 pre-fetch function for K8 */
     /*unsigned long dwNeedV4Prefetch; *//* V4 pre-fetch function for K8 */
     /*unsigned long dwUseSystemMemory; *//* Use system memory for DXVA compressed data buffers */

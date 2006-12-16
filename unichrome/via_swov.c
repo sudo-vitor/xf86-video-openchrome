@@ -212,12 +212,14 @@ VIAVidHWDiffInit(ScrnInfoPtr pScrn)
 	    HWDiff->dwSupportTwoColorKey = VID_HWDIFF_FALSE;
 	    HWDiff->dwHQVInitPatch = VID_HWDIFF_TRUE;
 	    HWDiff->dwHQVDisablePatch = VID_HWDIFF_FALSE;
+	    HWDiff->dwNeedV1Prefetch = VID_HWDIFF_FALSE;
 	} else {
 	    HWDiff->dwThreeHQVBuffer = VID_HWDIFF_TRUE;
 	    HWDiff->dwHQVFetchByteUnit = VID_HWDIFF_TRUE;
 	    HWDiff->dwSupportTwoColorKey = VID_HWDIFF_TRUE;
 	    HWDiff->dwHQVInitPatch = VID_HWDIFF_FALSE;
 	    HWDiff->dwHQVDisablePatch = VID_HWDIFF_TRUE;
+	    HWDiff->dwNeedV1Prefetch = VID_HWDIFF_FALSE;
 	}
 	break;
     case VIA_KM400:
@@ -226,6 +228,7 @@ VIAVidHWDiffInit(ScrnInfoPtr pScrn)
 	HWDiff->dwSupportTwoColorKey = VID_HWDIFF_FALSE;
 	HWDiff->dwHQVInitPatch = VID_HWDIFF_FALSE;
 	HWDiff->dwHQVDisablePatch = VID_HWDIFF_TRUE;
+	HWDiff->dwNeedV1Prefetch = VID_HWDIFF_FALSE;
 	break;
     case VIA_K8M800:
 	HWDiff->dwThreeHQVBuffer = VID_HWDIFF_TRUE;
@@ -233,6 +236,7 @@ VIAVidHWDiffInit(ScrnInfoPtr pScrn)
 	HWDiff->dwSupportTwoColorKey = VID_HWDIFF_FALSE;
 	HWDiff->dwHQVInitPatch = VID_HWDIFF_FALSE;
 	HWDiff->dwHQVDisablePatch = VID_HWDIFF_TRUE;
+	HWDiff->dwNeedV1Prefetch = VID_HWDIFF_FALSE;
 	break;
     case VIA_PM800:
 	HWDiff->dwThreeHQVBuffer = VID_HWDIFF_TRUE;
@@ -240,6 +244,7 @@ VIAVidHWDiffInit(ScrnInfoPtr pScrn)
 	HWDiff->dwSupportTwoColorKey = VID_HWDIFF_TRUE;
 	HWDiff->dwHQVInitPatch = VID_HWDIFF_FALSE;
 	HWDiff->dwHQVDisablePatch = VID_HWDIFF_FALSE;
+	HWDiff->dwNeedV1Prefetch = VID_HWDIFF_FALSE;
 	break;
     case VIA_VM800:
 	HWDiff->dwThreeHQVBuffer = VID_HWDIFF_TRUE;
@@ -247,6 +252,7 @@ VIAVidHWDiffInit(ScrnInfoPtr pScrn)
 	HWDiff->dwSupportTwoColorKey = VID_HWDIFF_FALSE;
 	HWDiff->dwHQVInitPatch = VID_HWDIFF_FALSE;
 	HWDiff->dwHQVDisablePatch = VID_HWDIFF_TRUE;
+	HWDiff->dwNeedV1Prefetch = VID_HWDIFF_FALSE;
 	break;
     case VIA_K8M890:
 	HWDiff->dwThreeHQVBuffer = VID_HWDIFF_TRUE;
@@ -254,6 +260,7 @@ VIAVidHWDiffInit(ScrnInfoPtr pScrn)
 	HWDiff->dwSupportTwoColorKey = VID_HWDIFF_FALSE;
 	HWDiff->dwHQVInitPatch = VID_HWDIFF_FALSE;
 	HWDiff->dwHQVDisablePatch = VID_HWDIFF_TRUE;
+	HWDiff->dwNeedV1Prefetch = VID_HWDIFF_TRUE;
 	break;
     default:
 	xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
@@ -879,11 +886,6 @@ viaSetColorSpace(VIAPtr pVia, int hue, int saturation, int brightness,
 	DBG_DD(ErrorF("000002C8 %08lx\n", col2));
 	break;
     case PCI_CHIP_VT3336:
-        VIDOutD(V1_ColorSpaceReg_1, col1);
-        VIDOutD(V1_ColorSpaceReg_2, col2);
-        DBG_DD(ErrorF("00000284 %08lx\n", col1));
-        DBG_DD(ErrorF("00000288 %08lx\n", col2));
-        break;
     case PCI_CHIP_CLE3122:
 	VIDOutD(V1_ColorSpaceReg_2, col2);
 	VIDOutD(V1_ColorSpaceReg_1, col1);
@@ -907,8 +909,8 @@ ViaInitVideoStatusFlag(VIAPtr pVia)
     case PCI_CHIP_VT3204:
     case PCI_CHIP_VT3259:
     case PCI_CHIP_VT3314:
-    case PCI_CHIP_VT3336:
 	return VIDEO_HQV_INUSE | SW_USE_HQV | VIDEO_3_INUSE;
+    case PCI_CHIP_VT3336:
     case PCI_CHIP_CLE3122:
 	return VIDEO_HQV_INUSE | SW_USE_HQV | VIDEO_1_INUSE;
     default:
@@ -939,8 +941,9 @@ ViaSetVidCtl(VIAPtr pVia, unsigned int videoFlag)
 	case PCI_CHIP_VT3204:
 	case PCI_CHIP_VT3259:
 	case PCI_CHIP_VT3314:
-	case PCI_CHIP_VT3336:
 	    return V3_ENABLE | V3_EXPIRE_NUM_3205;
+	case PCI_CHIP_VT3336:
+            return V3_ENABLE | VIDEO_EXPIRE_NUM_VT3336;
 
 	case PCI_CHIP_CLE3122:
 	    if (CLE266_REV_IS_CX(pVia->ChipRev))
@@ -1276,13 +1279,15 @@ static void
 SetFIFO_V3_64or32or32(VIAPtr pVia)
 {
     switch (pVia->ChipId) {
+    case PCI_CHIP_VT3336:
+        SetFIFO_V3(pVia, 225, 200, 250);
+        break;
     case PCI_CHIP_VT3204:
 	SetFIFO_V3(pVia, 100, 89, 89);
 	break;
     case PCI_CHIP_VT3314:
 	SetFIFO_V3(pVia, 64, 61, 61);
 	break;
-    case PCI_CHIP_VT3336:
     case PCI_CHIP_VT3205:
     case PCI_CHIP_VT3259:
 	SetFIFO_V3(pVia, 32, 29, 29);
@@ -1304,13 +1309,15 @@ static void
 SetFIFO_V3_64or32or16(VIAPtr pVia)
 {
     switch (pVia->ChipId) {
+    case PCI_CHIP_VT3336:
+        SetFIFO_V3(pVia, 225, 200, 250);
+        break;
     case PCI_CHIP_VT3204:
 	SetFIFO_V3(pVia, 100, 89, 89);
 	break;
     case PCI_CHIP_VT3314:
 	SetFIFO_V3(pVia, 64, 61, 61);
 	break;
-    case PCI_CHIP_VT3336:
     case PCI_CHIP_VT3205:
     case PCI_CHIP_VT3259:
 	SetFIFO_V3(pVia, 32, 29, 29);
@@ -1671,6 +1678,11 @@ Upd_Video(ScrnInfoPtr pScrn, unsigned long videoFlag,
     DBG_DD(ErrorF("===srcHeight= %ld \n", srcHeight));
 
     vidCtl = ViaSetVidCtl(pVia, videoFlag);
+
+    if(hwDiff->dwNeedV1Prefetch) {
+        vidCtl |= V1_PREFETCH_ON_3336;
+    }
+
     viaOverlayGetV1V3Format(pVia, (videoFlag & VIDEO_1_INUSE) ? 1 : 3,
 	videoFlag, &vidCtl, &hqvCtl);
 
