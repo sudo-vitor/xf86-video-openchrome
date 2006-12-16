@@ -944,14 +944,12 @@ ViaSetVidCtl(VIAPtr pVia, unsigned int videoFlag)
 	    return V3_ENABLE | V3_EXPIRE_NUM_3205;
 	case PCI_CHIP_VT3336:
             return V3_ENABLE | VIDEO_EXPIRE_NUM_VT3336;
-
 	case PCI_CHIP_CLE3122:
 	    if (CLE266_REV_IS_CX(pVia->ChipRev))
 		return V3_ENABLE | V3_EXPIRE_NUM_F;
 	    else
 		return V3_ENABLE | V3_EXPIRE_NUM;
 	    break;
-
 	default:
 	    DBG_DD(ErrorF("Unknown DeviceID\n"));
 	    break;
@@ -1292,14 +1290,12 @@ SetFIFO_V3_64or32or32(VIAPtr pVia)
     case PCI_CHIP_VT3259:
 	SetFIFO_V3(pVia, 32, 29, 29);
 	break;
-
     case PCI_CHIP_CLE3122:
 	if (CLE266_REV_IS_CX(pVia->ChipRev))
 	    SetFIFO_V3(pVia, 64, 56, 56);
 	else
 	    SetFIFO_V3(pVia, 32, 16, 16);
 	break;
-
     default:
 	break;
     }
@@ -1653,6 +1649,8 @@ Upd_Video(ScrnInfoPtr pScrn, unsigned long videoFlag,
     unsigned long dwOffset = 0, fetch = 0, tmp = 0;
     unsigned long proReg = 0;
 
+    DBG_DD(ErrorF("videoflag=%p\n",videoFlag));
+
     if (pVia->ChipId == PCI_CHIP_VT3259 && !(videoFlag & VIDEO_1_INUSE))
 	proReg = PRO_HQV1_OFFSET;
 
@@ -1680,6 +1678,7 @@ Upd_Video(ScrnInfoPtr pScrn, unsigned long videoFlag,
     vidCtl = ViaSetVidCtl(pVia, videoFlag);
 
     if(hwDiff->dwNeedV1Prefetch) {
+        DBG_DD(ErrorF("NEEDV1PREFETCH"));
         vidCtl |= V1_PREFETCH_ON_3336;
     }
 
