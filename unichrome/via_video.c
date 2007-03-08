@@ -278,7 +278,9 @@ DecideOverlaySupport(ScrnInfoPtr pScrn)
     if (pVia->ChipId != PCI_CHIP_VT3205 &&
 	pVia->ChipId != PCI_CHIP_VT3204 &&
 	pVia->ChipId != PCI_CHIP_VT3259 &&
-	pVia->ChipId != PCI_CHIP_VT3314 && pVia->ChipId != PCI_CHIP_VT3336) {
+	pVia->ChipId != PCI_CHIP_VT3314 &&
+        pVia->ChipId != PCI_CHIP_VT3336 &&
+        pVia->ChipId != PCI_CHIP_VT3157) {
 	CARD32 bandwidth = (mode->HDisplay >> 4) * (mode->VDisplay >> 5) *
 	    pScrn->bitsPerPixel * mode->VRefresh;
 
@@ -557,7 +559,8 @@ viaInitVideo(ScreenPtr pScreen)
 	(pVia->Chipset == VIA_K8M800) ||
 	(pVia->Chipset == VIA_PM800) || 
         (pVia->Chipset == VIA_VM800) ||
-        (pVia->Chipset == VIA_K8M890));
+        (pVia->Chipset == VIA_K8M890) ||
+        (pVia->Chipset == VIA_CX700));
     if ((pVia->drmVerMajor < 2) ||
 	((pVia->drmVerMajor == 2) && (pVia->drmVerMinor < 9)))
 	pVia->useDmaBlit = FALSE;
@@ -573,7 +576,8 @@ viaInitVideo(ScreenPtr pScreen)
 
     if ((pVia->Chipset == VIA_CLE266) || (pVia->Chipset == VIA_KM400) ||
 	(pVia->Chipset == VIA_K8M800) || (pVia->Chipset == VIA_PM800) ||
-	(pVia->Chipset == VIA_VM800) || (pVia->Chipset == VIA_K8M890)) {
+	(pVia->Chipset == VIA_VM800) || (pVia->Chipset == VIA_K8M890) ||
+        (pVia->Chipset == VIA_CX700)) {
 	num_new = viaSetupAdaptors(pScreen, &newAdaptors);
 	num_adaptors = xf86XVListGenericAdaptors(pScrn, &adaptors);
     } else {

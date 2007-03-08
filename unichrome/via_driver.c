@@ -106,6 +106,7 @@ static SymTabRec VIAChipsets[] = {
     {VIA_PM800,    "PM800/PM880/CN400"},
     {VIA_VM800,    "VM800/CN700/P4M800Pro"},
     {VIA_K8M890,   "K8M890"},
+    {VIA_CX700,    "CX700"},
     {-1,            NULL }
 };
 
@@ -118,6 +119,7 @@ static PciChipsets VIAPciChipsets[] = {
     {VIA_PM800,    PCI_CHIP_VT3259,    RES_SHARED_VGA},
     {VIA_VM800,    PCI_CHIP_VT3314,    RES_SHARED_VGA},
     {VIA_K8M890,   PCI_CHIP_VT3336,    RES_SHARED_VGA},
+    {VIA_CX700,    PCI_CHIP_VT3336,    RES_SHARED_VGA},
     {-1,            -1,                RES_UNDEFINED}
 };
 
