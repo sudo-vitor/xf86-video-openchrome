@@ -1,3 +1,20 @@
+2007-03-08  Xavier Bachelot  <xavier-at-bachelot-dot-org>
+
+	* unichrome/via_bandwidth.c: (ViaSetPrimaryFIFO),
+	(ViaSetSecondaryFIFO):
+	* unichrome/via_dri.c: (VIADRIRingBufferInit):
+	* unichrome/via_driver.c:
+	* unichrome/via_id.c:
+	* unichrome/via_id.h:
+	* unichrome/via_mode.c: (ViaGetMemoryBandwidth), (ViaModePrimary):
+	* unichrome/via_mode.h:
+	* unichrome/via_swov.c: (VIAVidHWDiffInit),
+	(viaCalculateVideoColor), (viaSetColorSpace),
+	(ViaInitVideoStatusFlag), (SetFIFO_V3), (SetFIFO_V3_64or32or32):
+	* unichrome/via_video.c: (DecideOverlaySupport), (viaInitVideo):
+	* unichrome/via_xvmc.c: (ViaInitXVMC):
+	Initial support for CX700.
+
 2007-03-04  Benno Schulenberg  <bensberg-at-justemail-dot-net>
 
 	* unichrome/via.man:
