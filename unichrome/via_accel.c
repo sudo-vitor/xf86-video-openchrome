@@ -108,15 +108,13 @@ viaFlushPCI(ViaCommandBuffer * buf)
 		     * for an unacceptable amount of time in VIASETREG while
 		     * other high priority interrupts may be pending.
 		     */
-                    /*if (pVia->Chipset != VIA_K8M890) {
+                    if (pVia->Chipset != VIA_K8M890 && pVia->Chipset != VIA_P4M900) {
 		        while (!(VIAGETREG(VIA_REG_STATUS) & VIA_VR_QUEUE_BUSY)
 			     && (loop++ < MAXLOOP)) ;
                     }
 		    while ((VIAGETREG(VIA_REG_STATUS) &
                          (VIA_CMD_RGTR_BUSY | VIA_2D_ENG_BUSY)) && 
-                         (loop++ < MAXLOOP)) ;*/
-                    /* Not sure if I want to use the above code or the generic function */
-                    viaAccelSync(buf->pScrn);
+                         (loop++ < MAXLOOP)) ;
 		}
 		offset = (*bp++ & 0x0FFFFFFF) << 2;
 		value = *bp++;
@@ -428,6 +426,7 @@ viaAccelSync(ScrnInfoPtr pScrn)
 
     switch (pVia->Chipset) { 
     case VIA_K8M890:
+    case VIA_P4M900:
         while ((VIAGETREG(VIA_REG_STATUS) &
              (VIA_CMD_RGTR_BUSY | VIA_2D_ENG_BUSY)) &&
              (loop++ < MAXLOOP)) ;
@@ -1171,7 +1170,7 @@ viaInitXAA(ScreenPtr pScreen)
      * test with x11perf -shmput500!
      */
 
-    if (pVia->Chipset != VIA_K8M800 && pVia->Chipset != VIA_K8M890)
+    if (pVia->Chipset != VIA_K8M800 && pVia->Chipset != VIA_K8M890 && pVia->Chipset != VIA_P4M900)
 	xaaptr->ImageWriteFlags |= NO_GXCOPY;
 
     xaaptr->SetupForImageWrite = viaSetupForImageWrite;

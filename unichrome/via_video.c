@@ -278,9 +278,10 @@ DecideOverlaySupport(ScrnInfoPtr pScrn)
     if (pVia->ChipId != PCI_CHIP_VT3205 &&
 	pVia->ChipId != PCI_CHIP_VT3204 &&
 	pVia->ChipId != PCI_CHIP_VT3259 &&
-	pVia->ChipId != PCI_CHIP_VT3314 &&
-        pVia->ChipId != PCI_CHIP_VT3336 &&
-        pVia->ChipId != PCI_CHIP_VT3157) {
+	pVia->ChipId != PCI_CHIP_VT3314 && 
+	pVia->ChipId != PCI_CHIP_VT3336 && 
+	pVia->ChipId != PCI_CHIP_VT3364 && 
+	pVia->ChipId != PCI_CHIP_VT3157) {
 	CARD32 bandwidth = (mode->HDisplay >> 4) * (mode->VDisplay >> 5) *
 	    pScrn->bitsPerPixel * mode->VRefresh;
 
@@ -559,8 +560,9 @@ viaInitVideo(ScreenPtr pScreen)
 	(pVia->Chipset == VIA_K8M800) ||
 	(pVia->Chipset == VIA_PM800) || 
         (pVia->Chipset == VIA_VM800) ||
-        (pVia->Chipset == VIA_K8M890) ||
-        (pVia->Chipset == VIA_CX700));
+        (pVia->Chipset == VIA_K8M890) || 
+	(pVia->Chipset == VIA_P4M900) ||
+	(pVia->Chipset == VIA_CX700));
     if ((pVia->drmVerMajor < 2) ||
 	((pVia->drmVerMajor == 2) && (pVia->drmVerMinor < 9)))
 	pVia->useDmaBlit = FALSE;
@@ -577,7 +579,7 @@ viaInitVideo(ScreenPtr pScreen)
     if ((pVia->Chipset == VIA_CLE266) || (pVia->Chipset == VIA_KM400) ||
 	(pVia->Chipset == VIA_K8M800) || (pVia->Chipset == VIA_PM800) ||
 	(pVia->Chipset == VIA_VM800) || (pVia->Chipset == VIA_K8M890) ||
-        (pVia->Chipset == VIA_CX700)) {
+	(pVia->Chipset == VIA_P4M900) || (pVia->Chipset == VIA_CX700)) {
 	num_new = viaSetupAdaptors(pScreen, &newAdaptors);
 	num_adaptors = xf86XVListGenericAdaptors(pScrn, &adaptors);
     } else {
@@ -1083,7 +1085,7 @@ Flip(VIAPtr pVia, viaPortPrivPtr pPriv, int fourcc,
 	while ((VIDInD(HQV_CONTROL + proReg) & HQV_SW_FLIP)) ;
 	VIDOutD(HQV_SRC_STARTADDR_Y + proReg,
 	    pVia->swov.SWDevice.dwSWPhysicalAddr[DisplayBufferIndex]);
-	if (pVia->ChipId == PCI_CHIP_VT3259 || pVia->ChipId == PCI_CHIP_VT3336) {
+	if (pVia->ChipId == PCI_CHIP_VT3259 || pVia->ChipId == PCI_CHIP_VT3336 || pVia->ChipId == PCI_CHIP_VT3364) {
 	    VIDOutD(HQV_SRC_STARTADDR_U + proReg,
 		pVia->swov.SWDevice.dwSWCrPhysicalAddr[DisplayBufferIndex]);
 	} else {
@@ -1137,7 +1139,7 @@ viaDmaBlitImage(VIAPtr pVia,
     Bool nv12Conversion;
 
     bounceBuffer = ((unsigned long)src & 15);
-    nv12Conversion = ((pVia->ChipId == PCI_CHIP_VT3259 || pVia->ChipId == PCI_CHIP_VT3336)
+    nv12Conversion = ((pVia->ChipId == PCI_CHIP_VT3259 || pVia->ChipId == PCI_CHIP_VT3336 || pVia->ChipId == PCI_CHIP_VT3364)
 	&& (id == FOURCC_YV12));
 
     switch (id) {
@@ -1330,7 +1332,7 @@ viaPutImage(ScrnInfoPtr pScrn,
 		} else {
 		    switch (id) {
 		    case FOURCC_YV12:
-			if (pVia->ChipId == PCI_CHIP_VT3259 || pVia->ChipId == PCI_CHIP_VT3336) {
+			if (pVia->ChipId == PCI_CHIP_VT3259 || pVia->ChipId == PCI_CHIP_VT3336 || pVia->ChipId == PCI_CHIP_VT3364) {
 			    nv12cp(pVia->swov.SWDevice.
 				lpSWOverlaySurface[pVia->dwFrameNum & 1], buf,
 				dstPitch, width, height, 0);

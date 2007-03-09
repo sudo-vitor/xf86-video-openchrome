@@ -189,6 +189,9 @@ static struct ViaCardIdStruct ViaCardId[] = {
     {"Shuttle FX22V1",                        VIA_K8M890,  0x1297, 0x3080, VIA_DEVICE_CRT},
     {"MSI K9VGM-V",                           VIA_K8M890,  0x1462, 0x7253, VIA_DEVICE_CRT},
     {"Averatec 226x",                         VIA_K8M890,  0x14FF, 0xA002, VIA_DEVICE_CRT | VIA_DEVICE_LCD},
+    /* P4M900 */
+    {"Fujitsu/Siemens Amilo Li1705",          VIA_P4M900,  0x1734, 0x10f7, VIA_DEVICE_CRT | VIA_DEVICE_LCD},
+    {"VIA VT3364 (P4M900)",                   VIA_P4M900,  0x1106, 0x3371, VIA_DEVICE_CRT | VIA_DEVICE_LCD},
     /* CX700 */
     {"VIA VT3157 (CX700)",                    VIA_CX700,   0x1106, 0x3157, VIA_DEVICE_CRT},
     /* keep this */

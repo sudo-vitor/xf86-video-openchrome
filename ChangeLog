@@ -1,3 +1,26 @@
+2007-03-09  Gabriel Mansi  <gabriel-dot-mansi-at-gmail-dot-com>
+
+	* unichrome/via_accel.c: (viaFlushPCI), (viaAccelSync),
+	(viaInitXAA):
+	* unichrome/via_bandwidth.c: (ViaSetPrimaryFIFO),
+	(ViaSetSecondaryFIFO):
+	* unichrome/via_driver.c: (VIAPreInit), (VIALeaveVT),
+	(VIACloseScreen):
+	* unichrome/via_id.c:
+	* unichrome/via_id.h:
+	* unichrome/via_mode.c: (ViaGetMemoryBandwidth), (ViaModePrimary):
+	* unichrome/via_mode.h:
+	* unichrome/via_swov.c: (viaWaitHQVFlip), (VIAVidHWDiffInit),
+	(viaCalculateVideoColor), (viaSetColorSpace),
+	(ViaInitVideoStatusFlag), (ViaSetVidCtl), (SetFIFO_V3_64or32or32),
+	(SetFIFO_V3_64or32or16), (SetColorKey), (SetChromaKey),
+	(Upd_Video):
+	* unichrome/via_video.c: (DecideOverlaySupport), (viaInitVideo),
+	(Flip), (viaDmaBlitImage), (viaPutImage):
+	* unichrome/via_xvmc.c: (ViaInitXVMC):
+
+	Initial support for P4M900.
+
 2007-03-08  Xavier Bachelot  <xavier-at-bachelot-dot-org>
 
 	* unichrome/via_bandwidth.c: (ViaSetPrimaryFIFO),
@@ -13,6 +36,7 @@
 	(ViaInitVideoStatusFlag), (SetFIFO_V3), (SetFIFO_V3_64or32or32):
 	* unichrome/via_video.c: (DecideOverlaySupport), (viaInitVideo):
 	* unichrome/via_xvmc.c: (ViaInitXVMC):
+
 	Initial support for CX700.
 
 2007-03-04  Benno Schulenberg  <bensberg-at-justemail-dot-net>
