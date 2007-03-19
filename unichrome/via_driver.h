@@ -26,7 +26,7 @@
 #ifndef _VIA_DRIVER_H_
 #define _VIA_DRIVER_H_ 1
 
-#define HAVE_DEBUG
+#define HAVE_DEBUG 1
 
 #ifdef HAVE_DEBUG
 #define DEBUG(x) x
