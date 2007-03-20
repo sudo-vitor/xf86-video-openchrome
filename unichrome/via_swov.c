@@ -264,6 +264,7 @@ VIAVidHWDiffInit(ScrnInfoPtr pScrn)
 	HWDiff->dwNeedV1Prefetch = VID_HWDIFF_TRUE;
 	break;
     case VIA_CX700:
+    case VIA_P4M890:
         HWDiff->dwThreeHQVBuffer = VID_HWDIFF_TRUE;
         HWDiff->dwHQVFetchByteUnit = VID_HWDIFF_TRUE;
         HWDiff->dwSupportTwoColorKey = VID_HWDIFF_FALSE;
@@ -762,6 +763,7 @@ viaCalculateVideoColor(VIAPtr pVia, int hue, int saturation, int brightness,
     case PCI_CHIP_VT3336:
     case PCI_CHIP_VT3364:
     case PCI_CHIP_VT3157:
+    case PCI_CHIP_VT3327:
 	model = 0;
 	break;
     case PCI_CHIP_CLE3122:
@@ -891,6 +893,7 @@ viaSetColorSpace(VIAPtr pVia, int hue, int saturation, int brightness,
     case PCI_CHIP_VT3259:
     case PCI_CHIP_VT3314:
     case PCI_CHIP_VT3157:
+    case PCI_CHIP_VT3327:
 	VIDOutD(V3_ColorSpaceReg_1, col1);
 	VIDOutD(V3_ColorSpaceReg_2, col2);
 	DBG_DD(ErrorF("000002C4 %08lx\n", col1));
@@ -922,6 +925,7 @@ ViaInitVideoStatusFlag(VIAPtr pVia)
     case PCI_CHIP_VT3259:
     case PCI_CHIP_VT3314:
     case PCI_CHIP_VT3157:
+    case PCI_CHIP_VT3327:
 	return VIDEO_HQV_INUSE | SW_USE_HQV | VIDEO_3_INUSE;
     case PCI_CHIP_VT3336:
     case PCI_CHIP_VT3364:
@@ -1236,7 +1240,7 @@ SetFIFO_V1(VIAPtr pVia, CARD8 depth, CARD8 prethreshold, CARD8 threshold)
 static void
 SetFIFO_V3(VIAPtr pVia, CARD8 depth, CARD8 prethreshold, CARD8 threshold)
 {
-    if ((pVia->ChipId == PCI_CHIP_VT3314) || (pVia->ChipId == PCI_CHIP_VT3157)) {
+    if ((pVia->ChipId == PCI_CHIP_VT3314) || (pVia->ChipId == PCI_CHIP_VT3157) || (pVia->ChipId == PCI_CHIP_VT3327)) {
 	SaveVideoRegister(pVia, ALPHA_V3_FIFO_CONTROL,
 	    (VIDInD(ALPHA_V3_FIFO_CONTROL) & ALPHA_FIFO_MASK) |
 	    ((depth - 1) & 0xff) | ((threshold & 0xff) << 8));
@@ -1303,6 +1307,7 @@ SetFIFO_V3_64or32or32(VIAPtr pVia)
 	break;
     case PCI_CHIP_VT3314:
     case PCI_CHIP_VT3157:
+    case PCI_CHIP_VT3327:
 	SetFIFO_V3(pVia, 64, 61, 61);
 	break;
     case PCI_CHIP_VT3205:
