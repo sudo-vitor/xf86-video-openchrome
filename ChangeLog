@@ -1,3 +1,12 @@
+2007-04-30  Gabriel Mansi  <gabriel-dot-mansi-at-gmail-dot-com>
+
+	* unichrome/via_swov.c: (Upd_Video):
+	* unichrome/via_xvmc.c: (ViaInitXVMC):
+
+	Disable interpolation when the source width is greater than 800, 
+	otherwise the picture wraps around the screen. Bug #109
+	Fix a typo in ViaInitXVMC. Bug #111
+
 2007-03-28  Gabriel Mansi  <gabriel-dot-mansi-at-gmail-dot-com>
 
 	* unichrome/via_bandwidth.c: (ViaSetPrimaryFIFO):

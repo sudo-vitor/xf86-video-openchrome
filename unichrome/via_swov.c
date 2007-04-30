@@ -1923,6 +1923,11 @@ Upd_Video(ScrnInfoPtr pScrn, unsigned long videoFlag,
 
 	    if (haveHQVzoomV) {
 		miniCtl |= V1_Y_INTERPOLY | V1_YCBCR_INTERPOLY;
+                if (srcWidth >= 800 && 
+		    (pVia->ChipId == PCI_CHIP_VT3336 || pVia->ChipId == PCI_CHIP_VT3157 ||
+		     pVia->ChipId == PCI_CHIP_VT3364 || pVia->ChipId == PCI_CHIP_VT3205)) {
+                    miniCtl &= ~V1_Y_INTERPOLY;
+                }
 		tmp |= zoomCtl & 0x0000ffff;
 		hqvFilterCtl &= 0xfffdffff;
 	    }
