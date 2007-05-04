@@ -26,7 +26,7 @@
 #ifndef _VIA_SWOV_H_
 #define _VIA_SWOV_H_ 1
 
-#define XV_DEBUG 1 /* write log msg to /var/log/XFree86.0.log */
+/*#define XV_DEBUG 1 write log msg to /var/log/XFree86.0.log */
 
 #ifdef XV_DEBUG
 # define DBG_DD(x) (x)
