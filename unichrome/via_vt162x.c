@@ -109,7 +109,7 @@ ViaVT162xDetect(ScrnInfoPtr pScrn, I2CBusPtr pBus, CARD8 Address)
     default:
 	pBIOSInfo->TVEncoder = VIA_NONETV;
 	xf86DrvMsg(pScrn->scrnIndex, X_WARNING,
-		   "Unknown TV Encoder found at %s %X.\n", pBus->BusName, Address);
+		   "Unknown TV Encoder found at %s %X (type %02x).\n", pBus->BusName, Address, buf);
 	xf86DestroyI2CDevRec(pDev,TRUE);
 	pDev = NULL;
 	break;

@@ -46,6 +46,8 @@
 #include "micmap.h"
 #include "fourcc.h"
 
+#include "i2c_vid.h"
+
 #define USE_FB
 #ifdef USE_FB
 #include "fb.h"
@@ -288,6 +290,10 @@ typedef struct _VIA {
     /* BIOS Info Ptr */
     VIABIOSInfoPtr      pBIOSInfo;
     struct ViaCardIdStruct* Id;
+
+    /* DVO encoder/transmitter cookies */
+    I2CDevPtr		pTMDS;
+    I830I2CVidOutputPtr pTMDSvec;
 
     /* Support for DGA */
     int                 numDGAModes;

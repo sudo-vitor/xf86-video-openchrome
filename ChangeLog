@@ -1,3 +1,27 @@
+2007-04-30  Jon Nettleton  <jon-dot-nettleton-at-gmail-dot-com>
+
+	* configure.ac: 
+	* unichrome/via_mode.c: 
+	* unichrome/via_driver.c:
+	* unichrome/via_driver.h:
+	* unichrome/via_vt162x.c:
+	* unichrome/via_i2c.c:
+	* unichrome/via_id.c:
+	* unichrome/Makefile.am:
+	* unichrome/sil164/Makefile.am:
+	* unichrome/sil164/Makefile.am:
+	* unichrome/sil164/sil164.c:
+	* unichrome/sil164/sil164.h:
+	* unichrome/sil164/sil164_module.c:
+	* unichrome/vt1632/sil164_reg.h:
+	* unichrome/vt1632/vt1632.c:
+	* unichrome/vt1632/vt1632.h:
+	* unichrome/vt1632/vt1632_module.c:
+	* unichrome/vt1632/vt1632_reg.h:
+
+	Initial check in of Philip Prindeville's modular i2c
+	adaption.
+
 2007-04-30  Gabriel Mansi  <gabriel-dot-mansi-at-gmail-dot-com>
 
 	* unichrome/via_swov.c: (Upd_Video):

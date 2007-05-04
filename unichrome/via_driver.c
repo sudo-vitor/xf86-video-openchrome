@@ -1415,15 +1415,24 @@ static Bool VIAPreInit(ScrnInfoPtr pScrn, int flags)
     if (!xf86LoadSubModule(pScrn, "ddc")) {
 	VIAFreeRec(pScrn);
 	return FALSE;
-    } else {
-	xf86LoaderReqSymLists(ddcSymbols, NULL);
-	
-	if (pVia->pI2CBus1) {
-	    pVia->DDC1 = xf86DoEDID_DDC2(pScrn->scrnIndex, pVia->pI2CBus1);
-	    if (pVia->DDC1) {
-		xf86PrintEDID(pVia->DDC1);
-		xf86SetDDCproperties(pScrn, pVia->DDC1);
-	    }
+    }
+
+    xf86LoaderReqSymLists(ddcSymbols, NULL);
+
+    if (pVia->pI2CBus1) {
+	pVia->DDC1 = xf86DoEDID_DDC2(pScrn->scrnIndex, pVia->pI2CBus1);
+ xf86DrvMsg(pScrn->scrnIndex, X_INFO, "DDC on %s returns 0x%x\n", pVia->pI2CBus1->BusName, pVia->DDC1);
+	if (pVia->DDC1) {
+	    xf86PrintEDID(pVia->DDC1);
+	    xf86SetDDCproperties(pScrn, pVia->DDC1);
+	}
+    }
+    if (pVia->pI2CBus2) {
+	pVia->DDC2 = xf86DoEDID_DDC2(pScrn->scrnIndex, pVia->pI2CBus2);
+ xf86DrvMsg(pScrn->scrnIndex, X_INFO, "DDC on %s returns 0x%x\n", pVia->pI2CBus2->BusName, pVia->DDC2);
+	if (pVia->DDC2) {
+	    xf86PrintEDID(pVia->DDC2);
+	    xf86SetDDCproperties(pScrn, pVia->DDC2);
 	}
     }
 

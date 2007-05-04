@@ -187,6 +187,8 @@ XORG_RELEASE_VERSION
 AC_OUTPUT([
 	Makefile
 	unichrome/Makefile
+	unichrome/sil164/Makefile
+	unichrome/vt1632/Makefile
 	libxvmc/Makefile
 	man/Makefile
 ])

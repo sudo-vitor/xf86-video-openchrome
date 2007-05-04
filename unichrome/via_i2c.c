@@ -1,4 +1,5 @@
 /*
+ * Copyright 2004-2007 Luc Verhaegen.
  * Copyright 2004 The Unichrome Project  [unichrome.sf.net]
  * Copyright 1998-2003 VIA Technologies, Inc. All Rights Reserved.
  * Copyright 2001-2003 S3 Graphics, Inc. All Rights Reserved.
@@ -299,11 +300,10 @@ ViaI2C3GetBit(I2CBusPtr b, int timeout)
     vgaHWPtr hwp = VGAHWPTR(xf86Screens[b->scrnIndex]);
     Bool ret;
 
-    ViaSeqMask(hwp, 0x2c, 0x80, 0xC0);
+    ViaSeqMask(hwp, 0x2C, 0x00, 0x40);
     b->I2CUDelay(b, b->RiseFallTime/5);
-    ViaSeqMask(hwp, 0x2c, 0xA0, 0xA0);    
-    b->I2CUDelay(b, 3*b->HoldTime);
-    b->I2CUDelay(b, timeout);
+
+    ViaSeqMask(hwp, 0x2C, 0xA0, 0xA0);
 
     if (hwp->readSeq(hwp, 0x2C) & 0x04)
         ret = TRUE;
@@ -311,7 +311,6 @@ ViaI2C3GetBit(I2CBusPtr b, int timeout)
         ret = FALSE;
 
     ViaSeqMask(hwp, 0x2C, 0x80, 0xA0);
-    b->I2CUDelay(b, b->HoldTime);
     b->I2CUDelay(b, b->RiseFallTime/5);
 
     return ret;
@@ -369,11 +368,6 @@ ViaI2CBus3Init(int scrnIndex)
     pI2CBus->I2CPutByte = ViaI2C3PutByte;
     pI2CBus->I2CGetByte = ViaI2C3GetByte;
 
-    pI2CBus->HoldTime = 10;
-    pI2CBus->BitTimeout = 10;
-    pI2CBus->ByteTimeout = 10;
-    pI2CBus->StartTimeout = 10;
-    
     if (!xf86I2CBusInit(pI2CBus)) {
 	xf86DestroyI2CBusRec(pI2CBus, TRUE, FALSE);
 	return NULL;
@@ -382,7 +376,6 @@ ViaI2CBus3Init(int scrnIndex)
     return pI2CBus;
 }
 
-#ifdef HAVE_DEBUG
 /*
  *
  */
@@ -396,10 +389,9 @@ ViaI2CScan(I2CBusPtr Bus)
 
     for (i = 0x10; i < 0xF0; i += 2)
 	if (xf86I2CProbeAddress(Bus, i))
-	    xf86DrvMsg(Bus->scrnIndex, X_PROBED, "Found slave on %s "
-		       "- 0x%02X\n", Bus->BusName, i);
+	    xf86DrvMsg(Bus->scrnIndex, X_PROBED, "Found slave on %s - 0x%02X\n",
+		       Bus->BusName, i);
 }
-#endif
 
 /*
  *
@@ -417,12 +409,12 @@ ViaI2CInit(ScrnInfoPtr pScrn)
     pVia->pI2CBus2 = ViaI2CBus2Init(pScrn->scrnIndex);
     pVia->pI2CBus3 = ViaI2CBus3Init(pScrn->scrnIndex);
 
-#ifdef HAVE_DEBUG
     if (pVia->I2CScan) {
+	if (pVia->pI2CBus1)
+	    ViaI2CScan(pVia->pI2CBus1);
 	if (pVia->pI2CBus2)
 	    ViaI2CScan(pVia->pI2CBus2);
 	if (pVia->pI2CBus3)
 	    ViaI2CScan(pVia->pI2CBus3);
     }
-#endif
 }

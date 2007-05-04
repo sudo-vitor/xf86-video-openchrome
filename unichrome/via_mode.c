@@ -34,16 +34,50 @@
 #include "config.h"
 #endif
 
+#include "xf86.h"
+
 #include "via.h"
 #include "via_driver.h"
 #include "via_vgahw.h"
 #include "via_id.h"
+
+#include "i2c_vid.h"
+#include "sil164/sil164.h"
 
 /*
  * Modetable nonsense.
  *
  */
 #include "via_mode.h"
+
+typedef struct {
+    int type;
+    char *modulename;
+    char *fntablename;
+    int address;
+    const char **symbols;
+    /* I830I2CVidOutputPtr vid_rec; */
+    /* void *devpriv; */
+    /* pointer modhandle; */
+    /* int i2c_reg; */
+} ViaDVORec, *ViaDVOPtr;
+
+static const char *SIL164Symbols[] = {
+    "Sil164VidOutput",
+    NULL
+};
+
+static const char *VT1632Symbols[] = {
+    "VT1632VidOutput",
+    NULL
+};
+
+ViaDVORec via_dvo_drivers[] = {
+    { 0, "sil164", "SIL164VidOutput", 0x70, SIL164Symbols },
+    { 0, "vt1632", "VT1632VidOutput", 0x10, VT1632Symbols },
+ };
+
+#define VIA_NUM_DVO_DRIVERS 2
 
 /*
  *
@@ -105,7 +139,7 @@ ViaTVInit(ScrnInfoPtr pScrn)
 {
     VIABIOSInfoPtr pBIOSInfo = VIAPTR(pScrn)->pBIOSInfo;
 
-    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "ViaTVInit\n"));
+    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "ViaTVInit (%d)\n", pBIOSInfo->TVEncoder));
 
     switch (pBIOSInfo->TVEncoder){
         case VIA_VT1621:
@@ -245,6 +279,55 @@ ViaTVModeValid(ScrnInfoPtr pScrn, DisplayModePtr mode)
 /*
  *
  */
+static Bool
+ViaTMDSDetect(ScrnInfoPtr pScrn)
+{
+    VIAPtr pVia = VIAPTR(pScrn);
+    ViaDVOPtr drv;
+    I830I2CVidOutputPtr vid_rec;
+    pointer modhandle;
+    void *ret_ptr;
+    int i;
+
+    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "VIATMDSDetect\n"));
+
+    for (i = 0; i < VIA_NUM_DVO_DRIVERS; i++) {
+	drv = &via_dvo_drivers[i];
+
+	modhandle = xf86LoadSubModule(pScrn, drv->modulename);
+
+	if (!modhandle)
+	    continue;
+
+	xf86LoaderReqSymLists(drv->symbols, NULL);
+
+	vid_rec = LoaderSymbol(drv->fntablename);
+	if (vid_rec)
+	    ret_ptr = vid_rec->Detect(pVia->pI2CBus3, drv->address);
+ 
+	if (! ret_ptr) {
+	    xf86UnloadSubModule(modhandle);
+	    continue;
+	}
+
+	pVia->pTMDS = ret_ptr;
+	pVia->pTMDSvec = vid_rec;
+	vid_rec->PrintRegs(pVia->pTMDS);		// @@@ delete me
+	return TRUE;
+    }
+
+    return FALSE;
+}
+
+static Bool
+ViaTMDSInit(ScrnInfoPtr pScrn)
+{
+    return TRUE;
+}
+
+/*
+ *
+ */
 void
 ViaOutputsDetect(ScrnInfoPtr pScrn)
 {
@@ -284,6 +367,18 @@ ViaOutputsDetect(ScrnInfoPtr pScrn)
 	xf86DrvMsg(pScrn->scrnIndex, X_WARNING, "This device is supposed to have a"
 		   " TV encoder but we are unable to detect it (support missing?).\n");
 	pBIOSInfo->TVOutput = 0;
+    }
+
+    /* DVI */
+    if (pVia->DDC2)
+	pBIOSInfo->PanelPresent = TRUE;
+    /* TMDS encoder */
+    if (ViaTMDSDetect(pScrn) && ViaTMDSInit(pScrn)) {
+	/* ViaTMDSSense(pScrn); */
+    } else if (pVia->Id && (pVia->Id->Outputs & VIA_DEVICE_LCD)) { /* LCD??? */
+	xf86DrvMsg(pScrn->scrnIndex, X_WARNING, "This device is supposed to have a"
+		   " TMDS encoder but we are unable to detect it (support missing?).\n");
+	/* ... */
     }
 }
 
