@@ -94,7 +94,9 @@ viaWaitHQVFlip(VIAPtr pVia)
 
     pdwState = (CARD32 volatile *)(pVia->VidMapBase + (HQV_CONTROL + proReg));
 
-    if (pVia->ChipId == PCI_CHIP_VT3259 || pVia->ChipId == PCI_CHIP_VT3336 || pVia->ChipId == PCI_CHIP_VT3157 || pVia->ChipId == PCI_CHIP_VT3364) {
+    if (pVia->ChipId == PCI_CHIP_VT3259 || pVia->ChipId == PCI_CHIP_VT3336 ||
+        pVia->ChipId == PCI_CHIP_VT3157 || pVia->ChipId == PCI_CHIP_VT3327 ||
+	pVia->ChipId == PCI_CHIP_VT3364) {
 	while (*pdwState & (HQV_SUBPIC_FLIP | HQV_SW_FLIP)) ;
     } else {
 	while (!(*pdwState & HQV_FLIP_STATUS)) ;
@@ -269,6 +271,7 @@ VIAVidHWDiffInit(ScrnInfoPtr pScrn)
         HWDiff->dwSupportTwoColorKey = VID_HWDIFF_FALSE;
         HWDiff->dwHQVInitPatch = VID_HWDIFF_FALSE;
         HWDiff->dwHQVDisablePatch = VID_HWDIFF_TRUE;
+	HWDiff->dwNeedV1Prefetch = VID_HWDIFF_FALSE;
         break;
     case VIA_CX700:
         HWDiff->dwThreeHQVBuffer = VID_HWDIFF_TRUE;
@@ -276,6 +279,7 @@ VIAVidHWDiffInit(ScrnInfoPtr pScrn)
         HWDiff->dwSupportTwoColorKey = VID_HWDIFF_TRUE;
         HWDiff->dwHQVInitPatch = VID_HWDIFF_FALSE;
         HWDiff->dwHQVDisablePatch = VID_HWDIFF_FALSE;
+	HWDiff->dwNeedV1Prefetch = VID_HWDIFF_FALSE;
     	break;
     default:
 	xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
@@ -898,12 +902,12 @@ viaSetColorSpace(VIAPtr pVia, int hue, int saturation, int brightness,
     case PCI_CHIP_VT3204:
     case PCI_CHIP_VT3259:
     case PCI_CHIP_VT3314:
-    case PCI_CHIP_VT3327:
 	VIDOutD(V3_ColorSpaceReg_1, col1);
 	VIDOutD(V3_ColorSpaceReg_2, col2);
 	DBG_DD(ErrorF("000002C4 %08lx\n", col1));
 	DBG_DD(ErrorF("000002C8 %08lx\n", col2));
 	break;
+    case PCI_CHIP_VT3327:
     case PCI_CHIP_VT3336:
     case PCI_CHIP_VT3157:
     case PCI_CHIP_VT3364:
@@ -930,8 +934,8 @@ ViaInitVideoStatusFlag(VIAPtr pVia)
     case PCI_CHIP_VT3204:
     case PCI_CHIP_VT3259:
     case PCI_CHIP_VT3314:
-    case PCI_CHIP_VT3327:
 	return VIDEO_HQV_INUSE | SW_USE_HQV | VIDEO_3_INUSE;
+    case PCI_CHIP_VT3327:
     case PCI_CHIP_VT3336:
     case PCI_CHIP_VT3157:
     case PCI_CHIP_VT3364:
@@ -968,6 +972,7 @@ ViaSetVidCtl(VIAPtr pVia, unsigned int videoFlag)
 	case PCI_CHIP_VT3259:
 	case PCI_CHIP_VT3314:
 	    return V3_ENABLE | V3_EXPIRE_NUM_3205;
+        case PCI_CHIP_VT3327:
 	case PCI_CHIP_VT3336:
     	case PCI_CHIP_VT3157:
 	case PCI_CHIP_VT3364:
@@ -1305,6 +1310,7 @@ static void
 SetFIFO_V3_64or32or32(VIAPtr pVia)
 {
     switch (pVia->ChipId) {
+    case PCI_CHIP_VT3327:
     case PCI_CHIP_VT3336:
     case PCI_CHIP_VT3157:
     case PCI_CHIP_VT3364:
@@ -1314,7 +1320,6 @@ SetFIFO_V3_64or32or32(VIAPtr pVia)
 	SetFIFO_V3(pVia, 100, 89, 89);
 	break;
     case PCI_CHIP_VT3314:
-    case PCI_CHIP_VT3327:
 	SetFIFO_V3(pVia, 64, 61, 61);
 	break;
     case PCI_CHIP_VT3205:
@@ -1336,6 +1341,7 @@ static void
 SetFIFO_V3_64or32or16(VIAPtr pVia)
 {
     switch (pVia->ChipId) {
+    case PCI_CHIP_VT3327:
     case PCI_CHIP_VT3336:
     case PCI_CHIP_VT3157:
     case PCI_CHIP_VT3364:
@@ -1442,7 +1448,9 @@ SetColorKey(VIAPtr pVia, unsigned long videoFlag,
     CARD32 keyLow, CARD32 keyHigh, CARD32 compose)
 {
     keyLow &= 0x00FFFFFF;
-    if (pVia->ChipId == PCI_CHIP_VT3259 || pVia->ChipId == PCI_CHIP_VT3336 || pVia->ChipId == PCI_CHIP_VT3157 || pVia->ChipId == PCI_CHIP_VT3364)
+    if (pVia->ChipId == PCI_CHIP_VT3259 || pVia->ChipId == PCI_CHIP_VT3327 ||
+        pVia->ChipId == PCI_CHIP_VT3336 || pVia->ChipId == PCI_CHIP_VT3157 || 
+        pVia->ChipId == PCI_CHIP_VT3364)
 	keyLow |= 0x40000000;
 
     /*SaveVideoRegister(pVia, V_COLOR_KEY, keyLow); */
@@ -1474,7 +1482,9 @@ SetChromaKey(VIAPtr pVia, unsigned long videoFlag,
     chromaLow |= (VIDInD(V_CHROMAKEY_LOW) & ~CHROMA_KEY_LOW);
     chromaHigh |= (VIDInD(V_CHROMAKEY_HIGH) & ~CHROMA_KEY_HIGH);
 
-    if (pVia->ChipId == PCI_CHIP_VT3259 || pVia->ChipId == PCI_CHIP_VT3336 || pVia->ChipId == PCI_CHIP_VT3157 || pVia->ChipId == PCI_CHIP_VT3364)
+    if (pVia->ChipId == PCI_CHIP_VT3259 || pVia->ChipId == PCI_CHIP_VT3327 ||
+        pVia->ChipId == PCI_CHIP_VT3336 || pVia->ChipId == PCI_CHIP_VT3157 || 
+	pVia->ChipId == PCI_CHIP_VT3364)
 	chromaLow |= 0x40000000;
 
     SaveVideoRegister(pVia, V_CHROMAKEY_HIGH, chromaHigh);
@@ -1746,7 +1756,9 @@ Upd_Video(ScrnInfoPtr pScrn, unsigned long videoFlag,
 		    pVia->swov.overlayRecordV1.dwOffset,
 		    pVia->swov.overlayRecordV1.dwUVoffset,
 		    srcPitch, oriSrcHeight);
-		if (pVia->ChipId == PCI_CHIP_VT3259 || pVia->ChipId == PCI_CHIP_VT3336 || pVia->ChipId == PCI_CHIP_VT3157 || pVia->ChipId == PCI_CHIP_VT3364) {
+		if (pVia->ChipId == PCI_CHIP_VT3259 || pVia->ChipId == PCI_CHIP_VT3327 ||
+		    pVia->ChipId == PCI_CHIP_VT3336 || pVia->ChipId == PCI_CHIP_VT3157 || 
+		    pVia->ChipId == PCI_CHIP_VT3364) {
 		    SaveVideoRegister(pVia, HQV_SRC_STARTADDR_Y + proReg,
 			YCbCr.dwY);
 		    SaveVideoRegister(pVia, HQV_SRC_STARTADDR_U + proReg,
@@ -1784,7 +1796,9 @@ Upd_Video(ScrnInfoPtr pScrn, unsigned long videoFlag,
 		pVia->swov.overlayRecordV1.dwHQVAddr[1] + hqvOffset,
 		pVia->swov.overlayRecordV1.dwHQVAddr[2] + hqvOffset);
 
-	    if (pVia->ChipId == PCI_CHIP_VT3259 || pVia->ChipId == PCI_CHIP_VT3336 || pVia->ChipId == PCI_CHIP_VT3157 || pVia->ChipId == PCI_CHIP_VT3364)
+	    if (pVia->ChipId == PCI_CHIP_VT3259 || pVia->ChipId == PCI_CHIP_VT3327 ||
+	        pVia->ChipId == PCI_CHIP_VT3336 || pVia->ChipId == PCI_CHIP_VT3157 || 
+		pVia->ChipId == PCI_CHIP_VT3364)
 		SaveVideoRegister(pVia, 0x1cc + proReg, dwOffset);
 	    SaveVideoRegister(pVia, HQV_SRC_STARTADDR_Y + proReg, startAddr);
 	} else {
@@ -1924,8 +1938,9 @@ Upd_Video(ScrnInfoPtr pScrn, unsigned long videoFlag,
 	    if (haveHQVzoomV) {
 		miniCtl |= V1_Y_INTERPOLY | V1_YCBCR_INTERPOLY;
                 if (srcWidth >= 800 && 
-		    (pVia->ChipId == PCI_CHIP_VT3336 || pVia->ChipId == PCI_CHIP_VT3157 ||
-		     pVia->ChipId == PCI_CHIP_VT3364 || pVia->ChipId == PCI_CHIP_VT3205)) {
+		    (pVia->ChipId == PCI_CHIP_VT3327 || pVia->ChipId == PCI_CHIP_VT3336 || 
+		     pVia->ChipId == PCI_CHIP_VT3157 || pVia->ChipId == PCI_CHIP_VT3364 || 
+		     pVia->ChipId == PCI_CHIP_VT3205)) {
                     miniCtl &= ~V1_Y_INTERPOLY;
                 }
 		tmp |= zoomCtl & 0x0000ffff;
@@ -1987,7 +2002,9 @@ Upd_Video(ScrnInfoPtr pScrn, unsigned long videoFlag,
 		    usleep(1);
 		}
 
-		if (pVia->ChipId == PCI_CHIP_VT3259 || pVia->ChipId == PCI_CHIP_VT3336 || pVia->ChipId == PCI_CHIP_VT3157 || pVia->ChipId == PCI_CHIP_VT3364)
+		if (pVia->ChipId == PCI_CHIP_VT3259 || pVia->ChipId == PCI_CHIP_VT3327 ||
+		    pVia->ChipId == PCI_CHIP_VT3336 || pVia->ChipId == PCI_CHIP_VT3157 || 
+		    pVia->ChipId == PCI_CHIP_VT3364)
 		    hqvCtl |= HQV_GEN_IRQ;
 
 		VIDOutD(HQV_CONTROL + proReg, hqvCtl & ~HQV_SW_FLIP);
@@ -1996,7 +2013,9 @@ Upd_Video(ScrnInfoPtr pScrn, unsigned long videoFlag,
 		DBG_DD(ErrorF("HQV control wf5 - %08lx\n", *HQVCtrl));
 		DBG_DD(ErrorF(" Wait flips5"));
 
-		if (pVia->ChipId != PCI_CHIP_VT3259 && pVia->ChipId != PCI_CHIP_VT3336 && pVia->ChipId != PCI_CHIP_VT3157 && pVia->ChipId != PCI_CHIP_VT3364) {
+		if (pVia->ChipId != PCI_CHIP_VT3259 && pVia->ChipId != PCI_CHIP_VT3327 && 
+		    pVia->ChipId != PCI_CHIP_VT3336 && pVia->ChipId != PCI_CHIP_VT3157 && 
+		    pVia->ChipId != PCI_CHIP_VT3364) {
 		    for (i = 0; (i < 50) && !(*HQVCtrl & HQV_FLIP_STATUS);
 			i++) {
 			DBG_DD(ErrorF(" HQV wait %d %08lx\n", i, *HQVCtrl));

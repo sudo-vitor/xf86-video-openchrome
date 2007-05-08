@@ -108,7 +108,8 @@ viaFlushPCI(ViaCommandBuffer * buf)
 		     * for an unacceptable amount of time in VIASETREG while
 		     * other high priority interrupts may be pending.
 		     */
-                    if (pVia->Chipset != VIA_K8M890 && pVia->Chipset != VIA_P4M900) {
+                    if (pVia->Chipset != VIA_P4M890 && pVia->Chipset != VIA_K8M890 && 
+		        pVia->Chipset != VIA_P4M900) {
 		        while (!(VIAGETREG(VIA_REG_STATUS) & VIA_VR_QUEUE_BUSY)
 			     && (loop++ < MAXLOOP)) ;
                     }
@@ -326,6 +327,7 @@ viaDisableVQ(ScrnInfoPtr pScrn)
 
     switch ( pVia->Chipset )
     {
+      case VIA_P4M890:
       case VIA_K8M890:
         VIASETREG(0x41c, 0x00100000);
         VIASETREG(0x420, 0x74301000);
@@ -425,6 +427,7 @@ viaAccelSync(ScrnInfoPtr pScrn)
     mem_barrier();
 
     switch (pVia->Chipset) { 
+    case VIA_P4M890:
     case VIA_K8M890:
     case VIA_P4M900:
         while ((VIAGETREG(VIA_REG_STATUS) &
