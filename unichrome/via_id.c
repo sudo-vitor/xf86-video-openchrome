@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
  * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER 
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
  * DEALINGS IN THE SOFTWARE.
  */
 
@@ -35,7 +35,7 @@
 
 /*
  * Known missing devices:
- * 
+ *
  *   CLE266:
  * Biostar M6VLQ Grand
  * Biostar M6VLQ Pro
@@ -170,6 +170,8 @@ static struct ViaCardIdStruct ViaCardId[] = {
     {"Clevo/RoverBook Partner E419L",         VIA_VM800,   0x1019, 0x0F75, VIA_DEVICE_CRT | VIA_DEVICE_LCD},
     {"ECS P4M800PRO-M",                       VIA_VM800,   0x1019, 0x2122, VIA_DEVICE_CRT},
     {"ECS C7VCM",                             VIA_VM800,   0x1019, 0xAA2D, VIA_DEVICE_CRT},
+    {"Asustek P5VDC-MX",                      VIA_VM800,   0x1043, 0x3344, VIA_DEVICE_CRT},
+    {"Asustek P5VDC-TVM",                     VIA_VM800,   0x1043, 0x81CE, VIA_DEVICE_CRT},
     {"Gateway MX3210",                        VIA_VM800,   0x107B, 0x0216, VIA_DEVICE_CRT | VIA_DEVICE_LCD},
     {"VIA VT3344 (VM800) - EPIA EN",          VIA_VM800,   0x1106, 0x3344, VIA_DEVICE_CRT | VIA_DEVICE_TV},
     {"Gigabyte GA-8VM800M-775",               VIA_VM800,   0x1458, 0xD000, VIA_DEVICE_CRT},
@@ -243,9 +245,9 @@ ViaCheckCardId(ScrnInfoPtr pScrn)
     
     if ((pVia->PciInfo->subsysVendor == pVia->PciInfo->vendor) &&
 	(pVia->PciInfo->subsysCard == pVia->PciInfo->chipType))
-	xf86DrvMsg(pScrn->scrnIndex, X_WARNING, "Manufacturer plainly copied main PCI"
-		   " ids to Subsystem/Card ids.\n");
-    
+        xf86DrvMsg(pScrn->scrnIndex, X_WARNING,
+                   "Manufacturer plainly copied main PCI IDs to subsystem/card IDs.\n");
+
     for (Id = ViaCardId; Id->String; Id++) {
 	if ((Id->Chip == pVia->Chipset) && 
 	    (Id->Vendor == pVia->PciInfo->subsysVendor) &&
@@ -257,8 +259,8 @@ ViaCheckCardId(ScrnInfoPtr pScrn)
     }
     
     xf86DrvMsg(pScrn->scrnIndex, X_ERROR, 
-	       "Unknown Card-Ids (%4X|%4X); please report to openchrome-users@openchrome.org\n"
-	       , pVia->PciInfo->subsysVendor, pVia->PciInfo->subsysCard);
+	       "Unknown Card-Ids (%4X|%4X); please report to openchrome-users@openchrome.org\n",
+	       pVia->PciInfo->subsysVendor, pVia->PciInfo->subsysCard);
     pVia->Id = NULL;
 }
 
