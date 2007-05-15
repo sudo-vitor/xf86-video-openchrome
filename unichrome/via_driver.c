@@ -710,6 +710,7 @@ static Bool VIASetupDefaultOptions(ScrnInfoPtr pScrn)
     pVia->maxDriSize = 0;
     pVia->agpMem = AGP_SIZE / 1024;
     pVia->ActiveDevice = 0x00;
+    pVia->VideoEngine = VIDEO_ENGINE_CLE;
 #ifdef HAVE_DEBUG
     pVia->PrintVGARegs = FALSE;
 #endif
@@ -723,11 +724,15 @@ static Bool VIASetupDefaultOptions(ScrnInfoPtr pScrn)
             pVia->DRIIrqEnable = FALSE;
             break;
         case VIA_K8M890:
-            pVia->agpEnable = FALSE;
-            break;
         case VIA_P4M900:
+            pVia->VideoEngine = VIDEO_ENGINE_CME;
             pVia->agpEnable = FALSE;
             break;
+	case VIA_PM800:
+	case VIA_CX700:
+	case VIA_P4M890:
+            pVia->VideoEngine = VIDEO_ENGINE_CME;
+	    break;
     }
 
     return TRUE;

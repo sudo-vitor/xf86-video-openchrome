@@ -1,3 +1,14 @@
+2007-05-15  Gabriel Mansi  <gabriel-dot-mansi-at-gmail-dot-com>
+
+	* unichrome/via.h:
+	* unichrome/via_driver.c: (VIASetupDefaultOptions):
+	* unichrome/via_driver.h:
+	* unichrome/via_swov.c: (viaWaitHQVFlip), (SetColorKey),
+	(SetChromaKey), (Upd_Video):
+	* unichrome/via_video.c: (Flip), (viaDmaBlitImage), (viaPutImage):
+
+	Xv code cleanup.
+
 2007-05-10  Jon Nettleton  <jon-dot-nettleton-at-gmail-dot-com>
 
 	* unichrome/via_driver.c:

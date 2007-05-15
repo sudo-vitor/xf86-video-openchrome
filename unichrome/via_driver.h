@@ -346,6 +346,7 @@ typedef struct _VIA {
     CARD32		CursorMC;
 
     /* Video */
+    int                 VideoEngine;
     swovRec		swov;
     CARD32              VideoStatus;
     VIAHWDiff		HWDiff;

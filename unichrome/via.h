@@ -39,6 +39,11 @@
 #include "xf86_ansic.h"
 #endif
 
+/* Video Engines */
+#define VIDEO_ENGINE_UNK	0 /* Unknown video engine */
+#define VIDEO_ENGINE_CLE	1 /* CLE First generaion video engine */
+#define VIDEO_ENGINE_CME	2 /* CME Second generation video engine */
+
 /* Video status flag */
 
 #define VIDEO_HIDE              0x00000000  /*Video off*/
