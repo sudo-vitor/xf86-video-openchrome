@@ -166,7 +166,7 @@ static struct ViaCardIdStruct ViaCardId[] = {
     {"ASRock P4VM8",                          VIA_PM800,   0x1849, 0x3118, VIA_DEVICE_CRT},
     {"Chaintech MPM800-3",                    VIA_PM800,   0x270F, 0x7671, VIA_DEVICE_CRT},
     {"MaxSelect Optima C4",                   VIA_PM800,   0x1558, 0x5402, VIA_DEVICE_CRT | VIA_DEVICE_LCD},
-    /* VM800 */
+    /* VN800 */
     {"Clevo/RoverBook Partner E419L",         VIA_VM800,   0x1019, 0x0F75, VIA_DEVICE_CRT | VIA_DEVICE_LCD},
     {"ECS P4M800PRO-M",                       VIA_VM800,   0x1019, 0x2122, VIA_DEVICE_CRT},
     {"ECS C7VCM",                             VIA_VM800,   0x1019, 0xAA2D, VIA_DEVICE_CRT},
@@ -188,6 +188,23 @@ static struct ViaCardIdStruct ViaCardId[] = {
     {"Fujitsu/Siemens Amilo L7320",           VIA_VM800,   0x1734, 0x10CD, VIA_DEVICE_CRT | VIA_DEVICE_LCD},
     {"ASRock P4VM800",                        VIA_VM800,   0x1849, 0x3344, VIA_DEVICE_CRT},
     {"Asustek P5V800-MX",                     VIA_VM800,   0x3344, 0x1122, VIA_DEVICE_CRT},
+    /* K8M890 */
+    {"ASUS A8V-VM",                           VIA_K8M890,  0x1043, 0x81B5, VIA_DEVICE_CRT},
+    {"Shuttle FX22V1",                        VIA_K8M890,  0x1297, 0x3080, VIA_DEVICE_CRT},
+    {"MSI K9VGM-V",                           VIA_K8M890,  0x1462, 0x7253, VIA_DEVICE_CRT},
+    {"Averatec 226x",                         VIA_K8M890,  0x14FF, 0xA002, VIA_DEVICE_CRT | VIA_DEVICE_LCD},
+    /* P4M900 */
+    {"VIA VT3364 (P4M900)",                   VIA_P4M900,  0x1106, 0x3371, VIA_DEVICE_CRT | VIA_DEVICE_LCD},
+    {"Fujitsu/Siemens Amilo Pro V3515",       VIA_P4M900,  0x1734, 0x10CB, VIA_DEVICE_CRT | VIA_DEVICE_LCD},
+    {"Fujitsu/Siemens Amilo Li1705",          VIA_P4M900,  0x1734, 0x10F7, VIA_DEVICE_CRT | VIA_DEVICE_LCD},
+    /* CX700 */
+    {"VIA VT3157 (CX700)",                    VIA_CX700,   0x1106, 0x3157, VIA_DEVICE_CRT},
+    /* P4M890 */
+    {"ASUS P5V-VM ULTRA",                     VIA_P4M890,  0x1043, 0x81B5, VIA_DEVICE_CRT},
+    {"Asustek P5V-VM DH",                     VIA_P4M890,  0x1043, 0x81CE, VIA_DEVICE_CRT},
+    {"Mitac 8615",                            VIA_P4M890,  0x1071, 0x8615, VIA_DEVICE_CRT | VIA_DEVICE_LCD},
+    {"VIA VT3343 (P4M890)",                   VIA_P4M890,  0x1106, 0x3343, VIA_DEVICE_CRT},
+    {"MSI P4M890M-L/IL (MS-7255)",            VIA_P4M890,  0x1462, 0x7255, VIA_DEVICE_CRT},
     /* keep this */
     {NULL,                                    VIA_UNKNOWN, 0x0000, 0x0000, VIA_DEVICE_NONE}
 };
@@ -203,9 +220,9 @@ ViaDoubleCheckCLE266Revision(ScrnInfoPtr pScrn)
     VIAPtr pVia = VIAPTR(pScrn);
     /* Crtc 0x4F is only defined in CLE266Cx */
     CARD8 tmp = hwp->readCrtc(hwp, 0x4F);
-
+    
     hwp->writeCrtc(hwp, 0x4F, 0x55);
-
+    
     if (hwp->readCrtc(hwp, 0x4F) == 0x55) {
 	if (CLE266_REV_IS_AX(pVia->ChipRev))
 	    xf86DrvMsg(pScrn->scrnIndex, X_WARNING, "CLE266 Revision seems"
@@ -226,14 +243,14 @@ ViaCheckCardId(ScrnInfoPtr pScrn)
 {
     struct ViaCardIdStruct *Id;
     VIAPtr pVia = VIAPTR(pScrn);
-
+    
     if ((pVia->PciInfo->subsysVendor == pVia->PciInfo->vendor) &&
 	(pVia->PciInfo->subsysCard == pVia->PciInfo->chipType))
         xf86DrvMsg(pScrn->scrnIndex, X_WARNING,
                    "Manufacturer plainly copied main PCI IDs to subsystem/card IDs.\n");
 
     for (Id = ViaCardId; Id->String; Id++) {
-	if ((Id->Chip == pVia->Chipset) &&
+	if ((Id->Chip == pVia->Chipset) && 
 	    (Id->Vendor == pVia->PciInfo->subsysVendor) &&
 	    (Id->Device == pVia->PciInfo->subsysCard)) {
 	    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "Detected %s.\n", Id->String);
@@ -241,9 +258,10 @@ ViaCheckCardId(ScrnInfoPtr pScrn)
 	    return;
 	}
     }
-
-    xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
-               "Unknown Card-IDs (%4X|%4X); please report to <openchrome-users@openchrome.org>\n",
-               pVia->PciInfo->subsysVendor, pVia->PciInfo->subsysCard);
+    
+    xf86DrvMsg(pScrn->scrnIndex, X_ERROR, 
+	       "Unknown Card-Ids (%4X|%4X); please report to openchrome-users@openchrome.org\n",
+	       pVia->PciInfo->subsysVendor, pVia->PciInfo->subsysCard);
     pVia->Id = NULL;
 }
+
