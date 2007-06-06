@@ -123,15 +123,32 @@ ViaVbeSetMode(ScrnInfoPtr pScrn, DisplayModePtr pMode)
     int refresh;
 
     pVia = VIAPTR(pScrn);
+    if (pVia == NULL) {
+    	xf86DrvMsg(pScrn->scrnIndex, X_ERROR, "pVia==NULL\n") ;
+	return FALSE ;
+    }
 
     pVia->OverlaySupported = FALSE;
 
     data = (VbeModeInfoData*)pMode->Private;
+    if (data == NULL) {
+            xf86DrvMsg(pScrn->scrnIndex, X_ERROR, "data==NULL\n") ;
+            return FALSE ;
+    }
 
     mode = data->mode | (1 << 15);
 
     /* enable linear addressing */
     mode |= 1 << 14;
+    if ( data->data == NULL ) {
+            xf86DrvMsg(pScrn->scrnIndex, X_ERROR, "data->data==NULL\n") ;
+            return FALSE ;
+    }
+
+    if ( data->block == NULL ) {
+            xf86DrvMsg(pScrn->scrnIndex, X_ERROR, "data->block==NULL\n") ;
+            return FALSE ;
+    }
 
     xf86DrvMsg(pScrn->scrnIndex, X_INFO, "Trying VBE Mode %dx%d (0x%x) Refresh %.2f:\n", 
 	       (int) data->data->XResolution,
