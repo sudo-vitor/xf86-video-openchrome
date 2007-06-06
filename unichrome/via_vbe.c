@@ -302,7 +302,7 @@ ViaVbeModePreInit(ScrnInfoPtr pScrn)
     do {
 	vbeMode = ((VbeModeInfoData*)pMode->Private)->data;
 	pMode = pMode->next;
-    } while (pMode != pScrn->modes);
+    } while (pMode != NULL && pMode != pScrn->modes);
 
     return TRUE;
 }
