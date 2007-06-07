@@ -94,7 +94,7 @@
 #define AGP_PAGES 8192
 #define AGP_SIZE (AGP_PAGE_SIZE * AGP_PAGES)
 
-#define DRIVER_NAME     "via"
+#define DRIVER_NAME     "openchrome"
 #define VERSION_MAJOR   0
 #define VERSION_MINOR   2
 #ifdef USE_NEW_XVABI

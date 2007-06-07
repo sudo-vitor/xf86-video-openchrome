@@ -410,7 +410,7 @@ static XF86ModuleVersionInfo VIAVersRec = {
     {0, 0, 0, 0}
 };
 
-XF86ModuleData viaModuleData = {&VIAVersRec, VIASetup, NULL};
+XF86ModuleData openchromeModuleData = {&VIAVersRec, VIASetup, NULL};
 
 static pointer VIASetup(pointer module, pointer opts, int *errmaj, int *errmin)
 {

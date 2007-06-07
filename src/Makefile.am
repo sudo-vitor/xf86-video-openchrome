@@ -68,7 +68,7 @@ via_drv_la_SOURCES = \
          via_xvpriv.h
 
 if DRI
-via_drv_la_SOURCES += \
+openchrome_drv_la_SOURCES += \
          via_dri.c \
          via_dri.h \
          via_drmclient.h \

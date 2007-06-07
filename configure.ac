@@ -148,7 +148,7 @@ AC_SUBST([DRI_CFLAGS])
 AC_SUBST([XORG_CFLAGS])
 AC_SUBST([moduledir])
 
-DRIVER_NAME=via
+DRIVER_NAME=openchrome
 AC_SUBST([DRIVER_NAME])
 
 AC_DEFINE(X_USE_LINEARFB,1,[Compatibility define for older Xen])
@@ -164,7 +164,7 @@ XORG_RELEASE_VERSION
 
 AC_OUTPUT([
 	Makefile
-	unichrome/Makefile
 	libxvmc/Makefile
 	man/Makefile
+	src/Makefile
 ])
