@@ -1,3 +1,21 @@
+2007-06-12  Gabriel Mansi  <gabriel-dot-mansi-at-gmail-dot-com>
+	
+	Renamed VT3157 to VT3324.
+	Added check for null data block in vbe.
+	Remove version check for older version of Xorg.
+
+	* unichrome/via.h:
+	* unichrome/via_dri.c: (VIADRIRingBufferInit):
+	* unichrome/via_driver.c:
+	* unichrome/via_id.c:
+	* unichrome/via_id.h:
+	* unichrome/via_swov.c: (viaCalculateVideoColor),
+	(viaSetColorSpace), (ViaInitVideoStatusFlag), (ViaSetVidCtl),
+	(SetFIFO_V3), (SetFIFO_V3_64or32or32), (SetFIFO_V3_64or32or16),
+	(Upd_Video):
+	* unichrome/via_vbe.c: (ViaVbeSetMode):
+	* unichrome/via_video.c: (DecideOverlaySupport):
+
 2007-05-18 Xavier Bachelot <xavier-at-bachelot-dot-org> 
 
 	* libxvmc/Makefile.am:

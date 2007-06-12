@@ -123,7 +123,7 @@ static PciChipsets VIAPciChipsets[] = {
     {VIA_VM800,    PCI_CHIP_VT3314,    RES_SHARED_VGA},
     {VIA_K8M890,   PCI_CHIP_VT3336,    RES_SHARED_VGA},
     {VIA_P4M900,   PCI_CHIP_VT3364,    RES_SHARED_VGA},
-    {VIA_CX700,    PCI_CHIP_VT3157,    RES_SHARED_VGA},
+    {VIA_CX700,    PCI_CHIP_VT3324,    RES_SHARED_VGA},
     {VIA_P4M890,   PCI_CHIP_VT3327,    RES_SHARED_VGA},
     {-1,            -1,                RES_UNDEFINED}
 };

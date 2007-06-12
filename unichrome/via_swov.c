@@ -770,7 +770,7 @@ viaCalculateVideoColor(VIAPtr pVia, int hue, int saturation, int brightness,
     case PCI_CHIP_VT3314:
     case PCI_CHIP_VT3336:
     case PCI_CHIP_VT3364:
-    case PCI_CHIP_VT3157:
+    case PCI_CHIP_VT3324:
     case PCI_CHIP_VT3327:
 	model = 0;
 	break;
@@ -907,7 +907,7 @@ viaSetColorSpace(VIAPtr pVia, int hue, int saturation, int brightness,
 	break;
     case PCI_CHIP_VT3327:
     case PCI_CHIP_VT3336:
-    case PCI_CHIP_VT3157:
+    case PCI_CHIP_VT3324:
     case PCI_CHIP_VT3364:
     case PCI_CHIP_CLE3122:
 	VIDOutD(V1_ColorSpaceReg_2, col2);
@@ -935,7 +935,7 @@ ViaInitVideoStatusFlag(VIAPtr pVia)
 	return VIDEO_HQV_INUSE | SW_USE_HQV | VIDEO_3_INUSE;
     case PCI_CHIP_VT3327:
     case PCI_CHIP_VT3336:
-    case PCI_CHIP_VT3157:
+    case PCI_CHIP_VT3324:
     case PCI_CHIP_VT3364:
 	return VIDEO_HQV_INUSE | SW_USE_HQV | VIDEO_1_INUSE | \
                VIDEO_ACTIVE | VIDEO_SHOW;
@@ -972,7 +972,7 @@ ViaSetVidCtl(VIAPtr pVia, unsigned int videoFlag)
 	    return V3_ENABLE | V3_EXPIRE_NUM_3205;
         case PCI_CHIP_VT3327:
 	case PCI_CHIP_VT3336:
-    	case PCI_CHIP_VT3157:
+    	case PCI_CHIP_VT3324:
 	case PCI_CHIP_VT3364:
             return V3_ENABLE | VIDEO_EXPIRE_NUM_VT3336;
 	case PCI_CHIP_CLE3122:
@@ -1250,7 +1250,7 @@ SetFIFO_V1(VIAPtr pVia, CARD8 depth, CARD8 prethreshold, CARD8 threshold)
 static void
 SetFIFO_V3(VIAPtr pVia, CARD8 depth, CARD8 prethreshold, CARD8 threshold)
 {
-    if ((pVia->ChipId == PCI_CHIP_VT3314) || (pVia->ChipId == PCI_CHIP_VT3157) || (pVia->ChipId == PCI_CHIP_VT3327)) {
+    if ((pVia->ChipId == PCI_CHIP_VT3314) || (pVia->ChipId == PCI_CHIP_VT3324) || (pVia->ChipId == PCI_CHIP_VT3327)) {
 	SaveVideoRegister(pVia, ALPHA_V3_FIFO_CONTROL,
 	    (VIDInD(ALPHA_V3_FIFO_CONTROL) & ALPHA_FIFO_MASK) |
 	    ((depth - 1) & 0xff) | ((threshold & 0xff) << 8));
@@ -1310,7 +1310,7 @@ SetFIFO_V3_64or32or32(VIAPtr pVia)
     switch (pVia->ChipId) {
     case PCI_CHIP_VT3327:
     case PCI_CHIP_VT3336:
-    case PCI_CHIP_VT3157:
+    case PCI_CHIP_VT3324:
     case PCI_CHIP_VT3364:
         SetFIFO_V3(pVia, 225, 200, 250);
         break;
@@ -1341,7 +1341,7 @@ SetFIFO_V3_64or32or16(VIAPtr pVia)
     switch (pVia->ChipId) {
     case PCI_CHIP_VT3327:
     case PCI_CHIP_VT3336:
-    case PCI_CHIP_VT3157:
+    case PCI_CHIP_VT3324:
     case PCI_CHIP_VT3364:
         SetFIFO_V3(pVia, 225, 200, 250);
         break;
@@ -1929,7 +1929,7 @@ Upd_Video(ScrnInfoPtr pScrn, unsigned long videoFlag,
 		miniCtl |= V1_Y_INTERPOLY | V1_YCBCR_INTERPOLY;
                 if (srcWidth >= 800 && 
 		    (pVia->ChipId == PCI_CHIP_VT3327 || pVia->ChipId == PCI_CHIP_VT3336 || 
-		     pVia->ChipId == PCI_CHIP_VT3157 || pVia->ChipId == PCI_CHIP_VT3364 || 
+		     pVia->ChipId == PCI_CHIP_VT3324 || pVia->ChipId == PCI_CHIP_VT3364 || 
 		     pVia->ChipId == PCI_CHIP_VT3205)) {
                     miniCtl &= ~V1_Y_INTERPOLY;
                 }

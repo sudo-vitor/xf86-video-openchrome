@@ -62,7 +62,7 @@ enum VIACHIPTAGS {
 #define PCI_CHIP_VT3314         0x3344 /* VM800 */
 #define PCI_CHIP_VT3336         0x3230 /* K8M890 */
 #define PCI_CHIP_VT3364         0x3371 /* P4M900 */
-#define PCI_CHIP_VT3157         0x3157 /* CX700 */
+#define PCI_CHIP_VT3324         0x3157 /* CX700 */
 #define PCI_CHIP_VT3327         0x3343 /* P4M890 */
 
 /*
