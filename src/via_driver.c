@@ -106,6 +106,10 @@ static SymTabRec VIAChipsets[] = {
     {VIA_K8M800,   "K8M800"},
     {VIA_PM800,    "PM800/PM880/CN400"},
     {VIA_VM800,    "VM800/CN700/P4M800Pro"},
+    {VIA_K8M890,   "K8M890"},
+    {VIA_P4M900,   "P4M900"},
+    {VIA_CX700,    "CX700"},
+    {VIA_P4M890,   "P4M890"},
     {-1,            NULL }
 };
 
@@ -117,6 +121,10 @@ static PciChipsets VIAPciChipsets[] = {
     {VIA_K8M800,   PCI_CHIP_VT3204,    RES_SHARED_VGA},
     {VIA_PM800,    PCI_CHIP_VT3259,    RES_SHARED_VGA},
     {VIA_VM800,    PCI_CHIP_VT3314,    RES_SHARED_VGA},
+    {VIA_K8M890,   PCI_CHIP_VT3336,    RES_SHARED_VGA},
+    {VIA_P4M900,   PCI_CHIP_VT3364,    RES_SHARED_VGA},
+    {VIA_CX700,    PCI_CHIP_VT3324,    RES_SHARED_VGA},
+    {VIA_P4M890,   PCI_CHIP_VT3327,    RES_SHARED_VGA},
     {-1,            -1,                RES_UNDEFINED}
 };
 
@@ -702,6 +710,7 @@ static Bool VIASetupDefaultOptions(ScrnInfoPtr pScrn)
     pVia->maxDriSize = 0;
     pVia->agpMem = AGP_SIZE / 1024;
     pVia->ActiveDevice = 0x00;
+    pVia->VideoEngine = VIDEO_ENGINE_CLE;
 #ifdef HAVE_DEBUG
     pVia->PrintVGARegs = FALSE;
 #endif
@@ -714,6 +723,16 @@ static Bool VIASetupDefaultOptions(ScrnInfoPtr pScrn)
         case VIA_K8M800:
             pVia->DRIIrqEnable = FALSE;
             break;
+        case VIA_K8M890:
+        case VIA_P4M900:
+            pVia->VideoEngine = VIDEO_ENGINE_CME;
+            pVia->agpEnable = FALSE;
+            break;
+	case VIA_PM800:
+	case VIA_CX700:
+	case VIA_P4M890:
+            pVia->VideoEngine = VIDEO_ENGINE_CME;
+	    break;
     }
 
     return TRUE;
@@ -1333,6 +1352,8 @@ static Bool VIAPreInit(ScrnInfoPtr pScrn, int flags)
 
     xf86DrvMsg(pScrn->scrnIndex, from, "Chipset: \"%s\"\n", pScrn->chipset);
 
+    xf86DrvMsg(pScrn->scrnIndex, from, "Chipset: \"%s\"\n", pScrn->chipset);
+
     pVia->PciTag = pciTag(pVia->PciInfo->bus, pVia->PciInfo->device,
                           pVia->PciInfo->func);
 
@@ -1479,8 +1500,11 @@ static Bool VIAPreInit(ScrnInfoPtr pScrn, int flags)
 
     if (pBIOSInfo->PanelActive && ((pVia->Chipset == VIA_K8M800) ||
 				   (pVia->Chipset == VIA_PM800) ||
-                    (pVia->Chipset == VIA_VM800))) {
-	xf86DrvMsg(pScrn->scrnIndex, X_WARNING, "Panel on K8M800, PM800 or VM800 is"
+                    (pVia->Chipset == VIA_VM800) ||
+		    (pVia->Chipset == VIA_P4M890) ||
+		    (pVia->Chipset == VIA_K8M890) ||
+                    (pVia->Chipset == VIA_P4M900))) {
+	xf86DrvMsg(pScrn->scrnIndex, X_WARNING, "Panel on K8M800, PM800 ,VM800, P4M890, K8M890 or P4M900 is"
 		   " currently not supported.\n");
 	xf86DrvMsg(pScrn->scrnIndex, X_WARNING, "Using VBE to set modes to"
 		   " work around this.\n");
@@ -1759,8 +1783,8 @@ static void VIALeaveVT(int scrnIndex, int flags)
     /*
      * A soft reset helps fix 3D hang on VT switch.
      */
-
-    hwp->writeSeq(hwp, 0x1A, pVia->SavedReg.SR1A | 0x40);
+    if (pVia->Chipset != VIA_K8M890 && pVia->Chipset != VIA_P4M900)
+        hwp->writeSeq(hwp, 0x1A, pVia->SavedReg.SR1A | 0x40);
 
 #ifdef XF86DRI
     if (pVia->directRenderingEnabled) {
@@ -1857,10 +1881,28 @@ VIASave(ScrnInfoPtr pScrn)
 
 	Regs->SR2E = hwp->readSeq(hwp, 0x2E);	
 
-	Regs->SR44 = hwp->readSeq(hwp, 0x44);
-	Regs->SR45 = hwp->readSeq(hwp, 0x45);
-	Regs->SR46 = hwp->readSeq(hwp, 0x46);
-	Regs->SR47 = hwp->readSeq(hwp, 0x47);
+        switch (pVia->Chipset)
+        {
+            case VIA_CLE266:
+            case VIA_KM400:
+                Regs->SR44 = hwp->readSeq(hwp, 0x44);
+                Regs->SR45 = hwp->readSeq(hwp, 0x45);
+                Regs->SR46 = hwp->readSeq(hwp, 0x46);
+                Regs->SR47 = hwp->readSeq(hwp, 0x47);
+                break;
+            default:
+                Regs->SR44 = hwp->readSeq(hwp, 0x44);
+                Regs->SR45 = hwp->readSeq(hwp, 0x45);
+                Regs->SR46 = hwp->readSeq(hwp, 0x46);
+                Regs->SR47 = hwp->readSeq(hwp, 0x47);
+                /*Regs->SR4A = hwp->readSeq(hwp, 0x4a);
+                Regs->SR4B = hwp->readSeq(hwp, 0x4b);
+                Regs->SR4C = hwp->readSeq(hwp, 0x4c);*/
+                break;
+        }
+
+
+        DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "Crtc...\n"));
 
 	Regs->CR13 = hwp->readCrtc(hwp, 0x13);
 
@@ -2272,10 +2314,11 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
     if (!VIAMapMMIO(pScrn))
         return FALSE;
 
-    if (pVia->pVbe && pVia->vbeSR)
+    if (pVia->pVbe && pVia->vbeSR) {
 	ViaVbeSaveRestore(pScrn, MODE_SAVE);
-    else 
+    } else {
 	VIASave(pScrn);
+    }
 
     vgaHWUnlock(hwp);
 
@@ -2577,8 +2620,8 @@ static Bool VIACloseScreen(int scrnIndex, ScreenPtr pScreen)
  
 
 	/* A soft reset Fixes 3D Hang after X restart */
-
-	hwp->writeSeq(hwp, 0x1A, pVia->SavedReg.SR1A | 0x40);
+        if (pVia->Chipset != VIA_K8M890 && pVia->Chipset != VIA_P4M900)	
+            hwp->writeSeq(hwp, 0x1A, pVia->SavedReg.SR1A | 0x40);
 
 	if (!pVia->IsSecondary) {
             /* Turn off all video activities */

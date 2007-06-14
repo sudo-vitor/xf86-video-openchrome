@@ -120,6 +120,7 @@ ViaVbeSetMode(ScrnInfoPtr pScrn, DisplayModePtr pMode)
     VIAPtr pVia;
     VbeModeInfoData *data;
     int mode;
+    int refreshRate;
 
     pVia = VIAPTR(pScrn);
 
@@ -132,11 +133,22 @@ ViaVbeSetMode(ScrnInfoPtr pScrn, DisplayModePtr pMode)
     /* enable linear addressing */
     mode |= 1 << 14;
 
+    if (data->block) {
+        refreshRate = data->block->RefreshRate ;
+    } else {
+        refreshRate = 6000 ;
+        xf86DrvMsg(pScrn->scrnIndex, X_WARNING, 
+        "Unable to determine the refresh rate, using %.2f. "
+        "Please check your configuration.\n", refreshRate/100. ) ;
+    }
+
     xf86DrvMsg(pScrn->scrnIndex, X_INFO, "Trying VBE Mode %dx%d (0x%x) Refresh %.2f:\n", 
 	       (int) data->data->XResolution,
 	       (int) data->data->YResolution,
-	       mode & ~(1 << 11), (float) data->block->RefreshRate/100.);
-    ViaVbeSetRefresh(pScrn, data->block->RefreshRate/100);
+	       mode & ~(1 << 11), (float) refreshRate/100.);
+
+    ViaVbeSetRefresh(pScrn, refreshRate/100);
+
     if (VBESetVBEMode(pVia->pVbe, mode, data->block) == FALSE) {
 	xf86DrvMsg(pScrn->scrnIndex, X_INFO, "VBESetVBEMode failed");
 	if ((data->block || (data->mode & (1 << 11))) &&
