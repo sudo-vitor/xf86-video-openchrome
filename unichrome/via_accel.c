@@ -2196,8 +2196,8 @@ viaInitExa(ScreenPtr pScreen)
     pExa->offScreenBase = pScrn->virtualY * pVia->Bpl;
     pExa->pixmapOffsetAlign = 32;
     pExa->pixmapPitchAlign = 16;
-    /* This needs to be fixed upstream for now it just causes hangs*/
-    pExa->flags = EXA_OFFSCREEN_PIXMAPS | EXA_OFFSCREEN_ALIGN_POT;
+    pExa->flags = EXA_OFFSCREEN_PIXMAPS | 
+        (pVia->nPOT[1] ? 0 : EXA_OFFSCREEN_ALIGN_POT);
     pExa->maxX = 2047;
     pExa->maxY = 2047;
     pExa->WaitMarker = viaAccelWaitMarker;
