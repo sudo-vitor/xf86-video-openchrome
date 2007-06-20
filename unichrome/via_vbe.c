@@ -50,6 +50,42 @@ ViaVbeAdjustFrame(int scrnIndex, int x, int y, int flags)
     VBESetDisplayStart(pVia->pVbe, x, y, TRUE);
 }
 
+static Bool ViaVbeSetPanelExpansion(ScrnInfoPtr pScrn, Bool expanded) {
+
+    VIAPtr  pVia = VIAPTR(pScrn);
+    VIABIOSInfoPtr  pBIOSInfo = pVia->pBIOSInfo;
+    int RealOff;
+    pointer page = NULL;
+    vbeInfoPtr pVbe = pVia->pVbe;
+
+    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "ViaVbeSetPanelExpansion\n"));
+    page = xf86Int10AllocPages(pVbe->pInt10, 1, &RealOff);
+    if (!page)
+        return FALSE;
+    pVbe->pInt10->ax = 0x4F14;
+    pVbe->pInt10->bx = 0x0306;
+    pVbe->pInt10->cx = 0x80 | expanded;
+    pVbe->pInt10->dx = 0;
+    pVbe->pInt10->di = 0;
+    pVbe->pInt10->num = 0x10;
+
+    /* Real execution */
+    xf86ExecX86int10(pVbe->pInt10);
+
+    if (pVbe->pInt10->ax != 0x4F)
+    {
+        DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
+                         "Unable to set the panel extension mode %b.\n", expanded));
+        if (page)
+            xf86Int10FreePages(pVbe->pInt10, page, 1);
+        return FALSE;
+    }
+
+    if (page)
+        xf86Int10FreePages(pVbe->pInt10, page, 1);
+
+    return TRUE;
+}
 
 static Bool
 ViaVbeSetRefresh(ScrnInfoPtr pScrn, int maxRefresh)
@@ -57,15 +93,27 @@ ViaVbeSetRefresh(ScrnInfoPtr pScrn, int maxRefresh)
     VIAPtr  pVia = VIAPTR(pScrn);
     VIABIOSInfoPtr  pBIOSInfo = pVia->pBIOSInfo;
     int RealOff;
-    pointer page = NULL;
-    vbeInfoPtr pVbe = pVia->pVbe;
 
     DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "ViaVbeSetRefresh\n"));
+
+    if (pBIOSInfo->PanelActive && !pVia->useLegacyVBE) {
+    	if (!ViaVbeSetPanelExpansion(pScrn, TRUE)) {
+    		xf86DrvMsg(pScrn->scrnIndex, X_INFO, "Unable to set the panel expansion.\n");
+		return FALSE ;
+	}
+    }
+
+    pointer page = NULL;
+    vbeInfoPtr pVbe = pVia->pVbe;
     page = xf86Int10AllocPages(pVbe->pInt10, 1, &RealOff);
     if (!page)
         return FALSE;
     pVbe->pInt10->ax = 0x4F14;
-    pVbe->pInt10->bx = 0x0001;
+    if (pVia->useLegacyVBE)
+        pVbe->pInt10->bx = 0x0001;
+    else
+        pVbe->pInt10->bx = 0x8003;
+
     pVbe->pInt10->cx = 0;
     pVbe->pInt10->dx = 0;
     pVbe->pInt10->di = 0;
@@ -134,12 +182,12 @@ ViaVbeSetMode(ScrnInfoPtr pScrn, DisplayModePtr pMode)
     mode |= 1 << 14;
 
     if (data->block) {
-        refreshRate = data->block->RefreshRate ;
+        refreshRate = data->block->RefreshRate;
     } else {
-        refreshRate = 6000 ;
+        refreshRate = VBE_DEFAULT_REFRESH;
         xf86DrvMsg(pScrn->scrnIndex, X_WARNING, 
         "Unable to determine the refresh rate, using %.2f. "
-        "Please check your configuration.\n", refreshRate/100. ) ;
+        "Please check your configuration.\n", refreshRate/100.);
     }
 
     xf86DrvMsg(pScrn->scrnIndex, X_INFO, "Trying VBE Mode %dx%d (0x%x) Refresh %.2f:\n", 
@@ -188,6 +236,8 @@ ViaVbeSaveRestore(ScrnInfoPtr pScrn, vbeSaveRestoreFunction function)
     VIAPtr pVia = VIAPTR(pScrn);
     vgaHWPtr  hwp = VGAHWPTR(pScrn);
 
+    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO,"ViaVbeSaveRestore\n"));
+
     if ((MODE_QUERY < 0) || (function > MODE_RESTORE))
 	return (FALSE);
 
@@ -207,8 +257,10 @@ ViaVbeSaveRestore(ScrnInfoPtr pScrn, vbeSaveRestoreFunction function)
 	    if (!VBESaveRestore(pVia->pVbe, function,
 				(pointer) &(pVia->vbeMode.state),
 				&(pVia->vbeMode.stateSize),
-				&(pVia->vbeMode.statePage)))
+				&(pVia->vbeMode.statePage))) {
+		xf86DrvMsg(pScrn->scrnIndex, X_WARNING,"VBESaveRestore failed\n");
 		return FALSE;
+	    }
 	  
 	} 
     }
@@ -234,7 +286,9 @@ ViaVbeSaveRestore(ScrnInfoPtr pScrn, vbeSaveRestoreFunction function)
 	} 
 
 	if (function == MODE_RESTORE) {
-	    VBESetVBEMode(pVia->pVbe, pVia->vbeMode.stateMode, NULL);
+                if (!VBESetVBEMode(pVia->pVbe, pVia->vbeMode.stateMode, NULL)) {
+		    xf86DrvMsg(pScrn->scrnIndex, X_WARNING,"VBESetVBEMode failed\n");
+	        }
 	}
 
 	if (!retval)

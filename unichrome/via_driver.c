@@ -712,8 +712,9 @@ static Bool VIASetupDefaultOptions(ScrnInfoPtr pScrn)
     pVia->ActiveDevice = 0x00;
     pVia->VideoEngine = VIDEO_ENGINE_CLE;
 #ifdef HAVE_DEBUG
-    pVia->PrintVGARegs = FALSE;
+    pVia->PrintVGARegs = TRUE;
 #endif
+    pVia->useLegacyVBE = TRUE;
 
     switch (pVia->Chipset)
     {
@@ -723,8 +724,12 @@ static Bool VIASetupDefaultOptions(ScrnInfoPtr pScrn)
         case VIA_K8M800:
             pVia->DRIIrqEnable = FALSE;
             break;
-        case VIA_K8M890:
         case VIA_P4M900:
+	    pVia->useVBEModes = TRUE;
+            pVia->useLegacyVBE = FALSE;
+            pVia->vbeSR = TRUE;
+	    /* no break here */
+        case VIA_K8M890:
             pVia->VideoEngine = VIDEO_ENGINE_CME;
             pVia->agpEnable = FALSE;
             break;
@@ -2245,6 +2250,9 @@ VIALoadPalette(ScrnInfoPtr pScrn, int numColors, int *indices,
 		case VIA_K8M800:
 		case VIA_PM800:
 		    break;
+		case VIA_P4M900:
+		    xf86DrvMsg(pScrn->scrnIndex, X_WARNING, "VIALoadPalette: Function not implementd for this chipset.\n");
+		    return;
 	        default:
 		    ViaSeqMask(hwp, 0x6A, 0x20, 0x20);
 		    break;
@@ -2291,6 +2299,7 @@ VIALoadPalette(ScrnInfoPtr pScrn, int numColors, int *indices,
 	    hwp->writeDacData(hwp, colors[index].blue);
         }
     }
+
 }
 
 /*
@@ -2651,7 +2660,7 @@ static Bool VIACloseScreen(int scrnIndex, ScreenPtr pScreen)
         pVia->DGAModes = NULL;
     }
 
-    if (pScrn->vtSema) {
+    if (pScrn->vtSema) { 
 	if (pVia->pVbe && pVia->vbeSR)
 	    ViaVbeSaveRestore(pScrn, MODE_RESTORE); 
 	else 
@@ -2659,7 +2668,7 @@ static Bool VIACloseScreen(int scrnIndex, ScreenPtr pScreen)
 
 	vgaHWLock(hwp);
         VIAUnmapMem(pScrn);
-    }
+    } 
     pScrn->vtSema = FALSE;
     pScreen->CloseScreen = pVia->CloseScreen;
     return (*pScreen->CloseScreen)(scrnIndex, pScreen);

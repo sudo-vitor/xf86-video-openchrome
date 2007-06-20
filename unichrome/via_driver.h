@@ -243,6 +243,7 @@ typedef struct _VIA {
     vbeInfoPtr          pVbe;
     ViaVbeModeInfo      vbeMode;
     Bool                useVBEModes;
+    Bool                useLegacyVBE;
 
     /* Support for shadowFB and rotation */
     unsigned char*      ShadowPtr;
