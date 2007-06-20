@@ -64,7 +64,7 @@ static Bool ViaVbeSetPanelExpansion(ScrnInfoPtr pScrn, Bool expanded) {
         return FALSE;
     pVbe->pInt10->ax = 0x4F14;
     pVbe->pInt10->bx = 0x0306;
-    pVbe->pInt10->cx = 0x80 | expanded;
+    pVbe->pInt10->cx = 0x80; /*simple test | expanded;*/
     pVbe->pInt10->dx = 0;
     pVbe->pInt10->di = 0;
     pVbe->pInt10->num = 0x10;
@@ -348,7 +348,7 @@ ViaVbeModePreInit(ScrnInfoPtr pScrn)
     do {
 	vbeMode = ((VbeModeInfoData*)pMode->Private)->data;
 	pMode = pMode->next;
-    } while (pMode != pScrn->modes);
+    } while (pMode != NULL && pMode != pScrn->modes);
 
     return TRUE;
 }
