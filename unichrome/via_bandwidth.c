@@ -233,7 +233,12 @@ ViaSetPrimaryFIFO(ScrnInfoPtr pScrn, DisplayModePtr mode)
         hwp->writeSeq(hwp, 0x18, 0x8A);
         break;
     case VIA_P4M890:
+        break;
     case VIA_CX700:
+        hwp->writeSeq(hwp, 0x16, 0x26);
+        hwp->writeSeq(hwp, 0x17, 0x5F);
+        hwp->writeSeq(hwp, 0x18, 0x66);
+        hwp->writeSeq(hwp, 0x22, 0x1F);
         break;
     default:
 	xf86DrvMsg(pScrn->scrnIndex, X_ERROR, "ViaSetPrimaryFIFO:"
