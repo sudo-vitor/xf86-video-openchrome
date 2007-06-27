@@ -1,3 +1,9 @@
+2007-06-27  Gabriel Mansi  <gabriel-dot-mansi-at-gmail-dot-com>
+
+	* unichrome/via_id.c:
+
+	Everex NC1501/NC1503 reported by Scott Zahn
+
 2007-06-20  Gabriel Mansi  <gabriel-dot-mansi-at-gmail-dot-com>
 
 	* unichrome/via_bandwidth.c: (ViaSetPrimaryFIFO)
