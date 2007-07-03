@@ -22,7 +22,7 @@
 
 AC_PREREQ(2.57)
 AC_INIT([xf86-video-openchrome],
-        0.2.1,
+        0.2.900,
         [https://www.openchrome.org/trac/report],
         xf86-video-openchrome)
 
