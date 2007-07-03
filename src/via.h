@@ -31,6 +31,8 @@
 #include <string.h>
 #include <stdio.h>
 #include <math.h>
+#include <assert.h> 
+#include <stdlib.h>
 
 /* Video Engines */
 #define VIDEO_ENGINE_UNK	0 /* Unknown video engine */
