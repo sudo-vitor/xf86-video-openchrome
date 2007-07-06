@@ -2234,6 +2234,9 @@ VIALoadPalette(ScrnInfoPtr pScrn, int numColors, int *indices,
 	    case VIA_KM400:
 		ViaSeqMask(hwp, 0x16, 0x80, 0x80);
 		break;
+            case VIA_P4M900:
+                xf86DrvMsg(pScrn->scrnIndex, X_WARNING, "VIALoadPalette: Function not implemented for this chipset.\n");
+                return;
 	    default:
 		ViaCrtcMask(hwp, 0x33, 0x80, 0x80);
 		break;
@@ -2250,9 +2253,6 @@ VIALoadPalette(ScrnInfoPtr pScrn, int numColors, int *indices,
 		case VIA_K8M800:
 		case VIA_PM800:
 		    break;
-		case VIA_P4M900:
-		    xf86DrvMsg(pScrn->scrnIndex, X_WARNING, "VIALoadPalette: Function not implementd for this chipset.\n");
-		    return;
 	        default:
 		    ViaSeqMask(hwp, 0x6A, 0x20, 0x20);
 		    break;
