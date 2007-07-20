@@ -61,7 +61,7 @@ KNOWN BUGS/LIMITATIONS :
 - Add-on and integrated TMDS encoders are not supported, except thru VBE.
 
 * Chrome9
-- Chrome9 chipsets' family (P4M890, P4M900 and K8M890) currently doesn't
+- Chrome9 chipsets' family (P4M900 and K8M890) currently doesn't
   support neither AGP DMA nor 3D acceleration. 
 
 
