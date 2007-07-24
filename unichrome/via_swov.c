@@ -1930,7 +1930,7 @@ Upd_Video(ScrnInfoPtr pScrn, unsigned long videoFlag,
                 if (srcWidth >= 800 && 
 		    (pVia->ChipId == PCI_CHIP_VT3327 || pVia->ChipId == PCI_CHIP_VT3336 || 
 		     pVia->ChipId == PCI_CHIP_VT3324 || pVia->ChipId == PCI_CHIP_VT3364 || 
-		     pVia->ChipId == PCI_CHIP_VT3205)) {
+		     pVia->ChipId == PCI_CHIP_VT3205 || pVia->ChipId == PCI_CHIP_VT3314)) {
                     miniCtl &= ~V1_Y_INTERPOLY;
                 }
 		tmp |= zoomCtl & 0x0000ffff;
