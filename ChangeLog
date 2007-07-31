@@ -1,3 +1,10 @@
+2007-07-31  Jon Nettleton  <set EMAIL_ADDRESS environment variable>
+
+	* src/via_xvmc.c: (ViaInitXVMC):
+
+	Fixed the xvmc name we register.  Was still looking for
+	the old via xvmc library names.
+
 2007-07-04  Xavier Bachelot <xavier-at-bachelot-dot-org>
 
 	* configure.ac:
