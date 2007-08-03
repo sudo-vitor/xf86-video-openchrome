@@ -82,7 +82,8 @@
 #define VIA_MEM_DDR333  0x05
 #define VIA_MEM_DDR400  0x06
 #define VIA_MEM_DDR533  0x07
-#define VIA_MEM_END     0x08
+#define VIA_MEM_DDR667  0x08
+#define VIA_MEM_END     0x09
 #define VIA_MEM_NONE    0xFF
 
 /* Digital Output Bus Width */
