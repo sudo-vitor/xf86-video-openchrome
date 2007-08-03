@@ -347,6 +347,10 @@ DecideOverlaySupport(ScrnInfoPtr pScrn)
 	    mClock = 266;
 	    memEfficiency = (float)SINGLE_3205_133;
 	    break;
+	case VIA_MEM_DDR667:
+	    mClock = 333;
+	    memEfficiency = (float)SINGLE_3205_133;
+	    break;
 	default:
 	    /*Unknow DRAM Type */
 	    DBG_DD(ErrorF("Unknow DRAM Type!\n"));

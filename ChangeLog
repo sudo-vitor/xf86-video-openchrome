@@ -1,3 +1,11 @@
+2007-08-03  Xavier Bachelot <xavier-at-bachelot-dot-org>
+
+	* unichrome/via_bios.h:
+	* unichrome/via_mode.h:
+	* unichrome/via_video.c: (DecideOverlaySupport):
+
+	Add basic support for DDR667.
+
 2007-06-27  Gabriel Mansi  <gabriel-dot-mansi-at-gmail-dot-com>
 
 	* unichrome/via_id.c:
