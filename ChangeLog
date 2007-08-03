@@ -1,4 +1,12 @@
-2007-07-31  Jon Nettleton  <set EMAIL_ADDRESS environment variable>
+2007-08-03  Xavier Bachelot <xavier-at-bachelot-dot-org>
+
+	* src/via_bios.h:
+	* src/via_mode.h:
+	* src/via_video.c: (DecideOverlaySupport):
+
+	Add basic support for DDR667.
+
+2007-07-31  Jon Nettleton <jon-dot-nettleton-at-gmail-dot-com> 
 
 	* src/via_xvmc.c: (ViaInitXVMC):
 
