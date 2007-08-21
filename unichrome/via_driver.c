@@ -714,6 +714,8 @@ static Bool VIASetupDefaultOptions(ScrnInfoPtr pScrn)
 #ifdef HAVE_DEBUG
     pVia->PrintVGARegs = FALSE;
 #endif
+    pVia->swov.maxWInterp = 800 ;
+    pVia->swov.maxHInterp = 600 ;
 
     switch (pVia->Chipset)
     {
@@ -730,6 +732,10 @@ static Bool VIASetupDefaultOptions(ScrnInfoPtr pScrn)
             break;
 	case VIA_PM800:
 	case VIA_CX700:
+            pVia->VideoEngine = VIDEO_ENGINE_CME;
+            pVia->swov.maxWInterp = 1920 ;
+            pVia->swov.maxHInterp = 1080 ;
+	    break;
 	case VIA_P4M890:
             pVia->VideoEngine = VIDEO_ENGINE_CME;
 	    break;
