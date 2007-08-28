@@ -276,13 +276,18 @@ ViaOutputsDetect(ScrnInfoPtr pScrn)
 	    pBIOSInfo->CrtPresent = TRUE;
     }
 
-    /* TV encoder */
-    if (ViaTVDetect(pScrn) && ViaTVInit(pScrn)) {
-	if (!pBIOSInfo->TVOutput) /* Config might've set this already */
-	    ViaTVDACSense(pScrn);
-    } else if (pVia->Id && (pVia->Id->Outputs & VIA_DEVICE_TV)) {
-	xf86DrvMsg(pScrn->scrnIndex, X_WARNING, "This device is supposed to have a"
-		   " TV encoder but we are unable to detect it (support missing?).\n");
+    if (pVia->Id->Outputs & VIA_DEVICE_TV) {
+        /* TV encoder */
+        if (ViaTVDetect(pScrn) && ViaTVInit(pScrn)) {
+            if (!pBIOSInfo->TVOutput) /* Config might've set this already */
+                ViaTVDACSense(pScrn);
+        } else if (pVia->Id && (pVia->Id->Outputs & VIA_DEVICE_TV)) {
+            xf86DrvMsg(pScrn->scrnIndex, X_WARNING,
+                "This device is supposed to have a"
+                " TV encoder but we are unable to detect it (support missing?).\n");
+	        pBIOSInfo->TVOutput = 0;
+            }
+    } else {
 	pBIOSInfo->TVOutput = 0;
     }
 }

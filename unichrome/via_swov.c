@@ -1719,6 +1719,10 @@ Upd_Video(ScrnInfoPtr pScrn, unsigned long videoFlag,
         vidCtl |= V1_PREFETCH_ON_3336;
     }
 
+    if (pVia->pBIOSInfo->PanelActive) {
+        vidCtl |= 0x80000000;
+    }
+
     viaOverlayGetV1V3Format(pVia, (videoFlag & VIDEO_1_INUSE) ? 1 : 3,
 	videoFlag, &vidCtl, &hqvCtl);
 
