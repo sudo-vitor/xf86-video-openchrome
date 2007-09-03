@@ -197,16 +197,16 @@ ViaVbeSetMode(ScrnInfoPtr pScrn, DisplayModePtr pMode)
 	       (int) data->data->YResolution,
 	       mode & ~(1 << 11), (float) refreshRate/100.);
 
-    ViaVbeSetRefresh(pScrn, refreshRate/100);
-
     if (pVia->useLegacyVBE) {
+        ViaVbeSetRefresh(pScrn, refreshRate/100);
+
         if (VBESetVBEMode(pVia->pVbe, mode, data->block) == FALSE) {
             xf86DrvMsg(pScrn->scrnIndex, X_INFO, "VBESetVBEMode failed");
             if ((data->block || (data->mode & (1 << 11))) &&
                 VBESetVBEMode(pVia->pVbe, (mode & ~(1 << 11)), NULL) == TRUE) {
                 /* Some cards do not like setting the clock.
-	        */
-	        xf86ErrorF("...but worked OK without customized refresh and dotclock.\n");
+                */
+                xf86ErrorF("...but worked OK without customized refresh and dotclock.\n");
                 data->mode &= ~(1 << 11);
             }
             else {
@@ -216,12 +216,12 @@ ViaVbeSetMode(ScrnInfoPtr pScrn, DisplayModePtr pMode)
             }
         }
     } else {
-        if (VBESetVBEMode(pVia->pVbe, (mode & ~(1 << 11)), NULL)) {
-	    data->mode &= ~(1 << 11);
-        } else {
-            xf86DrvMsg(pScrn->scrnIndex, X_ERROR, "Set VBE Mode failed");
-            return (FALSE);
-        }
+        data->mode &= ~(1 << 11);
+        if (VBESetVBEMode(pVia->pVbe, data->mode, NULL) == FALSE) {
+            xf86DrvMsg(pScrn->scrnIndex, X_INFO, "VBESetVBEMode failed");
+	    return (FALSE);
+	}
+        ViaVbeSetRefresh(pScrn, refreshRate/100);
     }
 
     if (data->data->XResolution != pScrn->displayWidth)
@@ -235,7 +235,6 @@ ViaVbeSetMode(ScrnInfoPtr pScrn, DisplayModePtr pMode)
 #endif 
 	viaInitialize2DEngine(pScrn);
     }
-
     ViaVbeAdjustFrame(pScrn->scrnIndex, pScrn->frameX0, pScrn->frameY0, 0);
 
     return (TRUE);

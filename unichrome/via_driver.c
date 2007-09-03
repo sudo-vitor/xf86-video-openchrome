@@ -726,6 +726,8 @@ static Bool VIASetupDefaultOptions(ScrnInfoPtr pScrn)
             break;
         case VIA_P4M900:
             pVia->useLegacyVBE = FALSE;
+	    /* FIXME: It needs to be tested */
+	    pVia->dmaXV = FALSE;
 	    /* no break here */
         case VIA_K8M890:
             pVia->VideoEngine = VIDEO_ENGINE_CME;
@@ -1908,6 +1910,8 @@ VIASave(ScrnInfoPtr pScrn)
 	Regs->CR35 = hwp->readCrtc(hwp, 0x35);
 	Regs->CR36 = hwp->readCrtc(hwp, 0x36);
 
+	Regs->CR49 = hwp->readCrtc(hwp, 0x49);
+
 	DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "TVSave...\n"));
 	if (pBIOSInfo->TVI2CDev)
 	    ViaTVSave(pScrn);
@@ -1999,11 +2003,9 @@ VIARestore(ScrnInfoPtr pScrn)
         case VIA_KM400:
             break;
         default:
-/*	
             hwp->writeSeq(hwp, 0x4A, Regs->SR4A);
             hwp->writeSeq(hwp, 0x4B, Regs->SR4B);
             hwp->writeSeq(hwp, 0x4C, Regs->SR4C);
-*/
             break;
     }
 
@@ -2017,6 +2019,8 @@ VIARestore(ScrnInfoPtr pScrn)
     hwp->writeCrtc(hwp, 0x34, Regs->CR34);
     hwp->writeCrtc(hwp, 0x35, Regs->CR35);
     hwp->writeCrtc(hwp, 0x36, Regs->CR36);
+
+    hwp->writeCrtc(hwp, 0x49, Regs->CR49);
 
     /* Restore LCD control regs */
     for (i = 0; i < 68; i++)

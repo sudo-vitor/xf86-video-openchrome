@@ -1,3 +1,12 @@
+2007-09-02  Gabriel Mansi  <gabriel-dot-mansi-at-gmail-dot-com>
+
+	* unichrome/via_driver.c: (VIASetupDefaultOptions), (VIASave),
+	(VIARestore):
+	* unichrome/via_vbe.c: (ViaVbeSetMode):
+
+        Disabled XvDMA for P4M900
+        Modified VBE functions calling order 
+
 2007-08-03  Xavier Bachelot <xavier-at-bachelot-dot-org>
 
 	* unichrome/via_bios.h:
