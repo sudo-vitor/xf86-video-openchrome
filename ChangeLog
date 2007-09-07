@@ -1,3 +1,9 @@
+2007-09-07  Gabriel Mansi  <gabriel-dot-mansi-at-gmail-dot-com>
+
+	* unichrome/via_id.c:
+
+	Added Gigabyte GA-VM900M ID, reported by Alexandre Penasso Teixeira
+
 2007-09-07  Gabiel Mansi  <gabriel-dot-mansi-at-gmail-dot-com>
 
 	* libxvmc/viaLowLevel.c: (initXvMCLowLevel):
