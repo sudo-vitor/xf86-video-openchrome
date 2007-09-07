@@ -276,7 +276,15 @@ ViaOutputsDetect(ScrnInfoPtr pScrn)
 	    pBIOSInfo->CrtPresent = TRUE;
     }
 
-    if (pVia->Id->Outputs & VIA_DEVICE_TV) {
+    /* 
+     * FIXME: xf86I2CProbeAddress(pVia->pI2CBus3, 0x40)
+     * disables the panel on P4M900
+     * See ViaTVDetect.
+     */
+    if (pVia->Chipset == VIA_P4M900 && pBIOSInfo->PanelPresent) {
+        xf86DrvMsg(pScrn->scrnIndex, X_INFO,
+	"Will not try to detect TV encoder." );
+    } else {
         /* TV encoder */
         if (ViaTVDetect(pScrn) && ViaTVInit(pScrn)) {
             if (!pBIOSInfo->TVOutput) /* Config might've set this already */
@@ -285,10 +293,8 @@ ViaOutputsDetect(ScrnInfoPtr pScrn)
             xf86DrvMsg(pScrn->scrnIndex, X_WARNING,
                 "This device is supposed to have a"
                 " TV encoder but we are unable to detect it (support missing?).\n");
-	        pBIOSInfo->TVOutput = 0;
-            }
-    } else {
-	pBIOSInfo->TVOutput = 0;
+            pBIOSInfo->TVOutput = 0;
+        }
     }
 }
 

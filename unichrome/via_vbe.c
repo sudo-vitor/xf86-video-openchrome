@@ -115,15 +115,16 @@ static Bool ViaVbeSetActiveDevices( ScrnInfoPtr pScrn, int mode, int refresh ) {
     VIABIOSInfoPtr  pBIOSInfo = pVia->pBIOSInfo;
     vbeInfoPtr pVbe = pVia->pVbe;
 
-    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO,
-        "ViaVbeSetActiveDevices mode: %x, refresh: %d\n",
-	mode, refresh ));
-
     ViaVbeInitInt10(pVbe);
     pVbe->pInt10->bx = 0x8003;
     pVbe->pInt10->cx = ViaVbeGetActiveDevices(pScrn);
     pVbe->pInt10->dx = mode & 0x1FF;
     pVbe->pInt10->di = ViaVbeGetRefreshRateIndex(refresh);
+
+    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO,
+        "ViaVbeSetActiveDevices mode: %x, refresh: %d active devices: 0x%2x\n",
+	mode, refresh, pVbe->pInt10->cx ));
+
     xf86ExecX86int10(pVbe->pInt10);
     if (pVbe->pInt10->ax != 0x4F)
         return FALSE ;

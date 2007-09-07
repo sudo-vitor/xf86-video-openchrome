@@ -1501,16 +1501,20 @@ static Bool VIAPreInit(ScrnInfoPtr pScrn, int flags)
 	return FALSE;
     }
 
-    if (pBIOSInfo->PanelActive && ((pVia->Chipset == VIA_K8M800) ||
-				   (pVia->Chipset == VIA_PM800) ||
-                    (pVia->Chipset == VIA_VM800) ||
-                    (pVia->Chipset == VIA_P4M890) ||
-                    (pVia->Chipset == VIA_K8M890) || 
-		    (pVia->Chipset == VIA_P4M900))) {
-	xf86DrvMsg(pScrn->scrnIndex, X_WARNING, "Panel on K8M800, PM800 ,VM800, P4M890, K8M890 or P4M900 is"
-		   " currently not supported.\n");
+    if (pBIOSInfo->PanelActive && 
+        ((pVia->Chipset == VIA_K8M800) ||
+        (pVia->Chipset == VIA_PM800) ||
+        (pVia->Chipset == VIA_VM800) ||
+        (pVia->Chipset == VIA_P4M890) ||
+        (pVia->Chipset == VIA_K8M890) || 
+        (pVia->Chipset == VIA_P4M900))) {
+	
+	xf86DrvMsg(pScrn->scrnIndex, X_WARNING,
+	    "Panel on K8M800, PM800, VM800, P4M890, K8M890 or P4M900 is"
+            " currently not supported.\n");
 	xf86DrvMsg(pScrn->scrnIndex, X_WARNING, "Using VBE to set modes to"
 		   " work around this.\n");
+
 	pVia->useVBEModes = TRUE;
     }
 
