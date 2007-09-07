@@ -716,6 +716,7 @@ static Bool VIASetupDefaultOptions(ScrnInfoPtr pScrn)
 #endif
     pVia->swov.maxWInterp = 800 ;
     pVia->swov.maxHInterp = 600 ;
+    pVia->useLegacyVBE = TRUE;
 
     switch (pVia->Chipset)
     {
@@ -725,8 +726,12 @@ static Bool VIASetupDefaultOptions(ScrnInfoPtr pScrn)
         case VIA_K8M800:
             pVia->DRIIrqEnable = FALSE;
             break;
-        case VIA_K8M890:
         case VIA_P4M900:
+	    pVia->useLegacyVBE = FALSE;
+	    /* FIXME: It needs to be tested */
+	    pVia->dmaXV = FALSE;
+	    /* no break here */
+        case VIA_K8M890:
             pVia->VideoEngine = VIDEO_ENGINE_CME;
             pVia->agpEnable = FALSE;
             break;
@@ -1502,16 +1507,20 @@ static Bool VIAPreInit(ScrnInfoPtr pScrn, int flags)
 	return FALSE;
     }
 
-    if (pBIOSInfo->PanelActive && ((pVia->Chipset == VIA_K8M800) ||
-				   (pVia->Chipset == VIA_PM800) ||
-                    (pVia->Chipset == VIA_VM800) ||
-                    (pVia->Chipset == VIA_P4M890) ||
-                    (pVia->Chipset == VIA_K8M890) || 
-		    (pVia->Chipset == VIA_P4M900))) {
-	xf86DrvMsg(pScrn->scrnIndex, X_WARNING, "Panel on K8M800, PM800 ,VM800, P4M890, K8M890 or P4M900 is"
-		   " currently not supported.\n");
+    if (pBIOSInfo->PanelActive && 
+        ((pVia->Chipset == VIA_K8M800) ||
+        (pVia->Chipset == VIA_PM800) ||
+        (pVia->Chipset == VIA_VM800) ||
+        (pVia->Chipset == VIA_P4M890) ||
+        (pVia->Chipset == VIA_K8M890) || 
+        (pVia->Chipset == VIA_P4M900))) {
+	
+	xf86DrvMsg(pScrn->scrnIndex, X_WARNING,
+	    "Panel on K8M800, PM800, VM800, P4M890, K8M890 or P4M900 is"
+            " currently not supported.\n");
 	xf86DrvMsg(pScrn->scrnIndex, X_WARNING, "Using VBE to set modes to"
 		   " work around this.\n");
+
 	pVia->useVBEModes = TRUE;
     }
 
@@ -1610,7 +1619,6 @@ static Bool VIAPreInit(ScrnInfoPtr pScrn, int flags)
     /* Set up screen parameters. */
     pVia->Bpp = pScrn->bitsPerPixel >> 3;
     pVia->Bpl = pScrn->displayWidth * pVia->Bpp;
-
     xf86SetCrtcForModes(pScrn, INTERLACE_HALVE_V);
     pScrn->currentMode = pScrn->modes;
     xf86PrintModes(pScrn);
@@ -1883,28 +1891,24 @@ VIASave(ScrnInfoPtr pScrn)
 	Regs->SR2A = hwp->readSeq(hwp, 0x2A);
 	Regs->SR2B = hwp->readSeq(hwp, 0x2B);
 
-	Regs->SR2E = hwp->readSeq(hwp, 0x2E);	
+	Regs->SR2E = hwp->readSeq(hwp, 0x2E);
+
+        Regs->SR44 = hwp->readSeq(hwp, 0x44);
+        Regs->SR45 = hwp->readSeq(hwp, 0x45);
+        Regs->SR46 = hwp->readSeq(hwp, 0x46);
+        Regs->SR47 = hwp->readSeq(hwp, 0x47);
 
         switch (pVia->Chipset)
         {
             case VIA_CLE266:
             case VIA_KM400:
-                Regs->SR44 = hwp->readSeq(hwp, 0x44);
-                Regs->SR45 = hwp->readSeq(hwp, 0x45);
-                Regs->SR46 = hwp->readSeq(hwp, 0x46);
-                Regs->SR47 = hwp->readSeq(hwp, 0x47);
                 break;
             default:
-                Regs->SR44 = hwp->readSeq(hwp, 0x44);
-                Regs->SR45 = hwp->readSeq(hwp, 0x45);
-                Regs->SR46 = hwp->readSeq(hwp, 0x46);
-                Regs->SR47 = hwp->readSeq(hwp, 0x47);
-                /*Regs->SR4A = hwp->readSeq(hwp, 0x4a);
-                Regs->SR4B = hwp->readSeq(hwp, 0x4b);
-                Regs->SR4C = hwp->readSeq(hwp, 0x4c);*/
+                Regs->SR4A = hwp->readSeq(hwp, 0x4A);
+                Regs->SR4B = hwp->readSeq(hwp, 0x4B);
+                Regs->SR4C = hwp->readSeq(hwp, 0x4C);
                 break;
         }
-
 
         DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "Crtc...\n"));
 
@@ -1916,6 +1920,8 @@ VIASave(ScrnInfoPtr pScrn)
 	Regs->CR35 = hwp->readCrtc(hwp, 0x35);
 	Regs->CR36 = hwp->readCrtc(hwp, 0x36);
 
+	Regs->CR49 = hwp->readCrtc(hwp, 0x49);
+
 	DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "TVSave...\n"));
 	if (pBIOSInfo->TVI2CDev)
 	    ViaTVSave(pScrn);
@@ -1923,6 +1929,15 @@ VIASave(ScrnInfoPtr pScrn)
         /* Save LCD control regs */
         for (i = 0; i < 68; i++)
 	    Regs->CRTCRegs[i] = hwp->readCrtc(hwp, i + 0x50);
+
+	Regs->CRA0 = hwp->readCrtc(hwp, 0xA0);
+	Regs->CRA1 = hwp->readCrtc(hwp, 0xA1);
+	Regs->CRA2 = hwp->readCrtc(hwp, 0xA2);
+
+	Regs->CR97 = hwp->readCrtc(hwp, 0x97);
+	Regs->CR99 = hwp->readCrtc(hwp, 0x99);
+	Regs->CR9B = hwp->readCrtc(hwp, 0x9B);
+	Regs->CR9F = hwp->readCrtc(hwp, 0x9F);
 
         vgaHWProtect(pScrn, FALSE);
     }
@@ -1950,7 +1965,7 @@ VIARestore(ScrnInfoPtr pScrn)
     hwp->writeCrtc(hwp, 0x6A, 0x00);
     hwp->writeCrtc(hwp, 0x6B, 0x00);
     hwp->writeCrtc(hwp, 0x6C, 0x00);
- 
+
     if (pBIOSInfo->TVI2CDev)
 	ViaTVRestore(pScrn);
 
@@ -1992,6 +2007,18 @@ VIARestore(ScrnInfoPtr pScrn)
     hwp->writeSeq(hwp, 0x46, Regs->SR46);
     hwp->writeSeq(hwp, 0x47, Regs->SR47);
 
+    switch (pVia->Chipset)
+    {
+        case VIA_CLE266:
+        case VIA_KM400:
+            break;
+        default:
+            hwp->writeSeq(hwp, 0x4A, Regs->SR4A);
+            hwp->writeSeq(hwp, 0x4B, Regs->SR4B);
+            hwp->writeSeq(hwp, 0x4C, Regs->SR4C);
+            break;
+    }
+
     /* Reset dotclocks */
     ViaSeqMask(hwp, 0x40, 0x06, 0x06);
     ViaSeqMask(hwp, 0x40, 0x00, 0x06);
@@ -2003,10 +2030,21 @@ VIARestore(ScrnInfoPtr pScrn)
     hwp->writeCrtc(hwp, 0x35, Regs->CR35);
     hwp->writeCrtc(hwp, 0x36, Regs->CR36);
 
+    hwp->writeCrtc(hwp, 0x49, Regs->CR49);
+
     /* Restore LCD control regs */
     for (i = 0; i < 68; i++)
         hwp->writeCrtc(hwp, i + 0x50, Regs->CRTCRegs[i]);
 
+    hwp->writeCrtc(hwp, 0xA0, Regs->CRA0);
+    hwp->writeCrtc(hwp, 0xA1, Regs->CRA1);
+    hwp->writeCrtc(hwp, 0xA2, Regs->CRA2);
+/*
+    hwp->writeCrtc(hwp, 0x97, Regs->CR97);
+    hwp->writeCrtc(hwp, 0x99, Regs->CR99);
+    hwp->writeCrtc(hwp, 0x9B, Regs->CR9B);
+    hwp->writeCrtc(hwp, 0x9F, Regs->CR9F);
+*/
     if (pBIOSInfo->PanelActive)
 	ViaLCDPower(pScrn, TRUE);
 
@@ -2235,6 +2273,9 @@ VIALoadPalette(ScrnInfoPtr pScrn, int numColors, int *indices,
 	    case VIA_KM400:
 		ViaSeqMask(hwp, 0x16, 0x80, 0x80);
 		break;
+            case VIA_P4M900:
+                xf86DrvMsg(pScrn->scrnIndex, X_WARNING, "VIALoadPalette: Function not implemented for this chipset.\n");
+                return;
 	    default:
 		ViaCrtcMask(hwp, 0x33, 0x80, 0x80);
 		break;

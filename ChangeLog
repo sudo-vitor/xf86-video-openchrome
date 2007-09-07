@@ -1,3 +1,50 @@
+2007-09-07  Gabiel Mansi  <gabriel-dot-mansi-at-gmail-dot-com>
+
+	* libxvmc/viaLowLevel.c: (initXvMCLowLevel):
+	* libxvmc/viaLowLevel.h:
+	* libxvmc/viaLowLevelPro.c: (initXvMCLowLevel):
+	* unichrome/via.h:
+	* unichrome/via_driver.c: (VIASetupDefaultOptions), (VIAPreInit),
+	(VIASave), (VIARestore), (VIALoadPalette):
+	* unichrome/via_driver.h:
+	* unichrome/via_mode.c: (ViaOutputsDetect):
+	* unichrome/via_swov.c: (Upd_Video):
+	* unichrome/via_vbe.c: (ViaVbeInitInt10),
+	(ViaVbeGetRefreshRateIndex), (ViaVbeGetActiveDevices),
+	(ViaVbeSetActiveDevices), (ViaVbeSetPanelExpansion),
+	(ViaVbeSetRefresh), (ViaVbeSetMode), (ViaVbeSaveRestore),
+	(ViaVbeModePreInit):
+	* unichrome/via_xvmc.c: (ViaInitXVMC), (ViaXvMCCreateContext):
+
+	Merged vn896_branch from revision 361 to 391
+
+2007-09-07  Gabriel Mansi  <gabriel-dot-mansi-at-gmail-dot-com>
+
+	* unichrome/via_driver.c: (VIAPreInit):
+	* unichrome/via_mode.c: (ViaOutputsDetect):
+	* unichrome/via_vbe.c: (ViaVbeSetActiveDevices):
+
+	Disabled TV detection for P4M900
+
+2007-09-07  Gabriel Mansi  <gabriel-dot-mansi-at-gmail-dot-com>
+
+	* unichrome/via_driver.h:
+	* unichrome/via_vbe.c: (ViaVbeInitInt10),
+	(ViaVbeGetRefreshRateIndex), (ViaVbeGetActiveDevices),
+	(ViaVbeSetActiveDevices), (ViaVbeSetPanelExpansion),
+	(ViaVbeSetRefresh), (ViaVbeSetMode), (ViaVbeModePreInit):
+
+	VBE code clean up
+
+2007-09-02  Gabriel Mansi  <gabriel-dot-mansi-at-gmail-dot-com>
+
+	* unichrome/via_driver.c: (VIASetupDefaultOptions), (VIASave),
+	(VIARestore):
+	* unichrome/via_vbe.c: (ViaVbeSetMode):
+
+        Disabled XvDMA for P4M900
+        Modified VBE functions calling order 
+
 2007-08-18  Gabriel Mansi  <gabriel-dot-mansi-at-gmail-dot-com>
 
 	* unichrome/via_driver.c: (VIASetupDefaultOptions):
