@@ -1719,6 +1719,10 @@ Upd_Video(ScrnInfoPtr pScrn, unsigned long videoFlag,
         vidCtl |= V1_PREFETCH_ON_3336;
     }
 
+    if (pVia->pBIOSInfo->PanelActive) {
+        vidCtl |= 0x80000000;
+    }
+
     viaOverlayGetV1V3Format(pVia, (videoFlag & VIDEO_1_INUSE) ? 1 : 3,
 	videoFlag, &vidCtl, &hqvCtl);
 
@@ -1922,17 +1926,19 @@ Upd_Video(ScrnInfoPtr pScrn, unsigned long videoFlag,
 
 	    if (haveHQVzoomH) {
 		miniCtl = V1_X_INTERPOLY;
+		/* Disable X interpolation if the height exceeds 
+		 * the maximum supported by the hardware */
+                if (srcHeight >= pVia->swov.maxHInterp)
+                    miniCtl &= ~V1_X_INTERPOLY;
 		tmp = zoomCtl & 0xffff0000;
 	    }
 
 	    if (haveHQVzoomV) {
 		miniCtl |= V1_Y_INTERPOLY | V1_YCBCR_INTERPOLY;
-                if (srcWidth >= 800 && 
-		    (pVia->ChipId == PCI_CHIP_VT3327 || pVia->ChipId == PCI_CHIP_VT3336 || 
-		     pVia->ChipId == PCI_CHIP_VT3324 || pVia->ChipId == PCI_CHIP_VT3364 || 
-		     pVia->ChipId == PCI_CHIP_VT3205 || pVia->ChipId == PCI_CHIP_VT3314)) {
+		/* Disable Y interpolation if the width exceeds 
+		 * the maximum supported by the hardware */
+                if (srcWidth >= pVia->swov.maxWInterp)
                     miniCtl &= ~V1_Y_INTERPOLY;
-                }
 		tmp |= zoomCtl & 0x0000ffff;
 		hqvFilterCtl &= 0xfffdffff;
 	    }

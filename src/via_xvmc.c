@@ -379,7 +379,7 @@ ViaInitXVMC(ScreenPtr pScreen)
     {
 	DRIInfoPtr pDRIInfo = pVia->pDRIInfo;
 
-	if (pVia->ChipId != PCI_CHIP_VT3259) {
+	if (pVia->ChipId != PCI_CHIP_VT3259 && pVia->ChipId != PCI_CHIP_VT3364) {
 	    xf86DrvMsg(pScrn->scrnIndex, X_INFO,
 		"[XvMC] Registering chromeXvMC.\n");
 	    xf86XvMCRegisterDRInfo(pScreen, "chromeXvMC", pDRIInfo->busIdString,
@@ -504,6 +504,7 @@ ViaXvMCCreateContext(ScrnInfoPtr pScrn, XvMCContextPtr pContext,
     contextRec->useAGP = pViaDRI->ringBufActive &&
 	((pVia->Chipset == VIA_CLE266) ||
 	 (pVia->Chipset == VIA_KM400) ||
+	 (pVia->Chipset == VIA_P4M900) ||
 	 (pVia->Chipset == VIA_PM800));
     contextRec->chipId = pVia->ChipId;
     contextRec->screen = pScrn->pScreen->myNum;

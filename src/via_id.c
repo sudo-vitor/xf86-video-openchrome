@@ -198,6 +198,7 @@ static struct ViaCardIdStruct ViaCardId[] = {
     /* P4M900 */
     {"Asustek P5VD2-VM",                      VIA_P4M900,  0x1043, 0x81CE, VIA_DEVICE_CRT},
     {"VIA VT3364 (P4M900)",                   VIA_P4M900,  0x1106, 0x3371, VIA_DEVICE_CRT | VIA_DEVICE_LCD},
+    {"Gigabyte GA-VM900M",                    VIA_P4M900,  0x1458, 0xD000, VIA_DEVICE_CRT},
     {"Everex NC1501/NC1503",                  VIA_P4M900,  0x1509, 0x1E30, VIA_DEVICE_CRT | VIA_DEVICE_LCD},
     {"Clevo M660SE",                          VIA_P4M900,  0x1558, 0x0664, VIA_DEVICE_CRT | VIA_DEVICE_LCD},
     {"Fujitsu/Siemens Amilo Pro V3515",       VIA_P4M900,  0x1734, 0x10CB, VIA_DEVICE_CRT | VIA_DEVICE_LCD},
@@ -206,6 +207,7 @@ static struct ViaCardIdStruct ViaCardId[] = {
     {"VIA VT8454B",                           VIA_CX700,   0x0908, 0x1975, VIA_DEVICE_CRT}, /* Evaluation board, reference possibly wrong */
     {"VIA VT3324 (CX700)",                    VIA_CX700,   0x1106, 0x3157, VIA_DEVICE_CRT},
     /* P4M890 */
+    {"PCChips P29G",                          VIA_P4M890,  0x1019, 0x1629, VIA_DEVICE_CRT},
     {"Asustek P5V-VM ULTRA",                  VIA_P4M890,  0x1043, 0x81B5, VIA_DEVICE_CRT},
     {"Asustek P5V-VM DH",                     VIA_P4M890,  0x1043, 0x81CE, VIA_DEVICE_CRT},
     {"Mitac 8615",                            VIA_P4M890,  0x1071, 0x8615, VIA_DEVICE_CRT | VIA_DEVICE_LCD},

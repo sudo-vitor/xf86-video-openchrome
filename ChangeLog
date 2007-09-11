@@ -1,3 +1,88 @@
+2007-09-11  Xavier Bachelot <xavier-at-bachelot-dot-org>
+
+	* libxvmc/viaLowLevel.c: (initXvMCLowLevel):
+	* libxvmc/viaLowLevel.h:
+	* libxvmc/viaLowLevelPro.c: (initXvMCLowLevel):
+	* src/via.h:
+	* src/via_accel.c: (viaInitExa):
+	* src/via_bandwidth.c: (ViaSetPrimaryFIFO):
+	* src/via_driver.c: (VIASetupDefaultOptions), (VIAPreInit),
+	(VIASave), (VIARestore), (VIALoadPalette):
+	* src/via_driver.h:
+	* src/via_id.c:
+	* src/via_mode.c: (ViaOutputsDetect):
+	* src/via_priv.h:
+	* src/via_swov.c: (Upd_Video):
+	* src/via_vbe.c: (ViaVbeInitInt10), (ViaVbeGetRefreshRateIndex),
+	(ViaVbeGetActiveDevices), (ViaVbeSetActiveDevices),
+	(ViaVbeSetPanelExpansion), (ViaVbeSetRefresh), (ViaVbeSetMode),
+	(ViaVbeSaveRestore), (ViaVbeModePreInit):
+	* src/via_xvmc.c: (ViaInitXVMC), (ViaXvMCCreateContext):
+
+	Sync with experimental_branch
+
+2007-09-07  Gabriel Mansi  <gabriel-dot-mansi-at-gmail-dot-com>
+
+	* unichrome/via_id.c:
+
+	Added Gigabyte GA-VM900M ID, reported by Alexandre Penasso Teixeira
+
+2007-09-07  Gabiel Mansi  <gabriel-dot-mansi-at-gmail-dot-com>
+
+	* libxvmc/viaLowLevel.c: (initXvMCLowLevel):
+	* libxvmc/viaLowLevel.h:
+	* libxvmc/viaLowLevelPro.c: (initXvMCLowLevel):
+	* unichrome/via.h:
+	* unichrome/via_driver.c: (VIASetupDefaultOptions), (VIAPreInit),
+	(VIASave), (VIARestore), (VIALoadPalette):
+	* unichrome/via_driver.h:
+	* unichrome/via_mode.c: (ViaOutputsDetect):
+	* unichrome/via_swov.c: (Upd_Video):
+	* unichrome/via_vbe.c: (ViaVbeInitInt10),
+	(ViaVbeGetRefreshRateIndex), (ViaVbeGetActiveDevices),
+	(ViaVbeSetActiveDevices), (ViaVbeSetPanelExpansion),
+	(ViaVbeSetRefresh), (ViaVbeSetMode), (ViaVbeSaveRestore),
+	(ViaVbeModePreInit):
+	* unichrome/via_xvmc.c: (ViaInitXVMC), (ViaXvMCCreateContext):
+
+	Merged vn896_branch from revision 361 to 391
+
+2007-09-07  Gabriel Mansi  <gabriel-dot-mansi-at-gmail-dot-com>
+
+	* unichrome/via_driver.c: (VIAPreInit):
+	* unichrome/via_mode.c: (ViaOutputsDetect):
+	* unichrome/via_vbe.c: (ViaVbeSetActiveDevices):
+
+	Disabled TV detection for P4M900
+
+2007-09-07  Gabriel Mansi  <gabriel-dot-mansi-at-gmail-dot-com>
+
+	* unichrome/via_driver.h:
+	* unichrome/via_vbe.c: (ViaVbeInitInt10),
+	(ViaVbeGetRefreshRateIndex), (ViaVbeGetActiveDevices),
+	(ViaVbeSetActiveDevices), (ViaVbeSetPanelExpansion),
+	(ViaVbeSetRefresh), (ViaVbeSetMode), (ViaVbeModePreInit):
+
+	VBE code clean up
+
+2007-09-02  Gabriel Mansi  <gabriel-dot-mansi-at-gmail-dot-com>
+
+	* unichrome/via_driver.c: (VIASetupDefaultOptions), (VIASave),
+	(VIARestore):
+	* unichrome/via_vbe.c: (ViaVbeSetMode):
+
+	Disabled XvDMA for P4M900
+	Modified VBE functions calling order 
+
+2007-08-18  Gabriel Mansi  <gabriel-dot-mansi-at-gmail-dot-com>
+
+	* unichrome/via_driver.c: (VIASetupDefaultOptions):
+	* unichrome/via_priv.h:
+	* unichrome/via_swov.c: (Upd_Video):
+
+	Xvideo code clean up, added maximum resolution with
+	interpolation for all chipsets.
+
 2007-08-03  Xavier Bachelot <xavier-at-bachelot-dot-org>
 
 	* src/via_bios.h:
@@ -22,6 +107,12 @@
 	Bump driver version to 0.2.900.
 	Do not log detected chipset 2 times.
 	Remove duplicate changelog entry.
+
+2007-06-20  Gabriel Mansi  <gabriel-dot-mansi-at-gmail-dot-com>
+
+	* unichrome/via_bandwidth.c: (ViaSetPrimaryFIFO)
+
+	FIFO settings for CX700
 
 2007-06-14  Jon Nettleton  <jon-dot-nettleton-at-gmail-dot-com>
 
@@ -431,7 +522,7 @@
 2006-12-06  Jon Nettleton  <jon-dot-nettleton-at-gmail-dot-com>
 	
 	* unichrome/via_driver.c:
- 	
+	
 	Fixed some of the boolean option changes that are
 	inverses such as DisableIRQ. 
 
@@ -510,14 +601,14 @@
 	
 	* unichrome/via_video.c:
 	* unichrome/via_swov.c:
- 	
+	
 	Added missing hardware overlay support for VT3336
 
 2006-12-04  Jon Nettleton  <jon-dot-nettleton-at-gmail-dot-com>
 	
 	* unichrome/via_driver.c:
- 	
-        Added patch submitted by Gabriel Mansi 
+	
+	Added patch submitted by Gabriel Mansi 
 	<gabriel-dot-mansi-at-gmail-dot-com> to fix the K8M890 hang on 
 	VT switch.
 
@@ -538,8 +629,8 @@
 	
 	* unichrome/via_mode.c:
 	* unichrome/via_accel.c:
- 	
-        Added patch submitted by Gabriel Mansi 
+	
+	Added patch submitted by Gabriel Mansi 
 	<gabriel-dot-mansi-at-gmail-dot-com> to fix some of the K8M890
 	logic.
 
@@ -547,18 +638,18 @@
 	
 	* unichrome/via_bandwidth.c:
 	* unichrome/via_accel.c:
- 	
+	
 	Patched via_bandwidth.c for dumb mistake I made thanks Gabriel Mansi 
-        For the second set of eyes.  Move HWCursor memory allocation even 
-        further in the driver initialization. 
+	For the second set of eyes.  Move HWCursor memory allocation even 
+	further in the driver initialization. 
 
 2006-11-25  Jon Nettleton  <jon-dot-nettleton-at-gmail-dot-com>
 	
 	* unichrome/via_id.c:
 	* unichrome/via_accel.c:
- 	
+	
 	Added additional ID's for the K8M890 cards
-        Changed memory allocation order for the HW cursor and 2d engine. 
+	Changed memory allocation order for the HW cursor and 2d engine. 
 
 2006-10-29  Thomas Hellstrom  <thomas-at-tungstengraphics-dot-com> 
 

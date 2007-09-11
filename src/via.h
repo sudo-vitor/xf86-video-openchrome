@@ -31,7 +31,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <math.h>
-#include <assert.h> 
+#include <assert.h>
 #include <stdlib.h>
 
 /* Video Engines */
@@ -662,6 +662,6 @@
 #define MPG_SLICE_LENGTH	0x9C
 #define	MPG_SLICE_DATA		0xA0
 
-
+#define VBE_DEFAULT_REFRESH                     6000
 
 #endif /* _VIA_H_ */
