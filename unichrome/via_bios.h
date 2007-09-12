@@ -158,6 +158,8 @@ CARD32 ViaGetMemoryBandwidth(ScrnInfoPtr pScrn);
 ModeStatus ViaValidMode(int scrnIndex, DisplayModePtr mode, Bool verbose, int flags);
 void ViaModePrimary(ScrnInfoPtr pScrn, DisplayModePtr mode);
 void ViaModeSecondary(ScrnInfoPtr pScrn, DisplayModePtr mode);
+void ViaModeSecondaryVGAOffset(ScrnInfoPtr pScrn);
+void ViaModeSecondaryVGAFetchCount(ScrnInfoPtr pScrn, int width);
 void ViaLCDPower(ScrnInfoPtr pScrn, Bool On);
 void ViaTVPower(ScrnInfoPtr pScrn, Bool On);
 void ViaTVSave(ScrnInfoPtr pScrn);

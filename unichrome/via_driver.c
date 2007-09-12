@@ -2622,15 +2622,40 @@ VIAWriteMode(ScrnInfoPtr pScrn, DisplayModePtr mode)
 
     pVia->OverlaySupported = FALSE;
 
-    if (!vgaHWInit(pScrn, mode))
-        return FALSE;
-
     pScrn->vtSema = TRUE;
 
-    if (!pVia->IsSecondary)
-	ViaModePrimary(pScrn, mode);
-    else
-	ViaModeSecondary(pScrn, mode);
+    if (!pVia->pVbe) {
+
+        if (!vgaHWInit(pScrn, mode))
+            return FALSE;
+
+        if (!pVia->IsSecondary)
+            ViaModePrimary(pScrn, mode);
+        else
+            ViaModeSecondary(pScrn, mode);
+
+    } else {
+
+        if (!ViaVbeSetMode(pScrn, mode))
+            return FALSE;
+        /*
+         * FIXME: pVia->IsSecondary is not working here.
+         * We should be able to detect when the display
+         * is using the secondary head.
+	 * TODO: This should be enabled for others 
+	 * chipsets as well
+         */
+        if (pVia->Chipset == VIA_P4M900 &&
+	    pVia->pBIOSInfo->PanelActive) {
+            /*
+             * Since we are using virtual, we need to adjust
+             * the offset to match the framebuffer alignment
+             */
+            if (pScrn->displayWidth != mode->HDisplay)
+                ViaModeSecondaryVGAOffset(pScrn);
+            // ViaModeSecondaryVGAFixAlignment(pScrn, mode);
+	}
+    }
 
     /* Enable the graphics engine. */
     if (!pVia->NoAccel) {
@@ -2743,33 +2768,30 @@ VIAAdjustFrame(int scrnIndex, int x, int y, int flags)
 
     if (pVia->pVbe) {
 	ViaVbeAdjustFrame(scrnIndex, x, y, flags);
-	VIAVidAdjustFrame(pScrn, x, y);
-	return;
-    }
+    } else {
 
-    Base = (y * pScrn->displayWidth + x) * (pScrn->bitsPerPixel / 8);
+        Base = (y * pScrn->displayWidth + x) * (pScrn->bitsPerPixel / 8);
 
-    /* now program the start address registers */
-    if (pVia->IsSecondary) {
-	Base = (Base + pScrn->fbOffset) >> 3;
-	ViaCrtcMask(hwp, 0x62, (Base & 0x7F) << 1 , 0xFE);
-	hwp->writeCrtc(hwp, 0x63, (Base & 0x7F80) >>  7);
-	hwp->writeCrtc(hwp, 0x64, (Base & 0x7F8000) >>  15);
-    }
-    else {
-        Base = Base >> 1;
-        hwp->writeCrtc(hwp, 0x0C, (Base & 0xFF00) >> 8);
-	hwp->writeCrtc(hwp, 0x0D, Base & 0xFF);
-	hwp->writeCrtc(hwp, 0x34, (Base & 0xFF0000) >> 16);
+        /* now program the start address registers */
+        if (pVia->IsSecondary) {
+            Base = (Base + pScrn->fbOffset) >> 3;
+            ViaCrtcMask(hwp, 0x62, (Base & 0x7F) << 1 , 0xFE);
+            hwp->writeCrtc(hwp, 0x63, (Base & 0x7F80) >>  7);
+            hwp->writeCrtc(hwp, 0x64, (Base & 0x7F8000) >>  15);
+        } else {
+            Base = Base >> 1;
+            hwp->writeCrtc(hwp, 0x0C, (Base & 0xFF00) >> 8);
+            hwp->writeCrtc(hwp, 0x0D, Base & 0xFF);
+            hwp->writeCrtc(hwp, 0x34, (Base & 0xFF0000) >> 16);
 #if 0
 	/* The CLE266A doesn't have this implemented, it seems. -- Luc */
 	ViaCrtcMask(hwp, 0x48, Base >> 24, 0x03);
 #endif
+        }
     }
 
     VIAVidAdjustFrame(pScrn, x, y);
 }
-
 
 static Bool
 VIASwitchMode(int scrnIndex, DisplayModePtr mode, int flags)
@@ -2794,11 +2816,8 @@ VIASwitchMode(int scrnIndex, DisplayModePtr mode, int flags)
     
     if (pVia->VQEnable)
 	viaDisableVQ(pScrn);
-    
-    if (pVia->pVbe)
-	ret = ViaVbeSetMode(pScrn, mode);
-    else
-	ret = VIAWriteMode(pScrn, mode);
+
+    ret = VIAWriteMode(pScrn, mode);
 
 #ifdef XF86DRI
     if (pVia->directRenderingEnabled) {
@@ -2806,7 +2825,7 @@ VIASwitchMode(int scrnIndex, DisplayModePtr mode, int flags)
 	VIADRIRingBufferInit(pScrn);
 	DRIUnlock(screenInfo.screens[scrnIndex]);
     }
-#endif 
+#endif
     return ret;
     
 }

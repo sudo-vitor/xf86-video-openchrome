@@ -1,3 +1,15 @@
+2007-09-12  Gabriel Mansi  <gabriel-dot-mansi-at-gmail-dot-com>
+
+	* unichrome/via_bios.h:
+	* unichrome/via_driver.c: (VIAWriteMode), (VIAAdjustFrame),
+	(VIASwitchMode):
+	* unichrome/via_mode.c: (ViaModeSecondaryVGAFetchCount),
+	(ViaModeSecondaryVGAOffset), (ViaModeSecondaryVGA):
+	* unichrome/via_swov.c: (Upd_Video):
+	* unichrome/via_vbe.c: (ViaVbeSetPanelMode), (ViaVbeSetMode):
+
+	Fix offset when using vbe modes on secondary
+
 2007-09-07  Gabriel Mansi  <gabriel-dot-mansi-at-gmail-dot-com>
 
 	* unichrome/via_id.c:

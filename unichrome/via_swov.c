@@ -1718,8 +1718,13 @@ Upd_Video(ScrnInfoPtr pScrn, unsigned long videoFlag,
         DBG_DD(ErrorF("NEEDV1PREFETCH\n"));
         vidCtl |= V1_PREFETCH_ON_3336;
     }
-
-    if (pVia->pBIOSInfo->PanelActive) {
+    
+    /* 
+     * FIXME:
+     * Enable video on secondary 
+     */
+    if (pVia->Chipset == VIA_P4M900 &&
+        pVia->pBIOSInfo->PanelActive) {
         vidCtl |= 0x80000000;
     }
 

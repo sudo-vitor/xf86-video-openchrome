@@ -133,20 +133,20 @@ static Bool ViaVbeSetActiveDevices( ScrnInfoPtr pScrn, int mode, int refresh ) {
 }
 
 /*
- * Sets the panel expansion mode
+ * Sets the panel mode (expand or center)
  */
-static Bool ViaVbeSetPanelExpansion(ScrnInfoPtr pScrn, Bool expanded) {
+static Bool ViaVbeSetPanelMode(ScrnInfoPtr pScrn, Bool expand) {
 
     VIAPtr  pVia = VIAPTR(pScrn);
     VIABIOSInfoPtr  pBIOSInfo = pVia->pBIOSInfo;
     vbeInfoPtr pVbe = pVia->pVbe;
 
-    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "ViaVbeSetPanelExpansion\n"));
+    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "ViaVbeSetPanelMode\n"));
 
     ViaVbeInitInt10(pVbe);
     pVbe->pInt10->ax = 0x4F14;
     pVbe->pInt10->bx = 0x0306;
-    pVbe->pInt10->cx = 0x80 | expanded; 
+    pVbe->pInt10->cx = 0x80 | expand; 
 
     xf86ExecX86int10(pVbe->pInt10);
 
@@ -241,9 +241,14 @@ ViaVbeSetMode(ScrnInfoPtr pScrn, DisplayModePtr pMode)
             }
         }
     } else {
+
         if (pBIOSInfo->PanelActive && !pVia->useLegacyVBE) {
-            if (!ViaVbeSetPanelExpansion(pScrn, !pBIOSInfo->Center)) {
-                xf86DrvMsg(pScrn->scrnIndex, X_WARNING, "Unable to set the panel expansion.\n");
+	    /* 
+	     * FIXME: should we always set the panel expansion?
+	     * does it depend on the resolution?
+	     */
+            if (!ViaVbeSetPanelMode(pScrn, !pBIOSInfo->Center)) {
+                xf86DrvMsg(pScrn->scrnIndex, X_WARNING, "Unable to set the panel mode.\n");
 	    }
         }
 
@@ -263,19 +268,6 @@ ViaVbeSetMode(ScrnInfoPtr pScrn, DisplayModePtr pMode)
 	VBESetLogicalScanline(pVia->pVbe, pScrn->displayWidth);
 
     pScrn->vtSema = TRUE;
-
-/*
-    pVia->Bpp = data->data->BitsPerPixel >> 3;
-    pVia->Bpl = data->data->XResolution * pVia->Bpp;
-*/
-
-    if (!pVia->NoAccel) {
-#ifdef XF86DRI || defined(VIA_HAVE_EXA)
-	VIAInitialize3DEngine(pScrn);
-#endif 
-	viaInitialize2DEngine(pScrn);
-    }
-    ViaVbeAdjustFrame(pScrn->scrnIndex, pScrn->frameX0, pScrn->frameY0, 0);
 
     return (TRUE);
 }
