@@ -721,7 +721,9 @@ static Bool VIASetupDefaultOptions(ScrnInfoPtr pScrn)
     switch (pVia->Chipset)
     {
         case VIA_KM400:
-            pVia->DRIIrqEnable = FALSE;
+            /* IRQ is not broken on KM400A */
+            if (pVia->ChipRev < 0x80)
+                pVia->DRIIrqEnable = FALSE;
             break;
         case VIA_K8M800:
             pVia->DRIIrqEnable = FALSE;
