@@ -1433,28 +1433,34 @@ static Bool VIAPreInit(ScrnInfoPtr pScrn, int flags)
         }
     }
 
-    /* Detect amount of installed RAM */
-    if (pScrn->videoRam < 16384 || pScrn->videoRam > 65536) {
-	if(pVia->Chipset == VIA_CLE266) {
-	    bMemSize = hwp->readSeq(hwp, 0x34);
-	    if (!bMemSize) {
-		xf86DrvMsg(pScrn->scrnIndex, X_WARNING,
-			   "CR34 says nothing; trying CR39.\n");
-		bMemSize = hwp->readSeq(hwp, 0x39);
-	    }
-	} else
-	    bMemSize = hwp->readSeq(hwp, 0x39);
-
-	if (bMemSize > 16 && bMemSize <= 128)
-	    pScrn->videoRam = (bMemSize + 1) << 9;
-	else if (bMemSize > 0 && bMemSize < 31)
-	    pScrn->videoRam = bMemSize << 12;
-	else {
-	    xf86DrvMsg(pScrn->scrnIndex, X_WARNING,
-		       "Memory size detection failed: using 16MB.\n");
-	    pScrn->videoRam = 16 << 10;	/* Assume the basic 16MB */
-	}
-    }
+    switch (pVia->Chipset) {
+        case VIA_CLE266:
+        case VIA_KM400:
+            pScrn->videoRam = ( 1 << ( ( pciReadByte(pciTag(0, 0, 0), 0xE1) & 0x70 ) >> 4 ) ) << 10 ;
+            break;
+        case VIA_PM800:
+        case VIA_VM800:
+        case VIA_K8M800:
+            pScrn->videoRam = ( 1 << ( ( pciReadByte(pciTag(0, 0, 3), 0xA1) & 0x70 ) >> 4 ) ) << 10 ;
+            break;
+        case VIA_K8M890:
+            pScrn->videoRam = ( 1 << ( ( pciReadByte(pciTag(0, 0, 3), 0xA1) & 0x70 ) >> 4 ) ) << 12 ;
+            break;
+        default:
+            /* Detect amount of installed RAM */
+            if (pScrn->videoRam < 16384 || pScrn->videoRam > 65536) {
+                bMemSize = hwp->readSeq(hwp, 0x39);
+                if (bMemSize > 16 && bMemSize <= 128)
+                    pScrn->videoRam = (bMemSize + 1) << 9;
+                else if (bMemSize > 0 && bMemSize < 31)
+                    pScrn->videoRam = bMemSize << 12;
+                else {
+                   xf86DrvMsg(pScrn->scrnIndex, X_WARNING,
+                               "Memory size detection failed: using 16MB.\n");
+                    pScrn->videoRam = 16 << 10; /* Assume the basic 16MB */
+                }
+            }
+        }
 
     /* Split FB for SAMM */
     /* FIXME: For now, split FB into two equal sections. This should
