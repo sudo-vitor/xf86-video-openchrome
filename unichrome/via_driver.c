@@ -982,7 +982,7 @@ static Bool VIAPreInit(ScrnInfoPtr pScrn, int flags)
     	    pScrn->videoRam = pEnt->device->videoRam;
     	else {
         	xf86DrvMsg(pScrn->scrnIndex, X_WARNING,
-        	"Video Memory Size in Option is %d KB, Detect is %d KB!",
+        	"Video Memory Size in Option is %d KB, Detect is %d KB!\n",
             pScrn->videoRam, pEnt->device->videoRam);
     	}
     }
