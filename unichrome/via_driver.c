@@ -1444,6 +1444,8 @@ static Bool VIAPreInit(ScrnInfoPtr pScrn, int flags)
             pScrn->videoRam = ( 1 << ( ( pciReadByte(pciTag(0, 0, 3), 0xA1) & 0x70 ) >> 4 ) ) << 10 ;
             break;
         case VIA_K8M890:
+        case VIA_P4M900:
+        case VIA_CX700:
             pScrn->videoRam = ( 1 << ( ( pciReadByte(pciTag(0, 0, 3), 0xA1) & 0x70 ) >> 4 ) ) << 12 ;
             break;
         default:
