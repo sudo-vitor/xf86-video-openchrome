@@ -721,7 +721,9 @@ static Bool VIASetupDefaultOptions(ScrnInfoPtr pScrn)
     switch (pVia->Chipset)
     {
         case VIA_KM400:
-            pVia->DRIIrqEnable = FALSE;
+            /* IRQ is not broken on KM400A */
+            if (pVia->ChipRev < 0x80)
+                pVia->DRIIrqEnable = FALSE;
             break;
         case VIA_K8M800:
             pVia->DRIIrqEnable = FALSE;
@@ -980,7 +982,7 @@ static Bool VIAPreInit(ScrnInfoPtr pScrn, int flags)
     	    pScrn->videoRam = pEnt->device->videoRam;
     	else {
         	xf86DrvMsg(pScrn->scrnIndex, X_WARNING,
-        	"Video Memory Size in Option is %d KB, Detect is %d KB!",
+        	"Video Memory Size in Option is %d KB, Detect is %d KB!\n",
             pScrn->videoRam, pEnt->device->videoRam);
     	}
     }
@@ -1431,28 +1433,36 @@ static Bool VIAPreInit(ScrnInfoPtr pScrn, int flags)
         }
     }
 
-    /* Detect amount of installed RAM */
-    if (pScrn->videoRam < 16384 || pScrn->videoRam > 65536) {
-	if(pVia->Chipset == VIA_CLE266) {
-	    bMemSize = hwp->readSeq(hwp, 0x34);
-	    if (!bMemSize) {
-		xf86DrvMsg(pScrn->scrnIndex, X_WARNING,
-			   "CR34 says nothing; trying CR39.\n");
-		bMemSize = hwp->readSeq(hwp, 0x39);
-	    }
-	} else
-	    bMemSize = hwp->readSeq(hwp, 0x39);
-
-	if (bMemSize > 16 && bMemSize <= 128)
-	    pScrn->videoRam = (bMemSize + 1) << 9;
-	else if (bMemSize > 0 && bMemSize < 31)
-	    pScrn->videoRam = bMemSize << 12;
-	else {
-	    xf86DrvMsg(pScrn->scrnIndex, X_WARNING,
-		       "Memory size detection failed: using 16MB.\n");
-	    pScrn->videoRam = 16 << 10;	/* Assume the basic 16MB */
-	}
-    }
+    switch (pVia->Chipset) {
+        case VIA_CLE266:
+        case VIA_KM400:
+            pScrn->videoRam = ( 1 << ( ( pciReadByte(pciTag(0, 0, 0), 0xE1) & 0x70 ) >> 4 ) ) << 10 ;
+            break;
+        case VIA_PM800:
+        case VIA_VM800:
+        case VIA_K8M800:
+            pScrn->videoRam = ( 1 << ( ( pciReadByte(pciTag(0, 0, 3), 0xA1) & 0x70 ) >> 4 ) ) << 10 ;
+            break;
+        case VIA_K8M890:
+        case VIA_P4M900:
+        case VIA_CX700:
+            pScrn->videoRam = ( 1 << ( ( pciReadByte(pciTag(0, 0, 3), 0xA1) & 0x70 ) >> 4 ) ) << 12 ;
+            break;
+        default:
+            /* Detect amount of installed RAM */
+            if (pScrn->videoRam < 16384 || pScrn->videoRam > 65536) {
+                bMemSize = hwp->readSeq(hwp, 0x39);
+                if (bMemSize > 16 && bMemSize <= 128)
+                    pScrn->videoRam = (bMemSize + 1) << 9;
+                else if (bMemSize > 0 && bMemSize < 31)
+                    pScrn->videoRam = bMemSize << 12;
+                else {
+                   xf86DrvMsg(pScrn->scrnIndex, X_WARNING,
+                               "Memory size detection failed: using 16MB.\n");
+                    pScrn->videoRam = 16 << 10; /* Assume the basic 16MB */
+                }
+            }
+        }
 
     /* Split FB for SAMM */
     /* FIXME: For now, split FB into two equal sections. This should
@@ -2622,15 +2632,40 @@ VIAWriteMode(ScrnInfoPtr pScrn, DisplayModePtr mode)
 
     pVia->OverlaySupported = FALSE;
 
-    if (!vgaHWInit(pScrn, mode))
-        return FALSE;
-
     pScrn->vtSema = TRUE;
 
-    if (!pVia->IsSecondary)
-	ViaModePrimary(pScrn, mode);
-    else
-	ViaModeSecondary(pScrn, mode);
+    if (!pVia->pVbe) {
+
+        if (!vgaHWInit(pScrn, mode))
+            return FALSE;
+
+        if (!pVia->IsSecondary)
+            ViaModePrimary(pScrn, mode);
+        else
+            ViaModeSecondary(pScrn, mode);
+
+    } else {
+
+        if (!ViaVbeSetMode(pScrn, mode))
+            return FALSE;
+        /*
+         * FIXME: pVia->IsSecondary is not working here.
+         * We should be able to detect when the display
+         * is using the secondary head.
+	 * TODO: This should be enabled for others 
+	 * chipsets as well
+         */
+        if (pVia->Chipset == VIA_P4M900 &&
+	    pVia->pBIOSInfo->PanelActive) {
+            /*
+             * Since we are using virtual, we need to adjust
+             * the offset to match the framebuffer alignment
+             */
+            if (pScrn->displayWidth != mode->HDisplay)
+                ViaModeSecondaryVGAOffset(pScrn);
+            // ViaModeSecondaryVGAFixAlignment(pScrn, mode);
+	}
+    }
 
     /* Enable the graphics engine. */
     if (!pVia->NoAccel) {
@@ -2743,33 +2778,30 @@ VIAAdjustFrame(int scrnIndex, int x, int y, int flags)
 
     if (pVia->pVbe) {
 	ViaVbeAdjustFrame(scrnIndex, x, y, flags);
-	VIAVidAdjustFrame(pScrn, x, y);
-	return;
-    }
+    } else {
 
-    Base = (y * pScrn->displayWidth + x) * (pScrn->bitsPerPixel / 8);
+        Base = (y * pScrn->displayWidth + x) * (pScrn->bitsPerPixel / 8);
 
-    /* now program the start address registers */
-    if (pVia->IsSecondary) {
-	Base = (Base + pScrn->fbOffset) >> 3;
-	ViaCrtcMask(hwp, 0x62, (Base & 0x7F) << 1 , 0xFE);
-	hwp->writeCrtc(hwp, 0x63, (Base & 0x7F80) >>  7);
-	hwp->writeCrtc(hwp, 0x64, (Base & 0x7F8000) >>  15);
-    }
-    else {
-        Base = Base >> 1;
-        hwp->writeCrtc(hwp, 0x0C, (Base & 0xFF00) >> 8);
-	hwp->writeCrtc(hwp, 0x0D, Base & 0xFF);
-	hwp->writeCrtc(hwp, 0x34, (Base & 0xFF0000) >> 16);
+        /* now program the start address registers */
+        if (pVia->IsSecondary) {
+            Base = (Base + pScrn->fbOffset) >> 3;
+            ViaCrtcMask(hwp, 0x62, (Base & 0x7F) << 1 , 0xFE);
+            hwp->writeCrtc(hwp, 0x63, (Base & 0x7F80) >>  7);
+            hwp->writeCrtc(hwp, 0x64, (Base & 0x7F8000) >>  15);
+        } else {
+            Base = Base >> 1;
+            hwp->writeCrtc(hwp, 0x0C, (Base & 0xFF00) >> 8);
+            hwp->writeCrtc(hwp, 0x0D, Base & 0xFF);
+            hwp->writeCrtc(hwp, 0x34, (Base & 0xFF0000) >> 16);
 #if 0
 	/* The CLE266A doesn't have this implemented, it seems. -- Luc */
 	ViaCrtcMask(hwp, 0x48, Base >> 24, 0x03);
 #endif
+        }
     }
 
     VIAVidAdjustFrame(pScrn, x, y);
 }
-
 
 static Bool
 VIASwitchMode(int scrnIndex, DisplayModePtr mode, int flags)
@@ -2794,11 +2826,8 @@ VIASwitchMode(int scrnIndex, DisplayModePtr mode, int flags)
     
     if (pVia->VQEnable)
 	viaDisableVQ(pScrn);
-    
-    if (pVia->pVbe)
-	ret = ViaVbeSetMode(pScrn, mode);
-    else
-	ret = VIAWriteMode(pScrn, mode);
+
+    ret = VIAWriteMode(pScrn, mode);
 
 #ifdef XF86DRI
     if (pVia->directRenderingEnabled) {
@@ -2806,7 +2835,7 @@ VIASwitchMode(int scrnIndex, DisplayModePtr mode, int flags)
 	VIADRIRingBufferInit(pScrn);
 	DRIUnlock(screenInfo.screens[scrnIndex]);
     }
-#endif 
+#endif
     return ret;
     
 }

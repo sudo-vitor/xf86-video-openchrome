@@ -1,3 +1,27 @@
+2007-10-05  Gabriel Mansi  <gabriel-dot-mansi-at-gmail-dot-com>
+
+	* src/via_swov.c: (Upd_Video):
+
+	Enable colorkey on secondary.
+
+2007-10-03  Gabriel Mansi  <gabriel-dot-mansi-at-gmail-dot-com>
+
+	* src/via_driver.c: (VIAPreInit):
+
+	Fix memory detection for P4M900 and CX700
+
+2007-09-12  Gabriel Mansi  <gabriel-dot-mansi-at-gmail-dot-com>
+
+	* src/via_bios.h:
+	* src/via_driver.c: (VIAWriteMode), (VIAAdjustFrame),
+	(VIASwitchMode):
+	* src/via_mode.c: (ViaModeSecondaryVGAFetchCount),
+	(ViaModeSecondaryVGAOffset), (ViaModeSecondaryVGA):
+	* src/via_swov.c: (Upd_Video):
+	* src/via_vbe.c: (ViaVbeSetPanelMode), (ViaVbeSetMode):
+
+	Fix offset when using vbe modes on secondary
+
 2007-09-11  Xavier Bachelot <xavier-at-bachelot-dot-org>
 
 	* libxvmc/viaLowLevel.c: (initXvMCLowLevel):

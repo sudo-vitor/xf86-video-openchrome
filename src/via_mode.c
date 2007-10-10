@@ -1774,6 +1774,42 @@ ViaModePrimary(ScrnInfoPtr pScrn, DisplayModePtr mode)
     hwp->disablePalette(hwp);
 }
 
+void
+ViaModeSecondaryVGAFetchCount(ScrnInfoPtr pScrn, int width) {
+
+    vgaHWPtr hwp = VGAHWPTR(pScrn);
+    CARD16 temp;
+
+    /* fetch count */
+    temp = (width * (pScrn->bitsPerPixel >> 3)) >> 3;
+    /* Make sure that this is 32byte aligned */
+    if (temp & 0x03) {
+        temp += 0x03;
+        temp &= ~0x03;
+    }
+    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "Fetch Count: 0x%03X\n", temp));
+    hwp->writeCrtc(hwp, 0x65, (temp >> 1) & 0xFF);
+    ViaCrtcMask(hwp, 0x67, temp >> 7, 0x0C);
+}
+
+void
+ViaModeSecondaryVGAOffset(ScrnInfoPtr pScrn) {
+
+    vgaHWPtr hwp = VGAHWPTR(pScrn);
+    CARD16 temp;
+
+    /* offset */
+    temp = (pScrn->displayWidth * (pScrn->bitsPerPixel >> 3)) >> 3;
+    if (temp & 0x03) { /* Make sure that this is 32byte aligned */
+        temp += 0x03;
+        temp &= ~0x03;
+    }
+    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "Offset: 0x%03X\n", temp));
+    hwp->writeCrtc(hwp, 0x66, temp & 0xFF);
+    ViaCrtcMask(hwp, 0x67, temp >> 8, 0x03);
+
+}
+
 /*
  *
  */
@@ -1901,26 +1937,9 @@ ViaModeSecondaryVGA(ScrnInfoPtr pScrn, DisplayModePtr mode)
     temp = mode->CrtcVSyncEnd;
     ViaCrtcMask(hwp, 0x5F, temp, 0x1F);
 
-    /* offset */
-    temp = (pScrn->displayWidth * (pScrn->bitsPerPixel >> 3)) >> 3;
-    if (temp & 0x03) { /* Make sure that this is 32byte aligned */
-	temp += 0x03;
-	temp &= ~0x03;
-    }
-    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "Offset: 0x%03X\n", temp));
-    hwp->writeCrtc(hwp, 0x66, temp & 0xFF);
-    ViaCrtcMask(hwp, 0x67, temp >> 8, 0x03);
+    ViaModeSecondaryVGAOffset(pScrn);
+    ViaModeSecondaryVGAFetchCount(pScrn, mode->CrtcHDisplay);
 
-    /* fetch count */
-    temp = (mode->CrtcHDisplay * (pScrn->bitsPerPixel >> 3)) >> 3;
-    /* Make sure that this is 32byte aligned */
-    if (temp & 0x03) {
-	temp += 0x03;
-	temp &= ~0x03;
-    }
-    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "Fetch Count: 0x%03X\n", temp));
-    hwp->writeCrtc(hwp, 0x65, (temp >> 1) & 0xFF);
-    ViaCrtcMask(hwp, 0x67, temp >> 7, 0x0C);
 }
 
 /*

@@ -1718,9 +1718,17 @@ Upd_Video(ScrnInfoPtr pScrn, unsigned long videoFlag,
         DBG_DD(ErrorF("NEEDV1PREFETCH\n"));
         vidCtl |= V1_PREFETCH_ON_3336;
     }
-
-    if (pVia->pBIOSInfo->PanelActive) {
-        vidCtl |= 0x80000000;
+    
+    /* 
+     * FIXME:
+     * Enable video on secondary 
+     */
+    if (pVia->Chipset == VIA_P4M900 &&
+        pVia->pBIOSInfo->PanelActive) {
+        /* V1_ON_SND_DISPLAY */ 
+	vidCtl |= 0x80000000;
+        /* SECOND_DISPLAY_COLOR_KEY_ENABLE */
+        compose |= 0x00010000 | 0x1 ;
     }
 
     viaOverlayGetV1V3Format(pVia, (videoFlag & VIDEO_1_INUSE) ? 1 : 3,
