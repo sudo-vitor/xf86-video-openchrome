@@ -170,6 +170,7 @@ static struct ViaCardIdStruct ViaCardId[] = {
     {"Chaintech MPM800-3",                    VIA_PM800,   0x270F, 0x7671, VIA_DEVICE_CRT},
     /* VN800 */
     {"Clevo/RoverBook Partner E419L",         VIA_VM800,   0x1019, 0x0F75, VIA_DEVICE_CRT | VIA_DEVICE_LCD},
+    {"PCChips P23G",                          VIA_VM800,   0x1019, 0x1623, VIA_DEVICE_CRT},
     {"ECS P4M800PRO-M",                       VIA_VM800,   0x1019, 0x2122, VIA_DEVICE_CRT},
     {"ECS C7VCM",                             VIA_VM800,   0x1019, 0xAA2D, VIA_DEVICE_CRT},
     {"Asustek P5VDC-MX",                      VIA_VM800,   0x1043, 0x3344, VIA_DEVICE_CRT},
@@ -178,6 +179,7 @@ static struct ViaCardIdStruct ViaCardId[] = {
     {"VIA VT3344 (VM800) - EPIA EN",          VIA_VM800,   0x1106, 0x3344, VIA_DEVICE_CRT | VIA_DEVICE_TV},
     {"Gigabyte GA-8VM800M-775",               VIA_VM800,   0x1458, 0xD000, VIA_DEVICE_CRT},
     {"MSI PM8M-V",                            VIA_VM800,   0x1462, 0x7104, VIA_DEVICE_CRT},
+    {"MSI Fuzzy CN700/CN700T/CN700G",         VIA_VM800,   0x1462, 0x7199, VIA_DEVICE_CRT | VIA_DEVICE_TV},
     {"MSI PM8M3-V",                           VIA_VM800,   0x1462, 0x7211, VIA_DEVICE_CRT},
     {"MSI PM8PM",                             VIA_VM800,   0x1462, 0x7222, VIA_DEVICE_CRT},
     {"RoverBook Partner W500",                VIA_VM800,   0x1509, 0x4330, VIA_DEVICE_CRT | VIA_DEVICE_LCD},
@@ -210,6 +212,7 @@ static struct ViaCardIdStruct ViaCardId[] = {
     {"VIA VT8454B",                           VIA_CX700,   0x0908, 0x1975, VIA_DEVICE_CRT}, /* Evaluation board, reference possibly wrong */
     {"VIA VT3324 (CX700)",                    VIA_CX700,   0x1106, 0x3157, VIA_DEVICE_CRT},
     /* P4M890 */
+    {"PCChips P29G",                          VIA_P4M890,  0x1019, 0x1629, VIA_DEVICE_CRT},
     {"Asustek P5V-VM ULTRA",                  VIA_P4M890,  0x1043, 0x81B5, VIA_DEVICE_CRT},
     {"Asustek P5V-VM DH",                     VIA_P4M890,  0x1043, 0x81CE, VIA_DEVICE_CRT},
     {"Mitac 8615",                            VIA_P4M890,  0x1071, 0x8615, VIA_DEVICE_CRT | VIA_DEVICE_LCD},
