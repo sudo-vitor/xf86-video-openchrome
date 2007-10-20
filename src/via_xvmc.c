@@ -381,13 +381,13 @@ ViaInitXVMC(ScreenPtr pScreen)
 
 	if (pVia->ChipId != PCI_CHIP_VT3259 && pVia->ChipId != PCI_CHIP_VT3364) {
 	    xf86DrvMsg(pScrn->scrnIndex, X_INFO,
-		"[XvMC] Registering viaXvMC.\n");
-	    xf86XvMCRegisterDRInfo(pScreen, "viaXvMC", pDRIInfo->busIdString,
+		"[XvMC] Registering chromeXvMC.\n");
+	    xf86XvMCRegisterDRInfo(pScreen, "chromeXvMC", pDRIInfo->busIdString,
 		VIAXVMC_MAJOR, VIAXVMC_MINOR, VIAXVMC_PL);
 	} else {
 	    xf86DrvMsg(pScrn->scrnIndex, X_INFO,
-		"[XvMC] Registering viaXvMCPro.\n");
-	    xf86XvMCRegisterDRInfo(pScreen, "viaXvMCPro",
+		"[XvMC] Registering chromeXvMCPro.\n");
+	    xf86XvMCRegisterDRInfo(pScreen, "chromeXvMCPro",
 		pDRIInfo->busIdString, VIAXVMC_MAJOR, VIAXVMC_MINOR,
 		VIAXVMC_PL);
 	}

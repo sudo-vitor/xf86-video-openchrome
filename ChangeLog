@@ -1,26 +1,49 @@
 2007-10-05  Gabriel Mansi  <gabriel-dot-mansi-at-gmail-dot-com>
 
-	* unichrome/via_swov.c: (Upd_Video):
+	* src/via_swov.c: (Upd_Video):
 
 	Enable colorkey on secondary.
 
 2007-10-03  Gabriel Mansi  <gabriel-dot-mansi-at-gmail-dot-com>
 
-	* unichrome/via_driver.c: (VIAPreInit):
+	* src/via_driver.c: (VIAPreInit):
 
 	Fix memory detection for P4M900 and CX700
 
 2007-09-12  Gabriel Mansi  <gabriel-dot-mansi-at-gmail-dot-com>
 
-	* unichrome/via_bios.h:
-	* unichrome/via_driver.c: (VIAWriteMode), (VIAAdjustFrame),
+	* src/via_bios.h:
+	* src/via_driver.c: (VIAWriteMode), (VIAAdjustFrame),
 	(VIASwitchMode):
-	* unichrome/via_mode.c: (ViaModeSecondaryVGAFetchCount),
+	* src/via_mode.c: (ViaModeSecondaryVGAFetchCount),
 	(ViaModeSecondaryVGAOffset), (ViaModeSecondaryVGA):
-	* unichrome/via_swov.c: (Upd_Video):
-	* unichrome/via_vbe.c: (ViaVbeSetPanelMode), (ViaVbeSetMode):
+	* src/via_swov.c: (Upd_Video):
+	* src/via_vbe.c: (ViaVbeSetPanelMode), (ViaVbeSetMode):
 
 	Fix offset when using vbe modes on secondary
+
+2007-09-11  Xavier Bachelot <xavier-at-bachelot-dot-org>
+
+	* libxvmc/viaLowLevel.c: (initXvMCLowLevel):
+	* libxvmc/viaLowLevel.h:
+	* libxvmc/viaLowLevelPro.c: (initXvMCLowLevel):
+	* src/via.h:
+	* src/via_accel.c: (viaInitExa):
+	* src/via_bandwidth.c: (ViaSetPrimaryFIFO):
+	* src/via_driver.c: (VIASetupDefaultOptions), (VIAPreInit),
+	(VIASave), (VIARestore), (VIALoadPalette):
+	* src/via_driver.h:
+	* src/via_id.c:
+	* src/via_mode.c: (ViaOutputsDetect):
+	* src/via_priv.h:
+	* src/via_swov.c: (Upd_Video):
+	* src/via_vbe.c: (ViaVbeInitInt10), (ViaVbeGetRefreshRateIndex),
+	(ViaVbeGetActiveDevices), (ViaVbeSetActiveDevices),
+	(ViaVbeSetPanelExpansion), (ViaVbeSetRefresh), (ViaVbeSetMode),
+	(ViaVbeSaveRestore), (ViaVbeModePreInit):
+	* src/via_xvmc.c: (ViaInitXVMC), (ViaXvMCCreateContext):
+
+	Sync with experimental_branch
 
 2007-09-07  Gabriel Mansi  <gabriel-dot-mansi-at-gmail-dot-com>
 
@@ -72,8 +95,8 @@
 	(VIARestore):
 	* unichrome/via_vbe.c: (ViaVbeSetMode):
 
-        Disabled XvDMA for P4M900
-        Modified VBE functions calling order 
+	Disabled XvDMA for P4M900
+	Modified VBE functions calling order 
 
 2007-08-18  Gabriel Mansi  <gabriel-dot-mansi-at-gmail-dot-com>
 
@@ -86,17 +109,28 @@
 
 2007-08-03  Xavier Bachelot <xavier-at-bachelot-dot-org>
 
-	* unichrome/via_bios.h:
-	* unichrome/via_mode.h:
-	* unichrome/via_video.c: (DecideOverlaySupport):
+	* src/via_bios.h:
+	* src/via_mode.h:
+	* src/via_video.c: (DecideOverlaySupport):
 
 	Add basic support for DDR667.
 
-2007-06-27  Gabriel Mansi  <gabriel-dot-mansi-at-gmail-dot-com>
+2007-07-31  Jon Nettleton <jon-dot-nettleton-at-gmail-dot-com> 
 
-	* unichrome/via_id.c:
+	* src/via_xvmc.c: (ViaInitXVMC):
 
-	Everex NC1501/NC1503 reported by Scott Zahn
+	Fixed the xvmc name we register.  Was still looking for
+	the old via xvmc library names.
+
+2007-07-04  Xavier Bachelot <xavier-at-bachelot-dot-org>
+
+	* configure.ac:
+	* src/via_driver.c: (VIAPreInit):
+	* src/via_driver.h:
+
+	Bump driver version to 0.2.900.
+	Do not log detected chipset 2 times.
+	Remove duplicate changelog entry.
 
 2007-06-20  Gabriel Mansi  <gabriel-dot-mansi-at-gmail-dot-com>
 
@@ -104,11 +138,42 @@
 
 	FIFO settings for CX700
 
-2007-06-14  Gabriel Mansi  <gabriel-dot-mansi-at-gmail-dot-com>
+2007-06-14  Jon Nettleton  <jon-dot-nettleton-at-gmail-dot-com>
 
-	* unichrome/via_accel.c: (viaInitExa):
+	* configure.ac:
+	* libxvmc/viaLowLevel.h:
+	* src/via.h:
+	* src/via_accel.c: (viaFlushPCI), (viaInitPCIe), (viaEnableAgpVQ),
+	(viaEnablePCIeVQ), (viaDisableVQ), (viaInitialize2DEngine),
+	(viaAccelSync), (viaInitXAA), (viaInitExa), (viaInitAccel):
+	* src/via_bandwidth.c: (ViaSetPrimaryFIFO), (ViaSetSecondaryFIFO):
+	* src/via_dri.c: (VIADRIRingBufferInit):
+	* src/via_driver.c: (VIASetupDefaultOptions), (VIAPreInit),
+	(VIALeaveVT), (VIASave), (VIAScreenInit), (VIACloseScreen):
+	* src/via_driver.h:
+	* src/via_id.c: (ViaDoubleCheckCLE266Revision), (ViaCheckCardId):
+	* src/via_id.h:
+	* src/via_mode.c: (ViaGetMemoryBandwidth), (ViaModePrimary):
+	* src/via_mode.h:
+	* src/via_regs.h:
+	* src/via_swov.c: (viaWaitHQVFlip), (viaWaitHQVDone),
+	(VIAVidHWDiffInit), (viaCalculateVideoColor), (viaSetColorSpace),
+	(ViaInitVideoStatusFlag), (ViaSetVidCtl), (AddHQVSurface),
+	(SetFIFO_V3), (SetFIFO_V3_64or32or32), (SetFIFO_V3_64or32or16),
+	(SetColorKey), (SetChromaKey), (SetHQVFetch), (Upd_Video),
+	(VIAVidUpdateOverlay), (ViaOverlayHide):
+	* src/via_swov.h:
+	* src/via_vbe.c: (ViaVbeSetMode):
+	* src/via_video.c: (DecideOverlaySupport), (viaInitVideo), (Flip),
+	(viaDmaBlitImage), (viaPutImage):
+	* src/via_video.h:
+	* src/via_xvmc.c: (ViaInitXVMC):
 
-	Merged EXA initialization from trunk
+	Pulled in Changes from the experimental_branch including
+		- Partial support for VIA_K8M890, VIA_P4M900, VIA_CX700,
+				      VIA_P4M890
+		- Added the VideoEngine option to help clean up code
+		- Ability to enable debugging with the configure script 
 
 2007-06-12  Gabriel Mansi  <gabriel-dot-mansi-at-gmail-dot-com>
 	
@@ -128,6 +193,74 @@
 	Added check for null data block in vbe.
 	Remove version check for older version of Xorg.
 
+2007-06-12  Gabriel Mansi  <gabriel-dot-mansi-at-gmail-dot-com>
+
+	* unichrome/via.h:
+
+	Added missing includes
+
+2007-06-10  Benno Schulenberg  <bensberg-at-justemail-dot-net>
+
+	* unichrome/via_driver.c: (VIAPreInit):
+
+	Print VideoRAM again only when it's actually been probed.
+	Further tiny code cleanups: comments, line wraps, whitespace.
+
+2007-06-10  Benno Schulenberg  <bensberg-at-justemail-dot-net>
+
+	* unichrome/via.man:
+	* unichrome/via_driver.c: (VIAPreInit):
+
+	Move reading of the VideoRAM option to after X has parsed the
+	config file.  Also put the chipset and revision print statements
+	together and at the beginning.  Plus several small layout tweaks.
+
+2007-06-07  Jon Nettleton  <jon-dot-nettleton-at-gmail-dot-com>
+
+	* Makefile.am:
+	* configure.ac:
+	* libxvmc/Makefile.am:
+	* man/Makefile.am:
+	* src/Makefile.am:
+	* src/via_driver.c:
+	* src/via_driver.h:
+
+	Renaming driver to openchrome_drv.so and XvMC library to
+	libchromeXvMC.so
+
+2007-06-06  Jon Nettleton  <jon-dot-nettleton-at-gmail-dot-com>
+
+	* unichrome/via_driver.c:
+
+	Removed the chipset option definitions that aren't in
+	trunk yet.
+
+2007-06-06  Jon Nettleton  <jon-dot-nettleton-at-gmail-dot-com>
+
+	* unichrome/via_driver.c:
+	* unichrome/via_driver.h:
+	* unichrome/via.man:
+
+	Added per-chipset option defaults.  This should allow the
+	driver to work out of the box with almost all hardware and
+	xorg.conf configurations.
+
+2007-05-23 Jon Nettleton <jon-dot-nettleton-at-gmail-dot-com> 
+
+	* unichrome/via.h:
+
+	Remove version check for older version of Xorg.  This is 
+	really not necessary anymore, and was causing some breakage
+	with xorg-server's new version numbering.
+
+2007-05-18 Xavier Bachelot <xavier-at-bachelot-dot-org> 
+
+	* libxvmc/Makefile.am:
+	* libxvmc/viaXvMC.c: (XvMCCreateContext):
+
+	Backport 2 fixes from Xorg tree.
+	http://gitweb.freedesktop.org/?p=xorg/driver/xf86-video-via.git;a=commit;h=362e03a38682bfcf366242c53444fa36b6052794
+	http://gitweb.freedesktop.org/?p=xorg/driver/xf86-video-via.git;a=commit;h=3cd7dac2b5a1c4bfb66bd1b67904d72dc08cbd0e
 
 2007-05-18 Xavier Bachelot <xavier-at-bachelot-dot-org> 
 
@@ -186,6 +319,13 @@
 	Disable interpolation when the source width is greater than 800, 
 	otherwise the picture wraps around the screen. Bug #109
 	Fix a typo in ViaInitXVMC. Bug #111
+
+2007-04-14  Benno Schulenberg  <bensberg-at-justemail-dot-net>
+
+	* unichrome/via_id.c: (ViaDoubleCheckCLE266Revision),
+	(ViaCheckCardId):
+
+	VN -> VM, message tweaks, and trailing white space fixes.
 
 2007-03-28  Gabriel Mansi  <gabriel-dot-mansi-at-gmail-dot-com>
 
@@ -437,7 +577,7 @@
 2006-12-06  Jon Nettleton  <jon-dot-nettleton-at-gmail-dot-com>
 	
 	* unichrome/via_driver.c:
- 	
+	
 	Fixed some of the boolean option changes that are
 	inverses such as DisableIRQ. 
 
@@ -516,14 +656,14 @@
 	
 	* unichrome/via_video.c:
 	* unichrome/via_swov.c:
- 	
+	
 	Added missing hardware overlay support for VT3336
 
 2006-12-04  Jon Nettleton  <jon-dot-nettleton-at-gmail-dot-com>
 	
 	* unichrome/via_driver.c:
- 	
-        Added patch submitted by Gabriel Mansi 
+	
+	Added patch submitted by Gabriel Mansi 
 	<gabriel-dot-mansi-at-gmail-dot-com> to fix the K8M890 hang on 
 	VT switch.
 
@@ -544,8 +684,8 @@
 	
 	* unichrome/via_mode.c:
 	* unichrome/via_accel.c:
- 	
-        Added patch submitted by Gabriel Mansi 
+	
+	Added patch submitted by Gabriel Mansi 
 	<gabriel-dot-mansi-at-gmail-dot-com> to fix some of the K8M890
 	logic.
 
@@ -553,18 +693,18 @@
 	
 	* unichrome/via_bandwidth.c:
 	* unichrome/via_accel.c:
- 	
+	
 	Patched via_bandwidth.c for dumb mistake I made thanks Gabriel Mansi 
-        For the second set of eyes.  Move HWCursor memory allocation even 
-        further in the driver initialization. 
+	For the second set of eyes.  Move HWCursor memory allocation even 
+	further in the driver initialization. 
 
 2006-11-25  Jon Nettleton  <jon-dot-nettleton-at-gmail-dot-com>
 	
 	* unichrome/via_id.c:
 	* unichrome/via_accel.c:
- 	
+	
 	Added additional ID's for the K8M890 cards
-        Changed memory allocation order for the HW cursor and 2d engine. 
+	Changed memory allocation order for the HW cursor and 2d engine. 
 
 2006-10-29  Thomas Hellstrom  <thomas-at-tungstengraphics-dot-com> 
 
@@ -642,17 +782,17 @@
 
 2006-09-22  Jon Nettleton  <jon-dot-nettleton-at-gmail-dot-com>
 
-	* unichrome/via_id.h
-	* unichrome/via_video.c
-	* unichrome/via_mode.c
-	* unichrome/via_mode.h
-	* unichrome/via_driver.c
-	* unichrome/via_swov.c
-	* unichrome/via_bandwidth.c
-	* unichrome/via_accel.c
-	* unichrome/via_vbe.c
-	* unichrome/via_xvmc.c
-	* unichrome/via_id.c
+	* src/via_id.h
+	* src/via_video.c
+	* src/via_mode.c
+	* src/via_mode.h
+	* src/via_driver.c
+	* src/via_swov.c
+	* src/via_bandwidth.c
+	* src/via_accel.c
+	* src/via_vbe.c
+	* src/via_xvmc.c
+	* src/via_id.c
 
 	Initial code for support of VT3336 cards	
 

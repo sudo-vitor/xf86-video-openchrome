@@ -107,7 +107,7 @@ static SymTabRec VIAChipsets[] = {
     {VIA_PM800,    "PM800/PM880/CN400"},
     {VIA_VM800,    "VM800/CN700/P4M800Pro"},
     {VIA_K8M890,   "K8M890"},
-    {VIA_P4M900,   "P4M900"},
+    {VIA_P4M900,   "P4M900/VN896"},
     {VIA_CX700,    "CX700"},
     {VIA_P4M890,   "P4M890"},
     {-1,            NULL }
@@ -418,7 +418,7 @@ static XF86ModuleVersionInfo VIAVersRec = {
     {0, 0, 0, 0}
 };
 
-XF86ModuleData viaModuleData = {&VIAVersRec, VIASetup, NULL};
+XF86ModuleData openchromeModuleData = {&VIAVersRec, VIASetup, NULL};
 
 static pointer VIASetup(pointer module, pointer opts, int *errmaj, int *errmin)
 {
