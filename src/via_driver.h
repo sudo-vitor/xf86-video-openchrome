@@ -370,6 +370,8 @@ typedef struct _VIA {
     Bool                PrintVGARegs;
     Bool                PrintTVRegs;
     Bool                I2CScan;
+    
+    Bool                UseLegacyModeSwitch ;
 #endif /* HAVE_DEBUG */
 } VIARec, *VIAPtr;
 

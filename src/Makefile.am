@@ -31,34 +31,37 @@ openchrome_drv_la_LDFLAGS = -module -avoid-version
 openchrome_drv_ladir = @moduledir@/drivers
 
 openchrome_drv_la_SOURCES = \
-	 via_3d_reg.h \
-	 via_3d.c \
-	 via_3d.h \
+         via_3d_reg.h \
+         via_3d.c \
+         via_3d.h \
          via_accel.c \
          via_bandwidth.c \
          via_bios.h \
-	 via_ch7xxx.c \
-	 via_ch7xxx.h \
+         via_ch7xxx.c \
+         via_ch7xxx.h \
          via_cursor.c \
+         via_crtc.c \
          via_dga.c \
-	 via_dmabuffer.h \
+         via_dmabuffer.h \
          via_driver.c \
          via_driver.h \
          via.h \
          via_i2c.c \
          via_id.c \
          via_id.h \
+         via_lvds.c \
          via_memcpy.c \
          via_memcpy.h \
          via_memory.c \
          via_mode.c \
          via_mode.h \
+         via_panel.c \
          via_priv.h \
          via_regs.h \
          via_shadow.c \
          via_swov.c \
          via_swov.h \
-	 via_vbe.c \
+         via_vbe.c \
          via_vgahw.c \
          via_vgahw.h \
          via_video.c \

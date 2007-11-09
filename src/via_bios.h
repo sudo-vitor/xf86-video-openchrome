@@ -34,6 +34,14 @@
 #define     VIA_PANEL14X10                  5
 #define     VIA_PANEL16X12                  6
 #define     VIA_PANEL12X8                   7
+#define     VIA_PANEL8X4                    8
+#define     VIA_PANEL1366X7                 9
+#define     VIA_PANEL1360X7                 10
+#define     VIA_PANEL1920x1080              11
+#define     VIA_PANEL1920x1200              12
+#define     VIA_PANEL10X6                   13
+#define     VIA_PANEL14X9                   14
+#define     VIA_PANEL1280X720               15
 #define     VIA_PANEL_INVALID               255
 
 #define     TVTYPE_NONE                     0x00
@@ -90,6 +98,27 @@
 #define	    VIA_DI_12BIT		    0x00
 #define	    VIA_DI_24BIT		    0x01
 
+typedef struct ViaPanelMode {
+    int Width ;
+    int Height ;
+} ViaPanelModeRec, *ViaPanelModePtr ;
+
+typedef struct ViaPanelInfo {
+    Bool IsActive ;
+    /* current panel native resolution */
+    ViaPanelModePtr NativeMode ;
+    CARD8 NativeModeIndex;
+} ViaPanelInfoRec, *ViaPanelInfoPtr ;
+
+typedef struct ViaLVDSInfo {
+    Bool IsActive ;
+} ViaLVDSInfoRec, *ViaLVDSInfoPtr ;
+
+typedef struct ViaCRTCInfo {
+    Bool IsActive ;
+} ViaCRTCInfoRec, *ViaCRTCInfoPtr ;
+
+
 typedef struct _VIABIOSINFO {
     int         scrnIndex;
 
@@ -102,19 +131,26 @@ typedef struct _VIABIOSINFO {
     CARD32      Bandwidth; /* available memory bandwidth */
 
     /* Panel/LCD entries */
+    ViaPanelInfoPtr Panel ;
     Bool        PanelPresent;
     Bool        PanelActive;
     Bool        ForcePanel;
     int         PanelIndex;
-    int         PanelSize;
     Bool        Center;
-    CARD8	BusWidth;		/* Digital Output Bus Width */
+    CARD8       BusWidth;		/* Digital Output Bus Width */
     Bool        SetDVI;
     /* LCD Simultaneous Expand Mode HWCursor Y Scale */
     Bool        scaleY;
     int         panelX;
     int         panelY;
     int         resY;
+    
+    /* Integrated LVDS */
+    ViaLVDSInfoPtr Lvds;
+    
+    /* CRTCs */
+    ViaCRTCInfoPtr FirstCRTC ;
+    ViaCRTCInfoPtr SecondCRTC ;
 
     /* TV entries */
     int         TVEncoder;
@@ -158,8 +194,6 @@ CARD32 ViaGetMemoryBandwidth(ScrnInfoPtr pScrn);
 ModeStatus ViaValidMode(int scrnIndex, DisplayModePtr mode, Bool verbose, int flags);
 void ViaModePrimary(ScrnInfoPtr pScrn, DisplayModePtr mode);
 void ViaModeSecondary(ScrnInfoPtr pScrn, DisplayModePtr mode);
-void ViaModeSecondaryVGAOffset(ScrnInfoPtr pScrn);
-void ViaModeSecondaryVGAFetchCount(ScrnInfoPtr pScrn, int width);
 void ViaLCDPower(ScrnInfoPtr pScrn, Bool On);
 void ViaTVPower(ScrnInfoPtr pScrn, Bool On);
 void ViaTVSave(ScrnInfoPtr pScrn);
@@ -167,6 +201,23 @@ void ViaTVRestore(ScrnInfoPtr pScrn);
 #ifdef HAVE_DEBUG
 void ViaTVPrintRegs(ScrnInfoPtr pScrn);
 #endif
+
+/* via_crtc.c */
+void ViaCRTCInit(ScrnInfoPtr pScrn);
+void ViaFirstCRTCSetStartingAddress(ScrnInfoPtr pSCrn, int x, int y);
+void ViaFirstCRTCSetMode(ScrnInfoPtr pScrn, DisplayModePtr mode);
+void ViaSecondCRTCSetStartingAddress(ScrnInfoPtr pScrn, int x, int y);
+void ViaSecondCRTCHorizontalOffset(ScrnInfoPtr pScrn);
+void ViaSecondCRTCHorizontalQWCount(ScrnInfoPtr pScrn, int width);
+void ViaSecondCRTCSetMode(ScrnInfoPtr pScrn, DisplayModePtr mode);
+
+/* via_panel.c */
+void ViaPanelScale(ScrnInfoPtr pScrn, int resWidth, int resHeight, int panelWidth, int panelHeight );
+void ViaPanelGetNativeModeFromScratchPad(ScrnInfoPtr pScrn);
+void ViaPanelGetNativeModeFromOption(ScrnInfoPtr pScrn, char* name);
+
+/* via_lvds.c */
+void ViaLVDSPower(ScrnInfoPtr pScrn, Bool on);
 
 /* in via_bandwidth.c */
 void ViaSetPrimaryFIFO(ScrnInfoPtr pScrn, DisplayModePtr mode);

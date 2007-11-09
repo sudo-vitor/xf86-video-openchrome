@@ -462,35 +462,73 @@ static pointer VIASetup(pointer module, pointer opts, int *errmaj, int *errmin)
 
 static Bool VIAGetRec(ScrnInfoPtr pScrn)
 {
+    Bool ret ;
     DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "VIAGetRec\n"));
+    
+    ret = FALSE ;
     if (pScrn->driverPrivate)
         return TRUE;
 
     pScrn->driverPrivate = xnfcalloc(sizeof(VIARec), 1);
-    ((VIARec *)(pScrn->driverPrivate))->pBIOSInfo =
-        xnfcalloc(sizeof(VIABIOSInfoRec), 1);
-    ((VIARec *)(pScrn->driverPrivate))->pBIOSInfo->scrnIndex =
-	pScrn->scrnIndex;
-    ((VIARec *)(pScrn->driverPrivate))->pBIOSInfo->TVI2CDev = NULL;
-
-    ((VIARec *)(pScrn->driverPrivate))->CursorImage = NULL;
-
-    return TRUE;
+    VIAPtr pVia = ((VIARec *)(pScrn->driverPrivate)) ;
+    
+    if (pVia) {
+        pVia->CursorImage = NULL;
+        
+        pVia->pBIOSInfo = xnfcalloc(sizeof(VIABIOSInfoRec), 1);
+        VIABIOSInfoPtr pBIOSInfo = pVia->pBIOSInfo ;
+        if (pBIOSInfo) {
+            pBIOSInfo->scrnIndex = pScrn->scrnIndex;
+            pBIOSInfo->TVI2CDev = NULL;
+            
+            pBIOSInfo->Panel = (ViaPanelInfoPtr)xnfcalloc(sizeof(ViaPanelInfoRec), 1);
+            if (pBIOSInfo->Panel) {
+                pBIOSInfo->Panel->NativeMode = (ViaPanelModePtr)xnfcalloc(sizeof(ViaPanelModeRec), 1);
+                pBIOSInfo->Lvds = (ViaLVDSInfoPtr)xnfcalloc(sizeof(ViaLVDSInfoRec), 1);
+                pBIOSInfo->FirstCRTC = (ViaCRTCInfoPtr)xnfcalloc(sizeof(ViaCRTCInfoRec), 1);
+                pBIOSInfo->SecondCRTC = (ViaCRTCInfoPtr)xnfcalloc(sizeof(ViaCRTCInfoRec), 1);
+                ret = pBIOSInfo->Panel->NativeMode && 
+                      pBIOSInfo->Lvds &&
+                      pBIOSInfo->FirstCRTC &&
+                      pBIOSInfo->SecondCRTC ;
+            }
+        } 
+    }
+    
+    return ret ;
 
 } /* VIAGetRec */
 
 
 static void VIAFreeRec(ScrnInfoPtr pScrn)
 {
+    VIAPtr pVia = VIAPTR(pScrn);
     DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "VIAFreeRec\n"));
     if (!pScrn->driverPrivate)
         return;
-
+    
+    VIABIOSInfoPtr pBIOSInfo = pVia->pBIOSInfo ;
+    if (pBIOSInfo) {
+        
+        if (pBIOSInfo->Panel) {
+            if (pBIOSInfo->Panel->NativeMode)
+                xfree(pBIOSInfo->Panel->NativeMode);
+            xfree(pBIOSInfo->Panel);
+        }
+        
+        if (pBIOSInfo->FirstCRTC)
+            xfree(pBIOSInfo->FirstCRTC);
+        if (pBIOSInfo->SecondCRTC)
+            xfree(pBIOSInfo->SecondCRTC);
+        if (pBIOSInfo->Lvds)
+            xfree(pBIOSInfo->Lvds);
+    }
+    
     if (VIAPTR(pScrn)->pVbe)
-	vbeFree(VIAPTR(pScrn)->pVbe);
-
+        vbeFree(VIAPTR(pScrn)->pVbe);
+    
     if (((VIARec *)(pScrn->driverPrivate))->pBIOSInfo->TVI2CDev)
-	xf86DestroyI2CDevRec((((VIARec *)(pScrn->driverPrivate))->pBIOSInfo->TVI2CDev), TRUE);
+        xf86DestroyI2CDevRec((((VIARec *)(pScrn->driverPrivate))->pBIOSInfo->TVI2CDev), TRUE);
     xfree(((VIARec *)(pScrn->driverPrivate))->pBIOSInfo);
 
     VIAUnmapMem(pScrn);
@@ -641,7 +679,7 @@ static void kickVblank(ScrnInfoPtr pScrn)
     VIADRIPtr pVIADRI = pVia->pDRIInfo->devPrivate;
 
     if (pVIADRI->irqEnabled) {
-	hwp->writeCrtc(hwp, 0x11, hwp->readCrtc(hwp, 0x11) | 0x30);
+        hwp->writeCrtc(hwp, 0x11, hwp->readCrtc(hwp, 0x11) | 0x30);
     }
 }
 #endif
@@ -671,16 +709,15 @@ static int LookupChipID(PciChipsets* pset, int ChipID)
 
 } /* LookupChipID */
 
-static void
-VIAProbeDDC(ScrnInfoPtr pScrn, int index)
+static void VIAProbeDDC(ScrnInfoPtr pScrn, int index)
 {
     vbeInfoPtr pVbe;
 
     if (xf86LoadSubModule(pScrn, "vbe")) {
-	xf86LoaderReqSymLists(vbeSymbols, NULL);
+        xf86LoaderReqSymLists(vbeSymbols, NULL);
         pVbe = VBEInit(NULL,index);
         ConfiguredMonitor = vbeDoEDID(pVbe, NULL);
-	vbeFree(pVbe);
+        vbeFree(pVbe);
     }
 }
 
@@ -717,7 +754,8 @@ static Bool VIASetupDefaultOptions(ScrnInfoPtr pScrn)
     pVia->swov.maxWInterp = 800 ;
     pVia->swov.maxHInterp = 600 ;
     pVia->useLegacyVBE = TRUE;
-
+    pVia->UseLegacyModeSwitch = TRUE ;
+    
     switch (pVia->Chipset)
     {
         case VIA_KM400:
@@ -729,10 +767,20 @@ static Bool VIASetupDefaultOptions(ScrnInfoPtr pScrn)
             pVia->DRIIrqEnable = FALSE;
             break;
         case VIA_P4M900:
-	    pVia->useLegacyVBE = FALSE;
-	    /* FIXME: It needs to be tested */
-	    pVia->dmaXV = FALSE;
-	    /* no break here */
+    	    pVia->useLegacyVBE = FALSE;
+    	    /* FIXME: It needs to be tested */
+    	    pVia->dmaXV = FALSE;
+    	    
+            /* FIXME:
+             * Only for testing, this code will be removed
+             * when randr 1.2 support is added
+             */
+            pVia->pBIOSInfo->FirstCRTC->IsActive = TRUE ;
+            pVia->pBIOSInfo->SecondCRTC->IsActive = TRUE ;
+            pVia->pBIOSInfo->Lvds->IsActive = TRUE ;
+            pVia->UseLegacyModeSwitch = FALSE ;
+    	    
+    	    /* no break here */
         case VIA_K8M890:
             pVia->VideoEngine = VIDEO_ENGINE_CME;
             pVia->agpEnable = FALSE;
@@ -792,7 +840,7 @@ static Bool VIAPreInit(ScrnInfoPtr pScrn, int flags)
     if (!VIAGetRec(pScrn)) {
         return FALSE;
     }
-
+    
     pVia = VIAPTR(pScrn);
     pBIOSInfo = pVia->pBIOSInfo;
 
@@ -1222,51 +1270,21 @@ static Bool VIAPreInit(ScrnInfoPtr pScrn, int flags)
     xf86DrvMsg(pScrn->scrnIndex, from, "DVI Center is %s.\n",
 	       pBIOSInfo->Center ? "enabled" : "disabled");
 
-
     /* Panel Size Option */
-    pBIOSInfo->PanelSize = VIA_PANEL_INVALID;
+    
     if ((s = xf86GetOptValString(VIAOptions, OPTION_PANELSIZE))) {
-        if (!xf86NameCmp(s, "640x480")) {
-            pBIOSInfo->PanelSize = VIA_PANEL6X4;
+        ViaPanelGetNativeModeFromOption(pScrn, s) ;
+        if (pBIOSInfo->Panel->NativeModeIndex != VIA_PANEL_INVALID) {
+            ViaPanelModePtr mode = pBIOSInfo->Panel->NativeMode ;
             xf86DrvMsg(pScrn->scrnIndex, X_CONFIG,
-                       "Selected Panel Size is 640x480\n");
-        }
-        else if (!xf86NameCmp(s, "800x600")) {
-            pBIOSInfo->PanelSize = VIA_PANEL8X6;
-            xf86DrvMsg(pScrn->scrnIndex, X_CONFIG,
-                       "Selected Panel Size is 800x600\n");
-        }
-        else if(!xf86NameCmp(s, "1024x768")) {
-            pBIOSInfo->PanelSize = VIA_PANEL10X7;
-            xf86DrvMsg(pScrn->scrnIndex, X_CONFIG,
-                       "Selected Panel Size is 1024x768\n");
-        }
-        else if (!xf86NameCmp(s, "1280x768")) {
-            pBIOSInfo->PanelSize = VIA_PANEL12X7;
-            xf86DrvMsg(pScrn->scrnIndex, X_CONFIG,
-                       "Selected Panel Size is 1280x768\n");
-        }
-        else if (!xf86NameCmp(s, "1280x800")) {
-            pBIOSInfo->PanelSize = VIA_PANEL12X8;
-            xf86DrvMsg(pScrn->scrnIndex, X_CONFIG,
-                       "Selected Panel Size is 1280x800\n");
-        }
-        else if (!xf86NameCmp(s, "1280x1024")) {
-            pBIOSInfo->PanelSize = VIA_PANEL12X10;
-            xf86DrvMsg(pScrn->scrnIndex, X_CONFIG,
-                       "Selected Panel Size is 1280x1024\n");
-        }
-        else if (!xf86NameCmp(s, "1400x1050")) {
-            pBIOSInfo->PanelSize = VIA_PANEL14X10;
-            xf86DrvMsg(pScrn->scrnIndex, X_CONFIG,
-                       "Selected Panel Size is 1400x1050\n");
+                    "Selected Panel Size is %dx%d\n", mode->Width,
+                    mode->Height);
         }
     } else {
-	xf86DrvMsg(pScrn->scrnIndex, X_DEFAULT,
-		   "Panel size is not selected from config file.\n");
+        xf86DrvMsg(pScrn->scrnIndex, X_DEFAULT,
+                "Panel size is not selected from config file.\n");
     }
 	
-
     /* Force the use of the Panel? */
     pBIOSInfo->ForcePanel = FALSE;
     from = xf86GetOptValBool(VIAOptions, OPTION_FORCEPANEL, 
@@ -1358,7 +1376,7 @@ static Bool VIAPreInit(ScrnInfoPtr pScrn, int flags)
                           pVia->PciInfo->func);
 
     if (!VIAMapMMIO(pScrn)) {
-	VIAFreeRec(pScrn);
+        VIAFreeRec(pScrn);
         return FALSE;
     }
     hwp = VGAHWPTR(pScrn);
@@ -1490,25 +1508,25 @@ static Bool VIAPreInit(ScrnInfoPtr pScrn, int flags)
     }
 
     if (!xf86LoadSubModule(pScrn, "ddc")) {
-	VIAFreeRec(pScrn);
-	return FALSE;
+        VIAFreeRec(pScrn);
+	    return FALSE;
     } else {
-	xf86LoaderReqSymLists(ddcSymbols, NULL);
+    	xf86LoaderReqSymLists(ddcSymbols, NULL);
 	
-	if (pVia->pI2CBus1) {
-	    pVia->DDC1 = xf86DoEDID_DDC2(pScrn->scrnIndex, pVia->pI2CBus1);
-	    if (pVia->DDC1) {
-		xf86PrintEDID(pVia->DDC1);
-		xf86SetDDCproperties(pScrn, pVia->DDC1);
-	    }
-	}
+    	if (pVia->pI2CBus1) {
+    	    pVia->DDC1 = xf86DoEDID_DDC2(pScrn->scrnIndex, pVia->pI2CBus1);
+    	    if (pVia->DDC1) {
+    	        xf86PrintEDID(pVia->DDC1);
+    	        xf86SetDDCproperties(pScrn, pVia->DDC1);
+    	    }
+    	}
     }
 
     ViaOutputsDetect(pScrn);
     if (!ViaOutputsSelect(pScrn)) {
-	xf86DrvMsg(pScrn->scrnIndex, X_ERROR, "No outputs possible.\n");
-	VIAFreeRec(pScrn);
-	return FALSE;
+    	xf86DrvMsg(pScrn->scrnIndex, X_ERROR, "No outputs possible.\n");
+    	VIAFreeRec(pScrn);
+    	return FALSE;
     }
 
     if (pBIOSInfo->PanelActive && 
@@ -1516,8 +1534,7 @@ static Bool VIAPreInit(ScrnInfoPtr pScrn, int flags)
         (pVia->Chipset == VIA_PM800) ||
         (pVia->Chipset == VIA_VM800) ||
         (pVia->Chipset == VIA_P4M890) ||
-        (pVia->Chipset == VIA_K8M890) || 
-        (pVia->Chipset == VIA_P4M900))) {
+        (pVia->Chipset == VIA_K8M890) )) {
 
         xf86DrvMsg(pScrn->scrnIndex, X_WARNING,
                    "Panel on K8M800, PM800, VM800, P4M890, K8M890 or P4M900 "
@@ -1525,29 +1542,29 @@ static Bool VIAPreInit(ScrnInfoPtr pScrn, int flags)
         xf86DrvMsg(pScrn->scrnIndex, X_WARNING,
                    "Using VBE to set modes to work around this.\n");
 
-	pVia->useVBEModes = TRUE;
+        pVia->useVBEModes = TRUE;
     }
 
     pVia->pVbe = NULL;
     if (pVia->useVBEModes) {
-	/* VBE doesn't properly initialise int10 itself */
-	if (xf86LoadSubModule(pScrn, "int10") && xf86LoadSubModule(pScrn, "vbe")) {
-	    xf86LoaderReqSymLists(vbeSymbols, NULL);
-	    pVia->pVbe = VBEExtendedInit(NULL, pVia->EntityIndex,
-					 SET_BIOS_SCRATCH | RESTORE_BIOS_SCRATCH);
-	}
+    	/* VBE doesn't properly initialise int10 itself */
+    	if (xf86LoadSubModule(pScrn, "int10") && xf86LoadSubModule(pScrn, "vbe")) {
+    	    xf86LoaderReqSymLists(vbeSymbols, NULL);
+    	    pVia->pVbe = VBEExtendedInit(NULL, pVia->EntityIndex,
+    					 SET_BIOS_SCRATCH | RESTORE_BIOS_SCRATCH);
+    	}
 
-	if (!pVia->pVbe)
-	    xf86DrvMsg(pScrn->scrnIndex, X_WARNING, "VBE initialisation failed."
-		       " Using builtin code to set modes.\n");
+    	if (!pVia->pVbe)
+    	    xf86DrvMsg(pScrn->scrnIndex, X_WARNING, "VBE initialisation failed."
+    		       " Using builtin code to set modes.\n");
     }
 
     if (pVia->pVbe) {
-	
-	if (!ViaVbeModePreInit( pScrn )) {
-	    VIAFreeRec(pScrn);
-	    return FALSE;
-	}	 
+    	
+    	if (!ViaVbeModePreInit( pScrn )) {
+    	    VIAFreeRec(pScrn);
+    	    return FALSE;
+    	}	 
 
     } else {
 	/* Add own Modes */
@@ -2364,9 +2381,9 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
         return FALSE;
 
     if (pVia->pVbe && pVia->vbeSR) {
-	ViaVbeSaveRestore(pScrn, MODE_SAVE);
+        ViaVbeSaveRestore(pScrn, MODE_SAVE);
     } else {
-	VIASave(pScrn);
+        VIASave(pScrn);
     }
 
     vgaHWUnlock(hwp);
@@ -2374,16 +2391,18 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
     pVia->FirstInit = TRUE;
     if (pVia->pVbe) {
         vgaHWBlankScreen(pScrn, FALSE);
-	if (!ViaVbeSetMode(pScrn, pScrn->currentMode)) {
-	    vgaHWBlankScreen(pScrn, TRUE);
-	    return FALSE;
-	}
+    	if (!ViaVbeSetMode(pScrn, pScrn->currentMode)) {
+    	    vgaHWBlankScreen(pScrn, TRUE);
+    	    return FALSE;
+    	}
     } else {
         vgaHWBlankScreen(pScrn, FALSE);
-	if (!VIAWriteMode(pScrn, pScrn->currentMode)) {
-	    vgaHWBlankScreen(pScrn, TRUE);
-	    return FALSE;
-	}
+        if (!pVia->IsSecondary)
+            ViaCRTCInit(pScrn);
+    	if (!VIAWriteMode(pScrn, pScrn->currentMode)) {
+    	    vgaHWBlankScreen(pScrn, TRUE);
+    	    return FALSE;
+    	}
     }
     pVia->FirstInit = FALSE;
 
@@ -2621,6 +2640,7 @@ static Bool
 VIAWriteMode(ScrnInfoPtr pScrn, DisplayModePtr mode)
 {
     VIAPtr pVia = VIAPTR(pScrn);
+    VIABIOSInfoPtr pBIOSInfo = pVia->pBIOSInfo ;
 
     DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "VIAWriteMode\n"));
 
@@ -2632,12 +2652,16 @@ VIAWriteMode(ScrnInfoPtr pScrn, DisplayModePtr mode)
 
         if (!vgaHWInit(pScrn, mode))
             return FALSE;
-
-        if (!pVia->IsSecondary)
-            ViaModePrimary(pScrn, mode);
-        else
-            ViaModeSecondary(pScrn, mode);
-
+        
+        if (pVia->UseLegacyModeSwitch) {
+            if (!pVia->IsSecondary)
+                ViaModePrimary(pScrn, mode);
+            else
+                ViaModeSecondary(pScrn, mode);
+        } else {
+            
+        }
+        
     } else {
 
         if (!ViaVbeSetMode(pScrn, mode))
@@ -2646,19 +2670,18 @@ VIAWriteMode(ScrnInfoPtr pScrn, DisplayModePtr mode)
          * FIXME: pVia->IsSecondary is not working here.
          * We should be able to detect when the display
          * is using the secondary head.
-	 * TODO: This should be enabled for others 
-	 * chipsets as well
+         * TODO: This should be enabled for others 
+         * chipsets as well
          */
         if (pVia->Chipset == VIA_P4M900 &&
-	    pVia->pBIOSInfo->PanelActive) {
+                pVia->pBIOSInfo->PanelActive) {
             /*
              * Since we are using virtual, we need to adjust
              * the offset to match the framebuffer alignment
              */
             if (pScrn->displayWidth != mode->HDisplay)
-                ViaModeSecondaryVGAOffset(pScrn);
-            // ViaModeSecondaryVGAFixAlignment(pScrn, mode);
-	}
+                ViaSecondCRTCHorizontalOffset(pScrn);
+        }
     }
 
     /* Enable the graphics engine. */
@@ -2771,27 +2794,21 @@ VIAAdjustFrame(int scrnIndex, int x, int y, int flags)
     DEBUG(xf86DrvMsg(scrnIndex, X_INFO, "VIAAdjustFrame\n"));
 
     if (pVia->pVbe) {
-	ViaVbeAdjustFrame(scrnIndex, x, y, flags);
+        ViaVbeAdjustFrame(scrnIndex, x, y, flags);
     } else {
-
-        Base = (y * pScrn->displayWidth + x) * (pScrn->bitsPerPixel / 8);
-
-        /* now program the start address registers */
-        if (pVia->IsSecondary) {
-            Base = (Base + pScrn->fbOffset) >> 3;
-            ViaCrtcMask(hwp, 0x62, (Base & 0x7F) << 1 , 0xFE);
-            hwp->writeCrtc(hwp, 0x63, (Base & 0x7F80) >>  7);
-            hwp->writeCrtc(hwp, 0x64, (Base & 0x7F8000) >>  15);
+        if (pVia->UseLegacyModeSwitch) {
+            if (!pVia->IsSecondary)
+                ViaFirstCRTCSetStartingAddress(pScrn, x, y);
+            else
+                ViaSecondCRTCSetStartingAddress(pScrn, x, y);
         } else {
-            Base = Base >> 1;
-            hwp->writeCrtc(hwp, 0x0C, (Base & 0xFF00) >> 8);
-            hwp->writeCrtc(hwp, 0x0D, Base & 0xFF);
-            hwp->writeCrtc(hwp, 0x34, (Base & 0xFF0000) >> 16);
-#if 0
-	/* The CLE266A doesn't have this implemented, it seems. -- Luc */
-	ViaCrtcMask(hwp, 0x48, Base >> 24, 0x03);
-#endif
+            if (pVia->pBIOSInfo->FirstCRTC->IsActive)
+                ViaFirstCRTCSetStartingAddress(pScrn, x, y);
+            
+            if (pVia->pBIOSInfo->SecondCRTC->IsActive)
+                ViaSecondCRTCSetStartingAddress(pScrn, x, y);
         }
+        
     }
 
     VIAVidAdjustFrame(pScrn, x, y);
@@ -2835,16 +2852,17 @@ VIASwitchMode(int scrnIndex, DisplayModePtr mode, int flags)
 }
 
 
-static void VIADPMS(ScrnInfoPtr pScrn, int mode, int flags)
+static void
+VIADPMS(ScrnInfoPtr pScrn, int mode, int flags)
 {
-    vgaHWPtr        hwp = VGAHWPTR(pScrn);
-    VIAPtr          pVia = VIAPTR(pScrn);
-    VIABIOSInfoPtr  pBIOSInfo = pVia->pBIOSInfo;
-    CARD8           val;
+    vgaHWPtr hwp = VGAHWPTR(pScrn);
+    VIAPtr pVia= VIAPTR(pScrn);
+    VIABIOSInfoPtr pBIOSInfo = pVia->pBIOSInfo;
+    CARD8 val;
 
     if (pVia->pVbe) {
-	ViaVbeDPMS(pScrn, mode, flags);
-	return;
+        ViaVbeDPMS(pScrn, mode, flags);
+        return;
     }
 
     /* Clear DPMS setting */
@@ -2856,30 +2874,39 @@ static void VIADPMS(ScrnInfoPtr pScrn, int mode, int flags)
         val |= 0x30;
 
     switch (mode) {
-    case DPMSModeOn:
-        if (pBIOSInfo->PanelActive)
-            ViaLCDPower(pScrn, TRUE);
+        case DPMSModeOn:
+            
+            if (pBIOSInfo->Lvds->IsActive)
+                ViaLVDSPower(pScrn, TRUE);
+            
+            if (pBIOSInfo->PanelActive)
+                ViaLCDPower(pScrn, TRUE);
 
-        if (pBIOSInfo->TVActive)
-	    ViaTVPower(pScrn, TRUE);
+            if (pBIOSInfo->TVActive)
+                ViaTVPower(pScrn, TRUE);
 
-	hwp->writeCrtc(hwp, 0x36, val);
-        break;
-    case DPMSModeStandby:
-    case DPMSModeSuspend:
-    case DPMSModeOff:
-        if (pBIOSInfo->PanelActive)
-            ViaLCDPower(pScrn, FALSE);
+            hwp->writeCrtc(hwp, 0x36, val);
+            break;
+        case DPMSModeStandby:
+        case DPMSModeSuspend:
+        case DPMSModeOff:
+            
+            if (pBIOSInfo->Lvds->IsActive)
+                ViaLVDSPower(pScrn, FALSE);
+            
+            if (pBIOSInfo->PanelActive)
+                ViaLCDPower(pScrn, FALSE);
 
-	if (pBIOSInfo->TVActive)
-	    ViaTVPower(pScrn, FALSE);
+            if (pBIOSInfo->TVActive)
+                ViaTVPower(pScrn, FALSE);
 
-        val |= 0x30;
-	hwp->writeCrtc(hwp, 0x36, val);
-        break;
-    default:
-        xf86DrvMsg(pScrn->scrnIndex, X_ERROR, "Invalid DPMS mode %d\n", mode);
-        break;
+            val |= 0x30;
+            hwp->writeCrtc(hwp, 0x36, val);
+            break;
+        default:
+            xf86DrvMsg(pScrn->scrnIndex, X_ERROR, "Invalid DPMS mode %d\n",
+                    mode);
+            break;
     }
     return;
 }
