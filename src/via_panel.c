@@ -41,11 +41,12 @@ static ViaPanelModeRec ViaPanelNativeModes[] = {
         { 1024, 768 },
         { 1280, 768 },
         { 1280, 1024 },
+        { 1400, 1050 },
         { 1600, 1200 },
         { 1280, 800 },
         { 800, 480 },
-        { 1400, 1050 },
         { 1366, 768 },
+        { 1360, 768 },
         { 1920, 1080 },
         { 1920, 1200 },
         { 1024, 600 },
@@ -61,17 +62,20 @@ ViaPanelGetNativeModeFromOption(ScrnInfoPtr pScrn, char* name)
 {
     VIAPtr pVia= VIAPTR(pScrn);
     VIABIOSInfoPtr pBIOSInfo = pVia->pBIOSInfo;
+    ViaPanelInfoPtr panel = pBIOSInfo->Panel ;
     CARD8 index;
     CARD8 length;
 
-    pBIOSInfo->Panel->NativeModeIndex = VIA_PANEL_INVALID;
+    panel->NativeModeIndex = VIA_PANEL_INVALID;
     length = sizeof(ViaPanelNativeModes) / sizeof(ViaPanelModeRec);
     char aux[10];
     for (index = 0; index < length; index++) {
         sprintf(aux, "%dx%d", ViaPanelNativeModes[ index ].Width,
                 ViaPanelNativeModes[ index ].Height) ;
         if (!xf86NameCmp(name, aux)) {
-            pBIOSInfo->Panel->NativeModeIndex = index;
+            panel->NativeModeIndex = index;
+            panel->NativeMode->Width = ViaPanelNativeModes[ index ].Width ;
+            panel->NativeMode->Height = ViaPanelNativeModes[ index ].Height ;
             break;
         }
     }

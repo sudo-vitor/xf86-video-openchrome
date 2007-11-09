@@ -1276,6 +1276,8 @@ static Bool VIAPreInit(ScrnInfoPtr pScrn, int flags)
         ViaPanelGetNativeModeFromOption(pScrn, s) ;
         if (pBIOSInfo->Panel->NativeModeIndex != VIA_PANEL_INVALID) {
             ViaPanelModePtr mode = pBIOSInfo->Panel->NativeMode ;
+            DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_CONFIG, "Panel mode index is %d\n", 
+                    pBIOSInfo->Panel->NativeModeIndex));
             xf86DrvMsg(pScrn->scrnIndex, X_CONFIG,
                     "Selected Panel Size is %dx%d\n", mode->Width,
                     mode->Height);

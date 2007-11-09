@@ -340,6 +340,7 @@ ViaSecondCRTCHorizontalOffset(ScrnInfoPtr pScrn) {
 void
 ViaSecondCRTCSetMode(ScrnInfoPtr pScrn, DisplayModePtr mode)
 {
+    VIAPtr pVia = VIAPTR(pScrn);
     vgaHWPtr hwp = VGAHWPTR(pScrn);
     CARD16 temp;
 
@@ -391,8 +392,9 @@ ViaSecondCRTCSetMode(ScrnInfoPtr pScrn, DisplayModePtr mode)
     hwp->writeCrtc(hwp, 0x56, temp & 0xFF);
     ViaCrtcMask(hwp, 0x54, temp >> 2, 0xC0);
     ViaCrtcMask(hwp, 0x5C, temp >> 3, 0x80);
-    /* FIXME: Only for VT3314 and newer */
-    ViaCrtcMask(hwp, 0x5D, temp >> 4, 0x80);
+    
+    if (pVia->ChipId != VIA_CLE266 && pVia->ChipId != VIA_KM400)
+        ViaCrtcMask(hwp, 0x5D, temp >> 4, 0x80);
 
     /* horizontal sync end : sync start + 512 */
     temp = mode->CrtcHSyncEnd;
