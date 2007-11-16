@@ -75,7 +75,7 @@ ViaLVDSPowerSecondSequence(ScrnInfoPtr pScrn, Bool on)
         /* Turn on back light. */
         hwp->writeCrtc(hwp, 0xD3, hwp->readCrtc(hwp, 0xD3) & 0x3F);
         /* Turn on hardware power sequence. */
-        hwp->writeCrtc(hwp, 0xD4, hwp->readCrtc(hwp, 0x6A) | 0x02);
+        hwp->writeCrtc(hwp, 0xD4, hwp->readCrtc(hwp, 0xD4) | 0x02);
 
     } else {
 
@@ -97,10 +97,10 @@ ViaLVDSDFPPower(ScrnInfoPtr pScrn, Bool on)
 
     if (on) {
         /* Turn DFP High/Low pad on. */
-        hwp->writeSeq(hwp, 0x2A, hwp->readSeq(hwp, 0x2A) | 0xF0);
+        hwp->writeSeq(hwp, 0x2A, hwp->readSeq(hwp, 0x2A) | 0x0F);
     } else {
         /* Turn DFP High/Low pad off. */
-        hwp->writeSeq(hwp, 0x2A, hwp->readSeq(hwp, 0x2A) & 0xF0);
+        hwp->writeSeq(hwp, 0x2A, hwp->readSeq(hwp, 0x2A) & 0x0F);
     }
 }
 
@@ -125,7 +125,7 @@ ViaLVDSPowerChannel(ScrnInfoPtr pScrn, Bool on)
 void 
 ViaLVDSPower(ScrnInfoPtr pScrn, Bool on)
 {
-
+    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "ViaLVDSPower\n"));
     ViaLVDSPowerFirstSequence(pScrn, on);
     ViaLVDSPowerSecondSequence(pScrn, on);
     ViaLVDSDFPPower(pScrn, on);
