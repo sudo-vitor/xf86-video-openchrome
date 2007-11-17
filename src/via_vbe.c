@@ -95,7 +95,7 @@ static int ViaVbeGetActiveDevices(ScrnInfoPtr pScrn) {
     /* Set Active Device and Translate BIOS byte definition */
     if (pBIOSInfo->CrtActive)
         activeDevices = 0x01;
-    if (pBIOSInfo->PanelActive)
+    if (pBIOSInfo->Panel->IsActive)
         activeDevices |= 0x02;
     if (pBIOSInfo->TVActive)
         activeDevices |= 0x04;
@@ -242,7 +242,7 @@ ViaVbeSetMode(ScrnInfoPtr pScrn, DisplayModePtr pMode)
         }
     } else {
 
-        if (pBIOSInfo->PanelActive && !pVia->useLegacyVBE) {
+        if (pBIOSInfo->Panel->IsActive && !pVia->useLegacyVBE) {
 	    /* 
 	     * FIXME: should we always set the panel expansion?
 	     * does it depend on the resolution?
@@ -435,7 +435,7 @@ ViaVbeDoDPMS(ScrnInfoPtr pScrn, int mode)
     VIABIOSInfoPtr  pBIOSInfo = pVia->pBIOSInfo;
 
 
-    if (pBIOSInfo->PanelActive) 
+    if (pBIOSInfo->Panel->IsActive) 
         ViaVbePanelPower(pVia->pVbe, (mode == DPMSModeOn));
 
     VBEDPMSSet(pVia->pVbe,mode);

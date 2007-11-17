@@ -1,5 +1,6 @@
 /* 
  * Copyright 2007 The Openchrome Project [openchrome.org]
+ * Copyright (c) 1997-2003 by The XFree86 Project, Inc.
  * Copyright 1998-2007 VIA Technologies, Inc. All Rights Reserved.
  * Copyright 2001-2007 S3 Graphics, Inc. All Rights Reserved.
  *
@@ -55,7 +56,8 @@ static ViaPanelModeRec ViaPanelNativeModes[] = {
 };
 
 /**
- * 
+ * Sets the panel dimensions from the configuration
+ * using name with format "9999x9999"
  */
 void
 ViaPanelGetNativeModeFromOption(ScrnInfoPtr pScrn, char* name)
@@ -66,7 +68,10 @@ ViaPanelGetNativeModeFromOption(ScrnInfoPtr pScrn, char* name)
     CARD8 index;
     CARD8 length;
 
+    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "ViaPanelGetNativeModeFromOption\n"));
+    
     panel->NativeModeIndex = VIA_PANEL_INVALID;
+    if (strlen(name) < 10) {
     length = sizeof(ViaPanelNativeModes) / sizeof(ViaPanelModeRec);
     char aux[10];
     for (index = 0; index < length; index++) {
@@ -79,29 +84,54 @@ ViaPanelGetNativeModeFromOption(ScrnInfoPtr pScrn, char* name)
             break;
         }
     }
+    } else {
+        xf86DrvMsg(pScrn->scrnIndex, X_WARNING,
+                "%s is not a valid panel size.\n", name);
+    }
 }
 
+/**
+ * Gets the native panel resolution from scratch pad registers
+ * 
+ */
 void 
 ViaPanelGetNativeModeFromScratchPad(ScrnInfoPtr pScrn) {
     VIAPtr pVia = VIAPTR(pScrn);
     vgaHWPtr hwp = VGAHWPTR(pScrn);
     CARD8 index ;
+    
+    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "ViaPanelGetNativeModeFromScratchPad\n"));
+    
     index = hwp->readCrtc(hwp, 0x3F) & 0x0F ;
     
     ViaPanelInfoPtr panel = pVia->pBIOSInfo->Panel ;
     panel->NativeModeIndex = index ;
     panel->NativeMode->Width = ViaPanelNativeModes[ index ].Width ;
     panel->NativeMode->Height = ViaPanelNativeModes[ index ].Height ;
+    xf86DrvMsg(pScrn->scrnIndex, X_INFO, 
+            "Native Panel Resolution is %dx%d\n",
+            panel->NativeMode->Width, panel->NativeMode->Height);    
+}
+
+void
+ViaPanelScaleDisable(ScrnInfoPtr pScrn) {
+    VIAPtr pVia = VIAPTR(pScrn);
+    vgaHWPtr hwp = VGAHWPTR(pScrn);
+
+    ViaCrtcMask(hwp, 0x79, 0x00, 0x01);
+    if (pVia->Chipset != VIA_CLE266 && pVia->Chipset != VIA_KM400)
+        ViaCrtcMask(hwp, 0xA2, 0x00, 0xC8);
 }
 
 /**
  * 
  */
-void ViaPanelScale(ScrnInfoPtr pScrn, int resWidth, int resHeight, int panelWidth, int panelHeight ) {
+void 
+ViaPanelScale(ScrnInfoPtr pScrn, int resWidth, int resHeight, int panelWidth, int panelHeight ) {
     VIAPtr pVia = VIAPTR(pScrn);
     vgaHWPtr hwp = VGAHWPTR(pScrn);
-    int     horScalingFactor;
-    int     verScalingFactor;
+    int     horScalingFactor = 0;
+    int     verScalingFactor = 0;
     CARD8   cra2 = 0;
     CARD8   cr77 = 0;
     CARD8   cr78 = 0;
@@ -140,16 +170,19 @@ void ViaPanelScale(ScrnInfoPtr pScrn, int resWidth, int resHeight, int panelWidt
         scaling = TRUE ;
     }
 
+    if (scaling) {
+        
     DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO,
         "Scaling factor: horizontal %d (0x%x), vertical %d (0x%x)\n",
        horScalingFactor, horScalingFactor, verScalingFactor, verScalingFactor ));
 
-    if (scaling) {
         ViaCrtcMask(hwp, 0x77, cr77, 0xFF);
         ViaCrtcMask(hwp, 0x78, cr78, 0xFF);
         ViaCrtcMask(hwp, 0x79, cr79, 0xF8);
         ViaCrtcMask(hwp, 0x9F, cr9f, 0x03);
-    }
+        ViaCrtcMask(hwp, 0x79, 0x03, 0x03);
+    } else
+        ViaCrtcMask(hwp, 0x79, 0x00, 0x01);
 
     ViaCrtcMask(hwp, 0xA2, cra2, 0xC8);
 
@@ -160,5 +193,122 @@ void ViaPanelScale(ScrnInfoPtr pScrn, int resWidth, int resHeight, int panelWidt
     /* Horizontal scaling factor selection original / linear */
     //ViaCrtcMask(hwp, 0xA2, 0x40, 0x40);
 
-    ViaCrtcMask(hwp, 0x79, 0x07, 0x07);
+}
+
+
+/**
+ * Generates a display mode for the native panel resolution
+ * using CVT
+ */
+static void
+ViaPanelGetNativeDisplayMode(ScrnInfoPtr pScrn) {
+    
+    VIAPtr pVia= VIAPTR(pScrn);
+    ViaPanelModePtr panelMode = pVia->pBIOSInfo->Panel->NativeMode ;
+    
+    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "ViaPanelGetNativeDisplayMode\n"));
+    
+    if (panelMode->Width && panelMode->Height) {
+        
+        /* TODO: fix refresh rate */
+        DisplayModePtr p = ViaCVTMode( panelMode->Width, panelMode->Height, 60.0, TRUE, FALSE ) ;
+    
+        /* The following code is borrowed from xf86SetModeCrtc */
+        if (p) {
+            p->CrtcHDisplay             = p->HDisplay;
+            p->CrtcHSyncStart           = p->HSyncStart;
+            p->CrtcHSyncEnd             = p->HSyncEnd;
+            p->CrtcHTotal               = p->HTotal;
+            p->CrtcHSkew                = p->HSkew;
+            p->CrtcVDisplay             = p->VDisplay;
+            p->CrtcVSyncStart           = p->VSyncStart;
+            p->CrtcVSyncEnd             = p->VSyncEnd;
+            p->CrtcVTotal               = p->VTotal;
+            
+            p->CrtcVBlankStart = min(p->CrtcVSyncStart, p->CrtcVDisplay);
+            p->CrtcVBlankEnd = max(p->CrtcVSyncEnd, p->CrtcVTotal);
+            
+            if ((p->CrtcVBlankEnd - p->CrtcVBlankStart) >= 127) {
+                /*
+                 * V Blanking size must be < 127.
+                 * Moving blank start forward is safer than moving blank end
+                 * back, since monitors clamp just AFTER the sync pulse (or in
+                 * the sync pulse), but never before.   
+                 */
+                p->CrtcVBlankStart = p->CrtcVBlankEnd - 127;
+                /*
+                 * If VBlankStart is now > VSyncStart move VBlankStart
+                 * to VSyncStart using the maximum width that fits into
+                 * VTotal.
+                 */
+                if (p->CrtcVBlankStart > p->CrtcVSyncStart) {
+                    p->CrtcVBlankStart = p->CrtcVSyncStart;
+                    p->CrtcVBlankEnd = min(p->CrtcHBlankStart + 127, p->CrtcVTotal);
+                }
+            }
+            p->CrtcHBlankStart = min(p->CrtcHSyncStart, p->CrtcHDisplay);
+            p->CrtcHBlankEnd = max(p->CrtcHSyncEnd, p->CrtcHTotal);
+    
+            if ((p->CrtcHBlankEnd - p->CrtcHBlankStart) >= 63 * 8) {
+                /*
+                 * H Blanking size must be < 63*8. Same remark as above.
+                 */
+                p->CrtcHBlankStart = p->CrtcHBlankEnd - 63 * 8;
+                if (p->CrtcHBlankStart > p->CrtcHSyncStart) {
+                    p->CrtcHBlankStart = p->CrtcHSyncStart;
+                    p->CrtcHBlankEnd = min(p->CrtcHBlankStart + 63 * 8, p->CrtcHTotal);
+                }
+            }
+    
+        }
+        
+        pVia->pBIOSInfo->Panel->NativeDisplayMode = p ;
+    } else {
+        xf86DrvMsg(pScrn->scrnIndex, X_WARNING, "Invalid panel dimension (%dx%d)\n",
+                panelMode->Width, panelMode->Height);
+    }
+
+}
+
+void 
+ViaPanelPreInit(ScrnInfoPtr pScrn) {
+    VIAPtr pVia= VIAPTR(pScrn);
+    VIABIOSInfoPtr pBIOSInfo = pVia->pBIOSInfo;
+    
+    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "ViaPanelPreInit\n"));
+    
+    ViaPanelInfoPtr panel = pBIOSInfo->Panel ;
+/*
+    if (panel->PanelSizeFromOption)
+        ViaPanelGetNativeModeFromOption(pScrn, panel->PanelSizeFromOption);
+*/
+    if (panel->NativeModeIndex == VIA_PANEL_INVALID)
+        ViaPanelGetNativeModeFromScratchPad(pScrn);
+    
+    if (panel->NativeModeIndex != VIA_PANEL_INVALID)
+        ViaPanelGetNativeDisplayMode(pScrn);
+    
+}
+
+void 
+ViaPanelCenterMode(DisplayModePtr centerMode, DisplayModePtr panelMode,
+        DisplayModePtr mode)
+{
+    memcpy(centerMode, mode, sizeof(DisplayModeRec));
+    
+    CARD32 HDiff = (panelMode->CrtcHDisplay - mode->CrtcHDisplay) / 2 ;
+    CARD32 VDiff = (panelMode->CrtcVDisplay - mode->CrtcVDisplay) / 2 ;
+
+    centerMode->CrtcHTotal += HDiff * 2;
+    centerMode->CrtcVTotal += VDiff * 2;
+
+    centerMode->CrtcHSyncStart += HDiff ;
+    centerMode->CrtcHSyncEnd += HDiff ;
+    centerMode->CrtcHBlankStart += HDiff ;
+    centerMode->CrtcHBlankEnd += HDiff ;
+
+    centerMode->CrtcVSyncStart += VDiff ;
+    centerMode->CrtcVSyncEnd += VDiff ; ;
+    centerMode->CrtcVBlankStart += VDiff ;
+    centerMode->CrtcVBlankEnd += VDiff ;
 }

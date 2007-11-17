@@ -369,12 +369,12 @@ DecideOverlaySupport(ScrnInfoPtr pScrn)
 
 	if (pVia->pVbe) {
 	    refresh = 100;
-	    if (pBIOSInfo->PanelActive)
+            if (pBIOSInfo->Panel->IsActive)
 		refresh = 70;
 	    if (pBIOSInfo->TVActive)
 		refresh = 60;
 	} else {
-	    if (pBIOSInfo->PanelActive) {
+            if (pBIOSInfo->Panel->IsActive) {
 		width = pBIOSInfo->panelX;
 		height = pBIOSInfo->panelY;
 		if ((width == 1400) && (height == 1050)) {
