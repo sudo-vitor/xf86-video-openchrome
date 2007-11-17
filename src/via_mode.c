@@ -46,44 +46,6 @@
  */
 #include "via_mode.h"
 
-static void 
-ViaPrintMode( ScrnInfoPtr pScrn, DisplayModePtr mode ) {
-    
-    xf86DrvMsg(pScrn->scrnIndex, X_INFO, "Name: %s\n", mode->name ) ;
-    xf86DrvMsg(pScrn->scrnIndex, X_INFO, "Clock: %d\n", mode->Clock ) ;
-    xf86DrvMsg(pScrn->scrnIndex, X_INFO, "VRefresh: %f\n", mode->VRefresh ) ;
-    xf86DrvMsg(pScrn->scrnIndex, X_INFO, "HSync: %f\n", mode->HSync ) ;
-    xf86DrvMsg(pScrn->scrnIndex, X_INFO, "HDisplay: %d\n", mode->HDisplay ) ;
-    xf86DrvMsg(pScrn->scrnIndex, X_INFO, "HSyncStart: %d\n", mode->HSyncStart ) ;
-    xf86DrvMsg(pScrn->scrnIndex, X_INFO, "HSyncEnd: %d\n", mode->HSyncEnd ) ;
-    xf86DrvMsg(pScrn->scrnIndex, X_INFO, "HTotal: %d\n", mode->HTotal ) ;
-    xf86DrvMsg(pScrn->scrnIndex, X_INFO, "HSkew: %d\n", mode->HSkew ) ;
-    xf86DrvMsg(pScrn->scrnIndex, X_INFO, "VDisplay: %d\n", mode->VDisplay ) ;
-    xf86DrvMsg(pScrn->scrnIndex, X_INFO, "VSyncStart: %d\n", mode->VSyncStart ) ;
-    xf86DrvMsg(pScrn->scrnIndex, X_INFO, "VSyncEnd: %d\n", mode->VSyncEnd ) ;
-    xf86DrvMsg(pScrn->scrnIndex, X_INFO, "VTotal: %d\n", mode->VTotal ) ;
-    xf86DrvMsg(pScrn->scrnIndex, X_INFO, "VScan: %d\n", mode->VScan ) ;
-    xf86DrvMsg(pScrn->scrnIndex, X_INFO, "Flags: %d\n", mode->Flags ) ;
-
-    xf86DrvMsg(pScrn->scrnIndex, X_INFO, "CrtcHDisplay: 0x%x\n", mode->CrtcHDisplay ) ;
-    xf86DrvMsg(pScrn->scrnIndex, X_INFO, "CrtcHBlankStart: 0x%x\n", mode->CrtcHBlankStart ) ;
-    xf86DrvMsg(pScrn->scrnIndex, X_INFO, "CrtcHSyncStart: 0x%x\n", mode->CrtcHSyncStart ) ;
-    xf86DrvMsg(pScrn->scrnIndex, X_INFO, "CrtcHSyncEnd: 0x%x\n", mode->CrtcHSyncEnd ) ;
-    xf86DrvMsg(pScrn->scrnIndex, X_INFO, "CrtcHBlankEnd: 0x%x\n", mode->CrtcHBlankEnd ) ;
-    xf86DrvMsg(pScrn->scrnIndex, X_INFO, "CrtcHTotal: 0x%x\n", mode->CrtcHTotal ) ;
-    xf86DrvMsg(pScrn->scrnIndex, X_INFO, "CrtcHSkew: 0x%x\n", mode->CrtcHSkew ) ;
-    xf86DrvMsg(pScrn->scrnIndex, X_INFO, "CrtcVDisplay: 0x%x\n", mode->CrtcVDisplay ) ;
-    xf86DrvMsg(pScrn->scrnIndex, X_INFO, "CrtcVBlankStart: 0x%x\n", mode->CrtcVBlankStart ) ;
-    xf86DrvMsg(pScrn->scrnIndex, X_INFO, "CrtcVSyncStart: 0x%x\n", mode->CrtcVSyncStart ) ;
-    xf86DrvMsg(pScrn->scrnIndex, X_INFO, "CrtcVSyncEnd: 0x%x\n", mode->CrtcVSyncEnd ) ;
-    xf86DrvMsg(pScrn->scrnIndex, X_INFO, "CrtcVBlankEnd: 0x%x\n", mode->CrtcVBlankEnd ) ;
-    xf86DrvMsg(pScrn->scrnIndex, X_INFO, "CrtcVTotal: 0x%x\n", mode->CrtcVTotal ) ;
-/*
-Bool                        CrtcHAdjusted;
-Bool                        CrtcVAdjusted;
-*/
-}
-
 /*
  *
  * TV specific code.
@@ -385,14 +347,14 @@ ViaOutputsSelect(ScrnInfoPtr pScrn)
             " Initialised register: 0x%02x\n",
             VIAGetActiveDisplay(pScrn)));
 
-    pBIOSInfo->Panel->IsActive = FALSE;
+    pBIOSInfo->PanelActive = FALSE;
     pBIOSInfo->CrtActive = FALSE;
     pBIOSInfo->TVActive = FALSE;
 
     if (!pVia->ActiveDevice) {
         /* always enable the panel when present */
         if (pBIOSInfo->PanelPresent)
-            pBIOSInfo->Panel->IsActive = TRUE;
+            pBIOSInfo->PanelActive = TRUE;
         else if (pBIOSInfo->TVOutput != TVOUTPUT_NONE) /* cable is attached! */
             pBIOSInfo->TVActive = TRUE;
 
@@ -402,7 +364,7 @@ ViaOutputsSelect(ScrnInfoPtr pScrn)
     } else {
         if (pVia->ActiveDevice & VIA_DEVICE_LCD) {
             if (pBIOSInfo->PanelPresent)
-                pBIOSInfo->Panel->IsActive = TRUE;
+                pBIOSInfo->PanelActive = TRUE;
             else
                 xf86DrvMsg(pScrn->scrnIndex, X_WARNING, "Unable to activate"
                     " panel: no panel is present.\n");
@@ -415,7 +377,7 @@ ViaOutputsSelect(ScrnInfoPtr pScrn)
             else if (pBIOSInfo->TVOutput == TVOUTPUT_NONE)
                 xf86DrvMsg(pScrn->scrnIndex, X_WARNING, "Unable to activate"
                     " TV encoder: no cable attached.\n");
-            else if (pBIOSInfo->Panel->IsActive)
+            else if (pBIOSInfo->PanelActive)
                 xf86DrvMsg(pScrn->scrnIndex, X_WARNING, "Unable to activate"
                     " TV encoder and panel simultaneously. Not using"
                     " TV encoder.\n");
@@ -423,7 +385,7 @@ ViaOutputsSelect(ScrnInfoPtr pScrn)
                 pBIOSInfo->TVActive = TRUE;
         }
 
-        if ((pVia->ActiveDevice & VIA_DEVICE_CRT) || (!pBIOSInfo->Panel->IsActive
+        if ((pVia->ActiveDevice & VIA_DEVICE_CRT) || (!pBIOSInfo->PanelActive
                 && !pBIOSInfo->TVActive)) {
             pBIOSInfo->CrtPresent = TRUE;
             pBIOSInfo->CrtActive = TRUE;
@@ -433,7 +395,7 @@ ViaOutputsSelect(ScrnInfoPtr pScrn)
 #ifdef HAVE_DEBUG
     if (pBIOSInfo->CrtActive)
         DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "ViaOutputsSelect: CRT.\n"));
-    if (pBIOSInfo->Panel->IsActive)
+    if (pBIOSInfo->PanelActive)
         DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "ViaOutputsSelect: Panel.\n"));
     if (pBIOSInfo->TVActive)
         DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "ViaOutputsSelect: TV.\n"));
@@ -814,7 +776,7 @@ ViaModesAttach(ScrnInfoPtr pScrn, MonPtr monitorp)
 
     DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "ViaModesAttach\n"));
 
-    if (pBIOSInfo->Panel->IsActive)
+    if (pBIOSInfo->PanelActive)
         ViaModesAttachHelper(pScrn, monitorp, ViaPanelModes);
     if (pBIOSInfo->TVActive && pBIOSInfo->TVModes)
         ViaModesAttachHelper(pScrn, monitorp, pBIOSInfo->TVModes);
@@ -863,6 +825,150 @@ ViaGetMemoryBandwidth(ScrnInfoPtr pScrn)
     }
 }
 
+/*
+ * Checks for limitations imposed by the available VGA timing registers.
+ *
+ */
+static ModeStatus
+ViaModePrimaryVGAValid(ScrnInfoPtr pScrn, DisplayModePtr mode)
+{
+    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "ViaModePrimaryVGAValid\n"));
+
+    if (mode->CrtcHTotal > 4100) {
+        xf86DrvMsg(pScrn->scrnIndex, X_INFO, "CrtcHTotal out of range.\n");
+        return MODE_BAD_HVALUE;
+    }
+
+    if (mode->CrtcHDisplay > 2048) {
+        xf86DrvMsg(pScrn->scrnIndex, X_INFO, "CrtcHDisplay out of range.\n");
+        return MODE_BAD_HVALUE;
+    }
+
+    if (mode->CrtcHBlankStart > 2048) {
+        xf86DrvMsg(pScrn->scrnIndex, X_INFO, "CrtcHBlankStart out of range.\n");
+        return MODE_BAD_HVALUE;
+    }
+
+    if ((mode->CrtcHBlankEnd - mode->CrtcHBlankStart) > 1025) {
+        xf86DrvMsg(pScrn->scrnIndex, X_INFO, "CrtcHBlankEnd out of range.\n");
+        return MODE_HBLANK_WIDE;
+    }
+
+    if (mode->CrtcHSyncStart > 4095) {
+        xf86DrvMsg(pScrn->scrnIndex, X_INFO, "CrtcHSyncStart out of range.\n");
+        return MODE_BAD_HVALUE;
+    }
+
+    if ((mode->CrtcHSyncEnd - mode->CrtcHSyncStart) > 256) {
+        xf86DrvMsg(pScrn->scrnIndex, X_INFO, "CrtcHSyncEnd out of range.\n");
+        return MODE_HSYNC_WIDE;
+    }
+
+    if (mode->CrtcVTotal > 2049) {
+        xf86DrvMsg(pScrn->scrnIndex, X_INFO, "CrtcVTotal out of range.\n");
+        return MODE_BAD_VVALUE;
+    }
+
+    if (mode->CrtcVDisplay > 2048) {
+        xf86DrvMsg(pScrn->scrnIndex, X_INFO, "CrtcVDisplay out of range.\n");
+        return MODE_BAD_VVALUE;
+    }
+
+    if (mode->CrtcVSyncStart > 2047) {
+        xf86DrvMsg(pScrn->scrnIndex, X_INFO, "CrtcVSyncStart out of range.\n");
+        return MODE_BAD_VVALUE;
+    }
+
+    if ((mode->CrtcVSyncEnd - mode->CrtcVSyncStart) > 16) {
+        xf86DrvMsg(pScrn->scrnIndex, X_INFO, "CrtcVSyncEnd out of range.\n");
+        return MODE_VSYNC_WIDE;
+    }
+
+    if (mode->CrtcVBlankStart > 2048) {
+        xf86DrvMsg(pScrn->scrnIndex, X_INFO, "CrtcVBlankStart out of range.\n");
+        return MODE_BAD_VVALUE;
+    }
+
+    if ((mode->CrtcVBlankEnd - mode->CrtcVBlankStart) > 257) {
+        xf86DrvMsg(pScrn->scrnIndex, X_INFO, "CrtcVBlankEnd out of range.\n");
+        return MODE_VBLANK_WIDE;
+    }
+
+    return MODE_OK;
+}
+
+/*
+ *
+ */
+static ModeStatus
+ViaModeSecondaryVGAValid(ScrnInfoPtr pScrn,
+        DisplayModePtr mode)
+{
+    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "ViaModeSecondaryVGAValid\n"));
+
+    if (mode->CrtcHTotal > 4096) {
+        xf86DrvMsg(pScrn->scrnIndex, X_INFO, "CrtcHTotal out of range.\n");
+        return MODE_BAD_HVALUE;
+    }
+
+    if (mode->CrtcHDisplay > 2048) {
+        xf86DrvMsg(pScrn->scrnIndex, X_INFO, "CrtcHDisplay out of range.\n");
+        return MODE_BAD_HVALUE;
+    }
+
+    if (mode->CrtcHBlankStart > 2048) {
+        xf86DrvMsg(pScrn->scrnIndex, X_INFO, "CrtcHBlankStart out of range.\n");
+        return MODE_BAD_HVALUE;
+    }
+
+    if (mode->CrtcHBlankEnd > 4096) {
+        xf86DrvMsg(pScrn->scrnIndex, X_INFO, "CrtcHBlankEnd out of range.\n");
+        return MODE_HBLANK_WIDE;
+    }
+
+    if (mode->CrtcHSyncStart > 2047) {
+        xf86DrvMsg(pScrn->scrnIndex, X_INFO, "CrtcHSyncStart out of range.\n");
+        return MODE_BAD_HVALUE;
+    }
+
+    if ((mode->CrtcHSyncEnd - mode->CrtcHSyncStart) > 512) {
+        xf86DrvMsg(pScrn->scrnIndex, X_INFO, "CrtcHSyncEnd out of range.\n");
+        return MODE_HSYNC_WIDE;
+    }
+
+    if (mode->CrtcVTotal > 2048) {
+        xf86DrvMsg(pScrn->scrnIndex, X_INFO, "CrtcVTotal out of range.\n");
+        return MODE_BAD_VVALUE;
+    }
+
+    if (mode->CrtcVDisplay > 2048) {
+        xf86DrvMsg(pScrn->scrnIndex, X_INFO, "CrtcVDisplay out of range.\n");
+        return MODE_BAD_VVALUE;
+    }
+
+    if (mode->CrtcVBlankStart > 2048) {
+        xf86DrvMsg(pScrn->scrnIndex, X_INFO, "CrtcVBlankStart out of range.\n");
+        return MODE_BAD_VVALUE;
+    }
+
+    if (mode->CrtcVBlankEnd > 2048) {
+        xf86DrvMsg(pScrn->scrnIndex, X_INFO, "CrtcVBlankEnd out of range.\n");
+        return MODE_VBLANK_WIDE;
+    }
+
+    if (mode->CrtcVSyncStart > 2047) {
+        xf86DrvMsg(pScrn->scrnIndex, X_INFO, "CrtcVSyncStart out of range.\n");
+        return MODE_BAD_VVALUE;
+    }
+
+    if ((mode->CrtcVSyncEnd - mode->CrtcVSyncStart) > 32) {
+        xf86DrvMsg(pScrn->scrnIndex, X_INFO, "CrtcVSyncEnd out of range.\n");
+        return MODE_VSYNC_WIDE;
+    }
+
+    return MODE_OK;
+}
+
 
 static CARD32 ViaModeDotClockTranslate(ScrnInfoPtr pScrn, DisplayModePtr mode);
 
@@ -888,56 +994,26 @@ ViaValidMode(int scrnIndex, DisplayModePtr mode, Bool verbose,
     if (mode->Flags & V_INTERLACE)
         return MODE_NO_INTERLACE;
 
-    if (pVia->UseLegacyModeSwitch) {
-        
-        if (pVia->IsSecondary)
-            ret = ViaSecondCRTCModeValid(pScrn, mode);
-        else
-            ret = ViaFirstCRTCModeValid(pScrn, mode);
+    if (pVia->IsSecondary)
+        ret = ViaModeSecondaryVGAValid(pScrn, mode);
+    else
+        ret = ViaModePrimaryVGAValid(pScrn, mode);
 
-        if (ret != MODE_OK)
+    if (ret != MODE_OK)
+        return ret;
+
+    if (pBIOSInfo->TVActive) {
+        ret = ViaTVModeValid(pScrn, mode);
+        if (ret != MODE_OK) {
+            xf86DrvMsg(pScrn->scrnIndex, X_INFO, "Mode \"%s\" not supported by"
+                " TV encoder.\n", mode->name);
             return ret;
-
-        
-        if (pBIOSInfo->TVActive) {
-            ret = ViaTVModeValid(pScrn, mode);
-            if (ret != MODE_OK) {
-                xf86DrvMsg(pScrn->scrnIndex, X_INFO, "Mode \"%s\" not supported by"
-                    " TV encoder.\n", mode->name);
-                return ret;
-            }
-        } else {
-            if (pBIOSInfo->Panel->IsActive && !ViaPanelGetIndex(pScrn, mode))
-                return MODE_BAD;
-            else if (!ViaModeDotClockTranslate(pScrn, mode))
-                return MODE_NOCLOCK;
         }
-    
-    } else {
+    } else if (pBIOSInfo->PanelActive && !ViaPanelGetIndex(pScrn, mode))
+        return MODE_BAD;
+    else if (!ViaModeDotClockTranslate(pScrn, mode))
+        return MODE_NOCLOCK;
 
-        if (pBIOSInfo->FirstCRTC->IsActive)
-            ret = ViaFirstCRTCModeValid(pScrn, mode);
-        
-        if (ret != MODE_OK)
-            return ret;
-
-        if (pBIOSInfo->SecondCRTC->IsActive)
-            ret = ViaSecondCRTCModeValid(pScrn, mode);
-
-        if (ret != MODE_OK)
-            return ret;
-
-        if (pBIOSInfo->Panel->IsActive) {
-
-            ViaPanelModePtr nativeMode = pBIOSInfo->Panel->NativeMode ;
-            if (nativeMode->Width < mode->HDisplay 
-                    || nativeMode->Height < mode->VDisplay)
-                return MODE_PANEL ;
-        }
-        if (!ViaModeDotClockTranslate(pScrn, mode))
-            return MODE_NOCLOCK;
-    }
-    
     temp = mode->CrtcHDisplay * mode->CrtcVDisplay * mode->VRefresh
             * (pScrn->bitsPerPixel >> 3);
     if (pBIOSInfo->Bandwidth < temp) {
@@ -1367,15 +1443,14 @@ ViaModeDotClockTranslate(ScrnInfoPtr pScrn, DisplayModePtr mode)
  *
  */
 void
-ViaModePrimaryLegacy(ScrnInfoPtr pScrn, DisplayModePtr mode)
+ViaModePrimary(ScrnInfoPtr pScrn, DisplayModePtr mode)
 {
     vgaHWPtr hwp = VGAHWPTR(pScrn);
     VIAPtr pVia= VIAPTR(pScrn);
     VIABIOSInfoPtr pBIOSInfo = pVia->pBIOSInfo;
 
     DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "ViaModePrimary\n"));
-    DEBUG(ViaPrintMode(pScrn,mode));
-    
+
     /* Turn off Screen */
     ViaCrtcMask(hwp, 0x17, 0x00, 0x80);
 
@@ -1398,7 +1473,7 @@ ViaModePrimaryLegacy(ScrnInfoPtr pScrn, DisplayModePtr mode)
     else
         ViaSeqMask(hwp, 0x16, 0x00, 0x40);
 
-    if (pBIOSInfo->Panel->IsActive && ViaPanelGetIndex(pScrn, mode)) {
+    if (pBIOSInfo->PanelActive && ViaPanelGetIndex(pScrn, mode)) {
         VIASetLCDMode(pScrn, mode);
         ViaLCDPower(pScrn, TRUE);
     } else if (pBIOSInfo->PanelPresent)
@@ -1446,28 +1521,27 @@ ViaModePrimaryLegacy(ScrnInfoPtr pScrn, DisplayModePtr mode)
  *
  */
 void
-ViaModeSecondaryLegacy(ScrnInfoPtr pScrn, DisplayModePtr mode)
+ViaModeSecondary(ScrnInfoPtr pScrn, DisplayModePtr mode)
 {
     vgaHWPtr hwp = VGAHWPTR(pScrn);
     VIAPtr pVia = VIAPTR(pScrn);
     VIABIOSInfoPtr pBIOSInfo = pVia->pBIOSInfo;
 
     DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "ViaModeSecondary\n"));
-    DEBUG(ViaPrintMode(pScrn,mode));
-    
+
     /* Turn off Screen */
     ViaCrtcMask(hwp, 0x17, 0x00, 0x80);
 
     ViaSecondCRTCSetMode(pScrn, mode);
 
     if (pBIOSInfo->TVActive)
-        ViaTVSetMode(pScrn, mode);
+    ViaTVSetMode(pScrn, mode);
 
     /* CLE266A2 apparently doesn't like this */
-    if (!(pVia->Chipset == VIA_CLE266 && pVia->ChipRev != 0x02))
-        ViaCrtcMask(hwp, 0x6C, 0x00, 0x1E);
+    if ((pVia->Chipset != VIA_CLE266) || (pVia->ChipRev != 0x02))
+    ViaCrtcMask(hwp, 0x6C, 0x00, 0x1E);
 
-    if (pBIOSInfo->Panel->IsActive && (pBIOSInfo->PanelIndex != VIA_BIOS_NUM_PANEL)) {
+    if (pBIOSInfo->PanelActive && (pBIOSInfo->PanelIndex != VIA_BIOS_NUM_PANEL)) {
         pBIOSInfo->SetDVI = TRUE;
         VIASetLCDMode(pScrn, mode);
         ViaLCDPower(pScrn, TRUE);
@@ -1544,110 +1618,4 @@ ViaLCDPower(ScrnInfoPtr pScrn, Bool On)
     else
         ViaLCDPowerSequence(hwp, powerOff[i]);
     usleep(1);
-}
-
-void 
-ViaModeFirstCRTC(ScrnInfoPtr pScrn, DisplayModePtr mode)
-{
-    
-    xf86DrvMsg(pScrn->scrnIndex, X_INFO, "ViaModeFirstCRTC\n");
-    vgaHWPtr hwp = VGAHWPTR(pScrn);
-    VIAPtr pVia= VIAPTR(pScrn);
-    VIABIOSInfoPtr pBIOSInfo = pVia->pBIOSInfo;
-
-    /* Turn off Screen */
-    ViaCrtcMask(hwp, 0x17, 0x00, 0x80);
-    
-    ViaFirstCRTCSetMode(pScrn, mode);
-    pBIOSInfo->Clock = ViaModeDotClockTranslate(pScrn, mode);
-    pBIOSInfo->ClockExternal = FALSE;
-
-    ViaSetPrimaryFIFO(pScrn, mode);
-
-    ViaSetPrimaryDotclock(pScrn, pBIOSInfo->Clock);
-    ViaSetUseExternalClock(hwp);
-    ViaCrtcMask(hwp, 0x6B, 0x00, 0x01);
-
-    hwp->disablePalette(hwp);
-
-    /* Turn on Screen */
-    ViaCrtcMask(hwp, 0x17, 0x80, 0x80);
-
-}
-
-void 
-ViaModeSecondCRTC(ScrnInfoPtr pScrn, DisplayModePtr mode)
-{
-
-    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "ViaModeSecondCRTC\n"));
-    VIAPtr pVia= VIAPTR(pScrn);
-    VIABIOSInfoPtr pBIOSInfo = pVia->pBIOSInfo;
-    vgaHWPtr hwp = VGAHWPTR(pScrn);
-    DisplayModePtr nativeDisplayMode = pBIOSInfo->Panel->NativeDisplayMode;
-    DisplayModePtr centeredMode = pBIOSInfo->Panel->CenteredMode; 
-    DisplayModePtr realMode = mode;
-
-    if (pBIOSInfo->Panel->IsActive) {
-        if (nativeDisplayMode) {
-
-            ViaPanelScale(pScrn, mode->HDisplay, mode->VDisplay,
-                    nativeDisplayMode->HDisplay, nativeDisplayMode->VDisplay);
-            if ( !pBIOSInfo->Center && (mode->HDisplay
-                    < nativeDisplayMode->HDisplay || mode->VDisplay
-                    < nativeDisplayMode->VDisplay)) {
-
-                realMode = nativeDisplayMode;
-            } else {
-                ViaPanelCenterMode(centeredMode, nativeDisplayMode, mode);
-                realMode = centeredMode;
-                ViaPanelScaleDisable(pScrn);
-            }
-        }
-    }
-
-    ViaSecondCRTCSetMode(pScrn, realMode);
-    ViaSetSecondaryFIFO(pScrn, realMode);
-    pBIOSInfo->Clock = ViaModeDotClockTranslate(pScrn, realMode);
-
-    /* Fix LCD scaling */
-    ViaSecondCRTCHorizontalQWCount(pScrn, mode->CrtcHDisplay);
-
-    pBIOSInfo->ClockExternal = FALSE;
-    ViaSetSecondaryDotclock(pScrn, pBIOSInfo->Clock);
-    ViaSetUseExternalClock(hwp);
-
-    hwp->disablePalette(hwp);
-    
-}
-
-void
-ViaModeSet(ScrnInfoPtr pScrn, DisplayModePtr mode) {
-    VIAPtr pVia= VIAPTR(pScrn);
-    VIABIOSInfoPtr pBIOSInfo = pVia->pBIOSInfo;
-    
-    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "ViaModeSet\n"));
-    
-    ViaPrintMode(pScrn, mode);
-
-    if (pBIOSInfo->SecondCRTC->IsActive) {
-        ViaModeSecondCRTC(pScrn, mode);
-        ViaSecondDisplayChannelEnable(pScrn);
-    }
-
-    if (pBIOSInfo->FirstCRTC->IsActive) {
-        /* CRT on FirstCRTC */
-        ViaDisplaySetStreamOnCRT(pScrn, TRUE);
-        ViaDisplayEnableCRT(pScrn);
-        ViaModeFirstCRTC(pScrn, mode);
-    } else {
-        ViaDisplayDisableCRT(pScrn);
-    }
-    
-
-    if (pBIOSInfo->Simultaneous->IsActive) {
-        ViaDisplayEnableSimultaneous(pScrn);
-    } else {
-        ViaDisplayDisableSimultaneous(pScrn);
-    }
-  
 }

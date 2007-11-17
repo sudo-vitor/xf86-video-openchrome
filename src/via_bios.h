@@ -104,21 +104,10 @@ typedef struct ViaPanelMode {
 } ViaPanelModeRec, *ViaPanelModePtr ;
 
 typedef struct ViaPanelInfo {
-    Bool            IsActive ;
-    /* current native resolution */
+    Bool IsActive ;
+    /* current panel native resolution */
     ViaPanelModePtr NativeMode ;
-    /* Native resolution index, see via_panel.c */
-    CARD8           NativeModeIndex;
-    /* Generated mode for native resolution */
-    DisplayModePtr  NativeDisplayMode ;
-#if 0    
-    /* Panel size from configuration */
-    char*           PanelSizeFromOption;
-#endif    
-    /* Center or scale mode */
-    Bool            Center;
-    /* Current mode but centered */
-    DisplayModePtr  CenteredMode ;
+    CARD8 NativeModeIndex;
 } ViaPanelInfoRec, *ViaPanelInfoPtr ;
 
 typedef struct ViaLVDSInfo {
@@ -128,10 +117,6 @@ typedef struct ViaLVDSInfo {
 typedef struct ViaCRTCInfo {
     Bool IsActive ;
 } ViaCRTCInfoRec, *ViaCRTCInfoPtr ;
-
-typedef struct ViaSimultaneousInfo {
-    Bool IsActive ;
-} ViaSimultaneousInfoRec, *ViaSimultaneousInfoPtr ;
 
 
 typedef struct _VIABIOSINFO {
@@ -148,6 +133,7 @@ typedef struct _VIABIOSINFO {
     /* Panel/LCD entries */
     ViaPanelInfoPtr Panel ;
     Bool        PanelPresent;
+    Bool        PanelActive;
     Bool        ForcePanel;
     int         PanelIndex;
     Bool        Center;
@@ -165,9 +151,6 @@ typedef struct _VIABIOSINFO {
     /* CRTCs */
     ViaCRTCInfoPtr FirstCRTC ;
     ViaCRTCInfoPtr SecondCRTC ;
-    
-    /* Simultaneous */
-    ViaSimultaneousInfoPtr Simultaneous ;
 
     /* TV entries */
     int         TVEncoder;
@@ -209,8 +192,8 @@ Bool ViaOutputsSelect(ScrnInfoPtr pScrn);
 void ViaModesAttach(ScrnInfoPtr pScrn, MonPtr monitorp);
 CARD32 ViaGetMemoryBandwidth(ScrnInfoPtr pScrn);
 ModeStatus ViaValidMode(int scrnIndex, DisplayModePtr mode, Bool verbose, int flags);
-void ViaModePrimaryLegacy(ScrnInfoPtr pScrn, DisplayModePtr mode);
-void ViaModeSecondaryLegacy(ScrnInfoPtr pScrn, DisplayModePtr mode);
+void ViaModePrimary(ScrnInfoPtr pScrn, DisplayModePtr mode);
+void ViaModeSecondary(ScrnInfoPtr pScrn, DisplayModePtr mode);
 void ViaLCDPower(ScrnInfoPtr pScrn, Bool On);
 void ViaTVPower(ScrnInfoPtr pScrn, Bool On);
 void ViaTVSave(ScrnInfoPtr pScrn);
@@ -218,9 +201,6 @@ void ViaTVRestore(ScrnInfoPtr pScrn);
 #ifdef HAVE_DEBUG
 void ViaTVPrintRegs(ScrnInfoPtr pScrn);
 #endif
-void ViaModeSecondCRTC(ScrnInfoPtr pScrn, DisplayModePtr mode);
-void ViaModeFirstCRTC(ScrnInfoPtr pScrn, DisplayModePtr mode);
-void ViaModeSet(ScrnInfoPtr pScrn, DisplayModePtr mode);
 
 /* via_crtc.c */
 void ViaCRTCInit(ScrnInfoPtr pScrn);
@@ -230,17 +210,11 @@ void ViaSecondCRTCSetStartingAddress(ScrnInfoPtr pScrn, int x, int y);
 void ViaSecondCRTCHorizontalOffset(ScrnInfoPtr pScrn);
 void ViaSecondCRTCHorizontalQWCount(ScrnInfoPtr pScrn, int width);
 void ViaSecondCRTCSetMode(ScrnInfoPtr pScrn, DisplayModePtr mode);
-ModeStatus ViaFirstCRTCModeValid(ScrnInfoPtr pScrn, DisplayModePtr mode);
-ModeStatus ViaSecondCRTCModeValid(ScrnInfoPtr pScrn, DisplayModePtr mode);
-void ViaShadowCRTCSetMode(ScrnInfoPtr pScrn, DisplayModePtr mode);
 
 /* via_panel.c */
 void ViaPanelScale(ScrnInfoPtr pScrn, int resWidth, int resHeight, int panelWidth, int panelHeight );
-void ViaPanelScaleDisable(ScrnInfoPtr pScrn);
 void ViaPanelGetNativeModeFromScratchPad(ScrnInfoPtr pScrn);
 void ViaPanelGetNativeModeFromOption(ScrnInfoPtr pScrn, char* name);
-void ViaPanelPreInit(ScrnInfoPtr pScrn);
-void ViaPanelCenterMode(DisplayModePtr centerMode, DisplayModePtr panelMode, DisplayModePtr mode);
 
 /* via_lvds.c */
 void ViaLVDSPower(ScrnInfoPtr pScrn, Bool on);
@@ -257,19 +231,5 @@ void ViaVT162xInit(ScrnInfoPtr pScrn);
 /* via_ch7xxx.c */
 I2CDevPtr ViaCH7xxxDetect(ScrnInfoPtr pScrn, I2CBusPtr pBus, CARD8 Address);
 void ViaCH7xxxInit(ScrnInfoPtr pScrn);
-
-/* via_display.c */
-void ViaSecondDisplayChannelEnable(ScrnInfoPtr pScrn);
-void ViaSecondDisplayChannelDisable(ScrnInfoPtr pScrn);
-void ViaDisplayInit(ScrnInfoPtr pScrn);
-void ViaDisplayEnableSimultaneous(ScrnInfoPtr pScrn);
-void ViaDisplayDisableSimultaneous(ScrnInfoPtr pScrn);
-void ViaDisplayEnableCRT(ScrnInfoPtr pScrn);
-void ViaDisplayDisableCRT(ScrnInfoPtr pScrn);
-
-/* via_cvt.c */
-DisplayModePtr
-ViaCVTMode(int HDisplay, int VDisplay, float VRefresh, Bool Reduced,
-           Bool Interlaced);
 
 #endif /* _VIA_BIOS_H_ */

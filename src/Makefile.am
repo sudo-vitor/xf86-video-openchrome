@@ -41,9 +41,7 @@ openchrome_drv_la_SOURCES = \
          via_ch7xxx.h \
          via_cursor.c \
          via_crtc.c \
-         via_cvt.c \
          via_dga.c \
-         via_display.c \
          via_dmabuffer.h \
          via_driver.c \
          via_driver.h \

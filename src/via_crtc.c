@@ -145,19 +145,10 @@ ViaFirstCRTCSetMode(ScrnInfoPtr pScrn, DisplayModePtr mode)
             break;
     }
 
-    /* FIXME: check if this is really necessary here */
-    switch (pVia->ChipId) {
-        case VIA_K8M890:
-        case VIA_CX700:
-        case VIA_P4M900:
-            break ;
-        default:
-            ViaSeqMask(hwp, 0x16, 0x08, 0xBF);
-            ViaSeqMask(hwp, 0x17, 0x1F, 0xFF);
-            ViaSeqMask(hwp, 0x18, 0x4E, 0xFF);
-            ViaSeqMask(hwp, 0x1A, 0x08, 0xFD);
-         break;
-    }
+    ViaSeqMask(hwp, 0x16, 0x08, 0xBF);
+    ViaSeqMask(hwp, 0x17, 0x1F, 0xFF);
+    ViaSeqMask(hwp, 0x18, 0x4E, 0xFF);
+    ViaSeqMask(hwp, 0x1A, 0x08, 0xFD);
     
     /* Crtc registers */
     /* horizontal total : 4100 */
@@ -243,19 +234,10 @@ ViaFirstCRTCSetMode(ScrnInfoPtr pScrn, DisplayModePtr mode)
     temp = mode->CrtcVTotal - 1;
     hwp->writeCrtc(hwp, 0x16, temp);
 
-    /* FIXME: check if this is really necessary here */
-    switch (pVia->ChipId) {
-        case VIA_K8M890:
-        case VIA_CX700:
-        case VIA_P4M900:
-            break ;
-        default:
-            /* some leftovers */
-            hwp->writeCrtc(hwp, 0x08, 0x00);
-            ViaCrtcMask(hwp, 0x32, 0, 0xFF); /* ? */
-            ViaCrtcMask(hwp, 0x33, 0, 0xC8);
-         break;
-    }
+    /* some leftovers */
+    hwp->writeCrtc(hwp, 0x08, 0x00);
+    ViaCrtcMask(hwp, 0x32, 0, 0xFF); /* ? */
+    ViaCrtcMask(hwp, 0x33, 0, 0xC8);
 
     /* offset */
     temp = (pScrn->displayWidth * (pScrn->bitsPerPixel >> 3)) >> 3;
@@ -277,38 +259,26 @@ ViaFirstCRTCSetMode(ScrnInfoPtr pScrn, DisplayModePtr mode)
     hwp->writeSeq(hwp, 0x1C, (temp >> 1) & 0xFF);
     ViaSeqMask(hwp, 0x1D, temp >> 9, 0x03);
 
-    /* FIXME: check if this is really necessary here */
-    switch (pVia->ChipId) {
-        case VIA_K8M890:
-        case VIA_CX700:
-        case VIA_P4M900:
-            break ;
-        default:
-            /* some leftovers */
-            ViaCrtcMask(hwp, 0x32, 0, 0xFF);
-            ViaCrtcMask(hwp, 0x33, 0, 0xC8);
-         break;
-    }
+    /* some leftovers */
+    ViaCrtcMask(hwp, 0x32, 0, 0xFF);
+    ViaCrtcMask(hwp, 0x33, 0, 0xC8);
 }
 
 void
 ViaFirstCRTCSetStartingAddress(ScrnInfoPtr pScrn, int x, int y) {
-    
-    VIAPtr pVia = VIAPTR(pScrn);
     vgaHWPtr hwp = VGAHWPTR(pScrn);
     CARD32 Base ;
     CARD32 tmp ;
 
-    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "ViaFirstCRTCSetStartingAddress\n"));
-    
     Base = (y * pScrn->displayWidth + x) * (pScrn->bitsPerPixel / 8);
     Base = Base >> 1;
     hwp->writeCrtc(hwp, 0x0C, (Base & 0xFF00) >> 8);
     hwp->writeCrtc(hwp, 0x0D, Base & 0xFF);
     hwp->writeCrtc(hwp, 0x34, (Base & 0xFF0000) >> 16);
-
-    if (!(pVia->Chipset == VIA_CLE266 && CLE266_REV_IS_AX(pVia->ChipRev)))
-        ViaCrtcMask(hwp, 0x48, Base >> 24, 0x0F);
+#if 0
+    /* The CLE266A doesn't have this implemented, it seems. -- Luc */
+    ViaCrtcMask(hwp, 0x48, Base >> 24, 0x03);
+#endif
     
 }
 
@@ -318,8 +288,6 @@ ViaSecondCRTCSetStartingAddress(ScrnInfoPtr pScrn, int x, int y) {
     CARD32 Base ;
     CARD32 tmp ;
 
-    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "ViaSecondCRTCSetStartingAddress\n"));
-    
     Base = (y * pScrn->displayWidth + x) * (pScrn->bitsPerPixel / 8);
     Base = (Base + pScrn->fbOffset) >> 3;
 
@@ -464,142 +432,5 @@ ViaSecondCRTCSetMode(ScrnInfoPtr pScrn, DisplayModePtr mode)
 
     ViaSecondCRTCHorizontalOffset(pScrn);
     ViaSecondCRTCHorizontalQWCount(pScrn, mode->CrtcHDisplay);
-
-}
-
-/*
- * Checks for limitations imposed by the available VGA timing registers.
- *
- */
-ModeStatus
-ViaFirstCRTCModeValid(ScrnInfoPtr pScrn, DisplayModePtr mode)
-{
-    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "ViaFirstCRTCModeValid\n"));
-
-    if (mode->CrtcHTotal > 4100)
-        return MODE_BAD_HVALUE;
-
-    if (mode->CrtcHDisplay > 2048)
-        return MODE_BAD_HVALUE;
-    
-    if (mode->CrtcHBlankStart > 2048)
-        return MODE_BAD_HVALUE;
-
-    if ((mode->CrtcHBlankEnd - mode->CrtcHBlankStart) > 1025)
-        return MODE_HBLANK_WIDE;
-
-    if (mode->CrtcHSyncStart > 4095)
-        return MODE_BAD_HVALUE;
-    
-    if ((mode->CrtcHSyncEnd - mode->CrtcHSyncStart) > 256)
-        return MODE_HSYNC_WIDE;
-
-    if (mode->CrtcVTotal > 2049)
-        return MODE_BAD_VVALUE;
-
-    if (mode->CrtcVDisplay > 2048)
-        return MODE_BAD_VVALUE;
-
-    if (mode->CrtcVSyncStart > 2047)
-        return MODE_BAD_VVALUE;
-
-    if ((mode->CrtcVSyncEnd - mode->CrtcVSyncStart) > 16)
-        return MODE_VSYNC_WIDE;
-
-    if (mode->CrtcVBlankStart > 2048)
-        return MODE_BAD_VVALUE;
-
-    if ((mode->CrtcVBlankEnd - mode->CrtcVBlankStart) > 257)
-        return MODE_VBLANK_WIDE;
-
-    return MODE_OK;
-}
-
-/*
- *
- */
-ModeStatus
-ViaSecondCRTCModeValid(ScrnInfoPtr pScrn, DisplayModePtr mode)
-{
-    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "ViaSecondCRTCModeValid\n"));
-
-    if (mode->CrtcHTotal > 4096)
-        return MODE_BAD_HVALUE;
-    
-    if (mode->CrtcHDisplay > 2048)
-        return MODE_BAD_HVALUE;
-
-    if (mode->CrtcHBlankStart > 2048)
-        return MODE_BAD_HVALUE;
-
-    if (mode->CrtcHBlankEnd > 4096)
-        return MODE_HBLANK_WIDE;
-
-    if (mode->CrtcHSyncStart > 2047)
-        return MODE_BAD_HVALUE;
-
-    if ((mode->CrtcHSyncEnd - mode->CrtcHSyncStart) > 512)
-        return MODE_HSYNC_WIDE;
-
-    if (mode->CrtcVTotal > 2048)
-        return MODE_BAD_VVALUE;
-
-    if (mode->CrtcVDisplay > 2048)
-        return MODE_BAD_VVALUE;
-
-    if (mode->CrtcVBlankStart > 2048)
-        return MODE_BAD_VVALUE;
-
-    if (mode->CrtcVBlankEnd > 2048)
-        return MODE_VBLANK_WIDE;
-
-    if (mode->CrtcVSyncStart > 2047)
-        return MODE_BAD_VVALUE;
-
-    if ((mode->CrtcVSyncEnd - mode->CrtcVSyncStart) > 32)
-        return MODE_VSYNC_WIDE;
-
-    return MODE_OK;
-}
-
-/*
- * Not tested yet
- */
-void 
-ViaShadowCRTCSetMode(ScrnInfoPtr pScrn, DisplayModePtr mode)
-{
-    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "ViaShadowCRTCSetMode\n"));
-    
-    vgaHWPtr hwp = VGAHWPTR(pScrn);
-    CARD16 temp;
-
-    temp = (mode->CrtcHTotal >> 3) - 5;
-    hwp->writeCrtc(hwp, 0x6D, temp & 0xFF);
-    ViaCrtcMask(hwp, 0x71, temp >> 5, 0x08);
-
-    temp = (mode->CrtcHBlankEnd >> 3) - 1;
-    hwp->writeCrtc(hwp, 0x6E, temp & 0xFF);
-
-    temp = mode->CrtcVTotal - 2;
-    hwp->writeCrtc(hwp, 0x6F, temp & 0xFF);
-    ViaCrtcMask(hwp, 0x71, temp >> 8, 0x07);
-
-    temp = mode->CrtcVDisplay - 1;
-    hwp->writeCrtc(hwp, 0x70, temp & 0xFF);
-    ViaCrtcMask(hwp, 0x71, temp >> 4, 0x70);
-
-    temp = mode->CrtcVBlankStart - 1;
-    hwp->writeCrtc(hwp, 0x72, temp & 0xFF);
-    ViaCrtcMask(hwp, 0x74, temp >> 4, 0x70);
-
-    temp = mode->CrtcVTotal - 1;
-    hwp->writeCrtc(hwp, 0x73, temp & 0xFF);
-    ViaCrtcMask(hwp, 0x74, temp >> 8, 0x07);
-
-    ViaCrtcMask(hwp, 0x76, mode->CrtcVSyncEnd, 0x0F);
-
-    temp = mode->CrtcVSyncStart;
-    hwp->writeCrtc(hwp, 0x75, temp & 0xFF);
-    ViaCrtcMask(hwp, 0x76, temp >> 4, 0x70);
 
 }
