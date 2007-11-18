@@ -65,6 +65,7 @@
 #include "via_swov.h"
 #include "via_dmabuffer.h"
 #include "via_3d.h"
+#include "via_video.h"
 
 #ifdef XF86DRI
 #define _XF86DRI_SERVER_
@@ -372,6 +373,7 @@ typedef struct _VIA {
     Bool                I2CScan;
     
     Bool                UseLegacyModeSwitch ;
+    video_via_regs*     VideoRegs ;
 #endif /* HAVE_DEBUG */
 } VIARec, *VIAPtr;
 

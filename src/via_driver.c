@@ -497,6 +497,9 @@ static Bool VIAGetRec(ScrnInfoPtr pScrn)
                       pBIOSInfo->SecondCRTC && 
                       pBIOSInfo->Simultaneous ;
             }
+            pVia->VideoRegs = (video_via_regs*)xnfcalloc(sizeof(video_via_regs), 1);
+            if (!pVia->VideoRegs)
+                ret = FALSE ;
         } 
     }
     
@@ -535,6 +538,9 @@ static void VIAFreeRec(ScrnInfoPtr pScrn)
     
     if (VIAPTR(pScrn)->pVbe)
         vbeFree(VIAPTR(pScrn)->pVbe);
+    
+    if (pVia->VideoRegs)
+        xfree(pVia->VideoRegs);
     
     if (((VIARec *)(pScrn->driverPrivate))->pBIOSInfo->TVI2CDev)
         xf86DestroyI2CDevRec((((VIARec *)(pScrn->driverPrivate))->pBIOSInfo->TVI2CDev), TRUE);

@@ -476,6 +476,10 @@ viaSaveVideo(ScrnInfoPtr pScrn)
 {
     VIAPtr pVia = VIAPTR(pScrn);
     vmmtr viaVidEng = (vmmtr) pVia->VidMapBase;
+    
+    /* Save video registers */
+    /* TODO: Identify which registers should be saved and restored */
+    memcpy(pVia->VideoRegs, (void*)viaVidEng, sizeof(video_via_regs));
 
     pVia->dwV1 = ((vmmtr) viaVidEng)->video1_ctl;
     pVia->dwV3 = ((vmmtr) viaVidEng)->video3_ctl;
@@ -490,6 +494,10 @@ viaRestoreVideo(ScrnInfoPtr pScrn)
 {
     VIAPtr pVia = VIAPTR(pScrn);
     vmmtr viaVidEng = (vmmtr) pVia->VidMapBase;
+    
+    /* Restore video registers */
+    /* TODO: Identify which registers should be saved and restored */
+    memcpy((void*)viaVidEng, pVia->VideoRegs, sizeof(video_via_regs));
 
     viaVidEng->video1_ctl = pVia->dwV1;
     viaVidEng->video3_ctl = pVia->dwV3;
