@@ -1999,6 +1999,7 @@ VIASave(ScrnInfoPtr pScrn)
 	Regs->CR35 = hwp->readCrtc(hwp, 0x35);
 	Regs->CR36 = hwp->readCrtc(hwp, 0x36);
 
+	Regs->CR48 = hwp->readCrtc(hwp, 0x48);
 	Regs->CR49 = hwp->readCrtc(hwp, 0x49);
 
 	DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "TVSave...\n"));
@@ -2116,6 +2117,7 @@ VIARestore(ScrnInfoPtr pScrn)
     hwp->writeCrtc(hwp, 0x35, Regs->CR35);
     hwp->writeCrtc(hwp, 0x36, Regs->CR36);
 
+    hwp->writeCrtc(hwp, 0x48, Regs->CR48);
     hwp->writeCrtc(hwp, 0x49, Regs->CR49);
 
     /* Restore LCD control regs */

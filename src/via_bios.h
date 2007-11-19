@@ -130,6 +130,7 @@ typedef struct ViaLVDSInfo {
 
 typedef struct ViaCRTCInfo {
     Bool IsActive ;
+    /* TODO: add CRTC constraints here */
 } ViaCRTCInfoRec, *ViaCRTCInfoPtr ;
 
 typedef struct ViaSimultaneousInfo {
