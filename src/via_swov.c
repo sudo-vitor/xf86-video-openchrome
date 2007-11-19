@@ -1623,6 +1623,7 @@ SetVideoWindow(ScrnInfoPtr pScrn, unsigned long videoFlag,
             bottom = pUpdate->DstBottom * pBIOSInfo->panelY /
                 pScrn->currentMode->VDisplay;
         }
+
     }
 
     if (top < 0)
@@ -1668,6 +1669,7 @@ Upd_Video(ScrnInfoPtr pScrn, unsigned long videoFlag,
     unsigned long chromaKeyLow, unsigned long chromaKeyHigh)
 {
     VIAPtr pVia = VIAPTR(pScrn);
+    VIABIOSInfoPtr pBIOSInfo = pVia->pBIOSInfo;
     vgaHWPtr hwp = VGAHWPTR(pScrn);
     VIAHWDiff *hwDiff = &pVia->HWDiff;
 
@@ -1700,8 +1702,15 @@ Upd_Video(ScrnInfoPtr pScrn, unsigned long videoFlag,
         pUpdate->DstLeft, pUpdate->DstRight,
         pUpdate->DstTop, pUpdate->DstBottom));
 
-    pVia->swov.overlayRecordV1.dwWidth = dstWidth =
-    pUpdate->DstRight - pUpdate->DstLeft;
+    dstWidth = pUpdate->DstRight - pUpdate->DstLeft ;
+    if (pBIOSInfo->Panel->IsActive && pBIOSInfo->Panel->Scale) {
+        /* FIXME: We need to determine if the panel is using V1 or V3 */
+        float hfactor = (float)pBIOSInfo->Panel->NativeMode->Width 
+            / pScrn->currentMode->HDisplay ;
+        dstWidth *= hfactor ;
+    }
+    
+    pVia->swov.overlayRecordV1.dwWidth = dstWidth ;
     pVia->swov.overlayRecordV1.dwHeight = dstHeight =
     pUpdate->DstBottom - pUpdate->DstTop;
     srcWidth = (unsigned long)pUpdate->SrcRight - pUpdate->SrcLeft;
@@ -2160,10 +2169,10 @@ VIAVidUpdateOverlay(ScrnInfoPtr pScrn, LPDDUPDATEOVERLAY pUpdate)
     dstTop = pUpdate->DstTop;
     dstRight = pUpdate->DstRight;
     dstBottom = pUpdate->DstBottom;
-
+    
     scrnWidth = pScrn->currentMode->HDisplay;
     scrnHeight = pScrn->currentMode->VDisplay;
-
+    
     if (dstLeft < 0) {
         pUpdate->SrcLeft = (((-dstLeft) * ovlV1->dwV1OriWidth) +
         ((dstRight - dstLeft) >> 1)) / (dstRight - dstLeft);

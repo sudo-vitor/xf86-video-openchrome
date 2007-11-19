@@ -111,14 +111,17 @@ typedef struct ViaPanelInfo {
     CARD8 NativeModeIndex;
     /* Generated mode for native resolution */
     DisplayModePtr  NativeDisplayMode ;
-#if 0    
+#if 0
     /* Panel size from configuration */
     char*           PanelSizeFromOption;
-#endif    
-    /* Center or scale mode */
-    Bool            Center;
+#endif
     /* Current mode but centered */
     DisplayModePtr  CenteredMode ;
+    /* Determine if we must use the hardware scaler
+     * It might be false even if the "Center" option
+     * was specified
+     */
+    Bool            Scale;
 } ViaPanelInfoRec, *ViaPanelInfoPtr ;
 
 typedef struct ViaLVDSInfo {

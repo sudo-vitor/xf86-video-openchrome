@@ -1594,9 +1594,10 @@ ViaModeSecondCRTC(ScrnInfoPtr pScrn, DisplayModePtr mode)
             if ( !pBIOSInfo->Center && (mode->HDisplay
                     < nativeDisplayMode->HDisplay || mode->VDisplay
                     < nativeDisplayMode->VDisplay)) {
-
+                pBIOSInfo->Panel->Scale = TRUE;
                 realMode = nativeDisplayMode;
             } else {
+                pBIOSInfo->Panel->Scale = FALSE;
                 ViaPanelCenterMode(centeredMode, nativeDisplayMode, mode);
                 realMode = centeredMode;
                 ViaPanelScaleDisable(pScrn);
