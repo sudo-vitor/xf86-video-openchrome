@@ -441,136 +441,6 @@ ViaOutputsSelect(ScrnInfoPtr pScrn)
     return TRUE; /* !Secondary always has at least CRT */
 }
 
-/*
- * Try to interprete EDID ourselves.
- */
-static Bool
-ViaGetPanelSizeFromEDID(ScrnInfoPtr pScrn, xf86MonPtr pMon,
-        int *size)
-{
-    int i, max = 0;
-
-    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "VIAGetPanelSizeFromEDID\n"));
-
-    /* !!! Why are we not checking VESA modes? */
-
-    /* checking standard timings */
-    for (i = 0; i < 8; i++)
-        if ((pMon->timings2[i].hsize > 256) && (pMon->timings2[i].hsize > max))
-            max = pMon->timings2[i].hsize;
-
-    if (max != 0) {
-        *size = max;
-        return TRUE;
-    }
-
-    /* checking detailed monitor section */
-
-    /* !!! skip Ranges and standard timings */
-
-    /* check detailed timings */
-    for (i = 0; i < DET_TIMINGS; i++)
-        if (pMon->det_mon[i].type == DT) {
-            struct detailed_timings timing = pMon->det_mon[i].section.d_timings;
-            /* ignore v_active for now */
-            if ((timing.clock > 15000000) && (timing.h_active > max))
-                max = timing.h_active;
-        }
-
-    if (max != 0) {
-        *size = max;
-        return TRUE;
-    }
-
-    return FALSE;
-}
-
-/*
- *
- */
-static Bool
-VIAGetPanelSizeFromDDCv1(ScrnInfoPtr pScrn, int *size)
-{
-    VIAPtr pVia= VIAPTR(pScrn);
-    xf86MonPtr pMon;
-
-    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "VIAGetPanelSizeFromDDCv1\n"));
-
-    if (!xf86I2CProbeAddress(pVia->pI2CBus2, 0xA0))
-        return FALSE;
-
-    pMon = xf86DoEDID_DDC2(pScrn->scrnIndex, pVia->pI2CBus2);
-    if (!pMon)
-        return FALSE;
-
-    pVia->DDC2 = pMon;
-
-    if (!pVia->DDC1) {
-        xf86PrintEDID(pMon);
-        xf86SetDDCproperties(pScrn, pMon);
-    }
-
-    if (!ViaGetPanelSizeFromEDID(pScrn, pMon, size)) {
-        xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
-                "Unable to read PanelSize from EDID information\n");
-        return FALSE;
-    }
-
-    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "VIAGetPanelSizeFromDDCv1: %d\n", *size));
-    return TRUE;
-}
-
-/*
- *
- */
-static Bool
-VIAGetPanelSizeFromDDCv2(ScrnInfoPtr pScrn, int *size)
-{
-    VIAPtr pVia= VIAPTR(pScrn);
-    CARD8 W_Buffer[1];
-    CARD8 R_Buffer[2];
-    I2CDevPtr dev;
-
-    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "VIAGetPanelSizeFromDDCv2\n"));
-
-    if (!xf86I2CProbeAddress(pVia->pI2CBus2, 0xA2))
-        return FALSE;
-
-    dev = xf86CreateI2CDevRec();
-    if (!dev)
-        return FALSE;
-
-    dev->DevName = "EDID2";
-    dev->SlaveAddr = 0xA2;
-    dev->ByteTimeout = 2200; /* VESA DDC spec 3 p. 43 (+10 %) */
-    dev->StartTimeout = 550;
-    dev->BitTimeout = 40;
-    dev->ByteTimeout = 40;
-    dev->AcknTimeout = 40;
-    dev->pI2CBus = pVia->pI2CBus2;
-
-    if (!xf86I2CDevInit(dev)) {
-        xf86DestroyI2CDevRec(dev, TRUE);
-        return FALSE;
-    }
-
-    xf86I2CReadByte(dev, 0x00, R_Buffer);
-    if (R_Buffer[0] != 0x20) {
-        xf86DestroyI2CDevRec(dev, TRUE);
-        return FALSE;
-    }
-
-    /* Found EDID2 Table */
-
-    W_Buffer[0] = 0x76;
-    xf86I2CWriteRead(dev, W_Buffer, 1, R_Buffer, 2);
-    xf86DestroyI2CDevRec(dev, TRUE);
-
-    *size = R_Buffer[0] | (R_Buffer[1] << 8);
-
-    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "VIAGetPanelSizeFromDDCv2: %d\n", *size));
-    return TRUE;
-}
 
 /*
  *
@@ -583,17 +453,18 @@ VIAGetPanelSize(ScrnInfoPtr pScrn)
     VIABIOSInfoPtr pBIOSInfo = pVia->pBIOSInfo;
     char *PanelSizeString[7] = { "640x480", "800x600", "1024x768", "1280x768"
         "1280x1024", "1400x1050", "1600x1200" };
-    int size = 0;
+    int width = 0;
+    int height = 0;
     Bool ret;
 
     DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "VIAGetPanelSize\n"));
 
-    ret = VIAGetPanelSizeFromDDCv1(pScrn, &size);
+    ret = ViaPanelGetSizeFromDDCv1(pScrn, &width, &height);
     if (!ret)
-        ret = VIAGetPanelSizeFromDDCv2(pScrn, &size);
+        ret = ViaPanelGetSizeFromDDCv2(pScrn, &width);
 
     if (ret) {
-        switch (size) {
+        switch (width) {
             case 640:
                 pBIOSInfo->Panel->NativeModeIndex = VIA_PANEL6X4;
                 break;

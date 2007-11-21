@@ -245,7 +245,9 @@ void ViaPanelGetNativeModeFromScratchPad(ScrnInfoPtr pScrn);
 void ViaPanelGetNativeModeFromOption(ScrnInfoPtr pScrn, char* name);
 void ViaPanelPreInit(ScrnInfoPtr pScrn);
 void ViaPanelCenterMode(DisplayModePtr centerMode, DisplayModePtr panelMode, DisplayModePtr mode);
-
+Bool ViaPanelGetSizeFromDDCv1(ScrnInfoPtr pScrn, int* width, int* height);
+Bool ViaPanelGetSizeFromDDCv2(ScrnInfoPtr pScrn, int* width);
+Bool ViaPanelGetSizeFromEDID(ScrnInfoPtr pScrn, xf86MonPtr pMon, int* width, int* height);
 /* via_lvds.c */
 void ViaLVDSPower(ScrnInfoPtr pScrn, Bool on);
 
