@@ -252,6 +252,7 @@ ViaDoubleCheckCLE266Revision(ScrnInfoPtr pScrn)
 /*
  *
  */
+#ifndef XSERVER_LIBPCIACCESS
 void
 ViaCheckCardId(ScrnInfoPtr pScrn)
 {
@@ -278,4 +279,4 @@ ViaCheckCardId(ScrnInfoPtr pScrn)
 	       pVia->PciInfo->subsysVendor, pVia->PciInfo->subsysCard);
     pVia->Id = NULL;
 }
-
+#endif

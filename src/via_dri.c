@@ -111,9 +111,15 @@ static void VIADRIIrqInit( ScrnInfoPtr pScrn , VIADRIPtr pVIADRI)
  
     pVIADRI->irqEnabled = drmGetInterruptFromBusID
 	(pVia->drmFD,
+#if XSERVER_LIBPCIACCESS
+         ((pVia->PciInfo->domain << 8) | pVia->PciInfo->bus),
+         pVia->PciInfo->dev, pVia->PciInfo->func
+#else
 	 ((pciConfigPtr)pVia->PciInfo->thisCard)->busnum,
 	 ((pciConfigPtr)pVia->PciInfo->thisCard)->devnum,
-	 ((pciConfigPtr)pVia->PciInfo->thisCard)->funcnum);
+	 ((pciConfigPtr)pVia->PciInfo->thisCard)->funcnum
+#endif
+         );
     if ((drmCtlInstHandler(pVia->drmFD, pVIADRI->irqEnabled))) {
 	xf86DrvMsg(pScrn->scrnIndex, X_WARNING,
 		   "[drm] Failure adding irq handler. "
@@ -677,9 +683,15 @@ Bool VIADRIScreenInit(ScreenPtr pScreen)
     pDRIInfo->clientDriverName = VIAClientDriverName;
     pDRIInfo->busIdString = xalloc(64);
     sprintf(pDRIInfo->busIdString, "PCI:%d:%d:%d",
+#if XSERVER_LIBPCIACCESS
+        ((pVia->PciInfo->domain << 8) | pVia->PciInfo->bus),
+        pVia->PciInfo->dev, pVia->PciInfo->func
+#else
         ((pciConfigPtr)pVia->PciInfo->thisCard)->busnum,
         ((pciConfigPtr)pVia->PciInfo->thisCard)->devnum,
-        ((pciConfigPtr)pVia->PciInfo->thisCard)->funcnum);
+        ((pciConfigPtr)pVia->PciInfo->thisCard)->funcnum
+#endif
+        );
     pDRIInfo->ddxDriverMajorVersion = VIA_DRIDDX_VERSION_MAJOR;
     pDRIInfo->ddxDriverMinorVersion = VIA_DRIDDX_VERSION_MINOR;
     pDRIInfo->ddxDriverPatchVersion = VIA_DRIDDX_VERSION_PATCH;
