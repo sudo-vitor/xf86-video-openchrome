@@ -976,8 +976,7 @@ static Bool VIAPreInit(ScrnInfoPtr pScrn, int flags)
 
     if (!xf86SetDefaultVisual(pScrn, -1)) {
         return FALSE;
-    }
-    else {
+    } else {
         /* We don't currently support DirectColor at > 8bpp */
         if (pScrn->depth > 8 && pScrn->defaultVisual != TrueColor) {
             xf86DrvMsg(pScrn->scrnIndex, X_ERROR, "Given default visual"
@@ -1085,7 +1084,7 @@ static Bool VIAPreInit(ScrnInfoPtr pScrn, int flags)
             pVia->rotate = -1;
             pVia->hwcursor = FALSE;
             xf86DrvMsg(pScrn->scrnIndex, X_CONFIG,  "Rotating screen"
-                       "counter clockwise - acceleration disabled.\n");
+                       "counterclockwise - acceleration disabled.\n");
         } else {
             xf86DrvMsg(pScrn->scrnIndex, X_CONFIG, "\"%s\" is not a valid"
                        "value for Option \"Rotate\".\n", s);
@@ -1476,7 +1475,7 @@ static Bool VIAPreInit(ScrnInfoPtr pScrn, int flags)
         default:
             if (pScrn->videoRam < 16384 || pScrn->videoRam > 65536) {
                 xf86DrvMsg(pScrn->scrnIndex, X_WARNING,
-                          "Using old memory-detection method.");
+                          "Using old memory-detection method.\n");
                 bMemSize = hwp->readSeq(hwp, 0x39);
                 if (bMemSize > 16 && bMemSize <= 128)
                     pScrn->videoRam = (bMemSize + 1) << 9;
@@ -1491,7 +1490,7 @@ static Bool VIAPreInit(ScrnInfoPtr pScrn, int flags)
             } else {
                 from = X_DEFAULT;
                 xf86DrvMsg(pScrn->scrnIndex, X_WARNING,
-                          "No memory-detection done.  Use VideoRAM option.");
+                          "No memory-detection done.  Use VideoRAM option.\n");
             }
     }
 
