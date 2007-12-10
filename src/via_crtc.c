@@ -170,12 +170,14 @@ ViaFirstCRTCSetMode(ScrnInfoPtr pScrn, DisplayModePtr mode)
     hwp->writeCrtc(hwp, 0x01, temp & 0xFF);
 
     /* horizontal blanking start : 2048 */
-    temp = (mode->CrtcHBlankStart >> 3) - 1;
+    /* temp = (mode->CrtcHBlankStart >> 3) - 1; */
+    temp = (mode->CrtcHDisplay >> 3) - 1;
     hwp->writeCrtc(hwp, 0x02, temp & 0xFF);
     /* If HblankStart has more bits anywhere, add them here */
 
     /* horizontal blanking end : start + 1025 */
-    temp = (mode->CrtcHBlankEnd >> 3) - 1;
+    /* temp = (mode->CrtcHBlankEnd >> 3) - 1; */
+    temp = (mode->CrtcHTotal >> 3) - 1;
     ViaCrtcMask(hwp, 0x03, temp, 0x1F);
     ViaCrtcMask(hwp, 0x05, temp << 2, 0x80);
     ViaCrtcMask(hwp, 0x33, temp >> 1, 0x20);
@@ -233,13 +235,15 @@ ViaFirstCRTCSetMode(ScrnInfoPtr pScrn, DisplayModePtr mode)
     hwp->writeCrtc(hwp, 0x14, 0x00);
 
     /* vertical blanking start : 2048 */
-    temp = mode->CrtcVBlankStart - 1;
+    /* temp = mode->CrtcVBlankStart - 1; */
+    temp = mode->CrtcVDisplay - 1;
     hwp->writeCrtc(hwp, 0x15, temp & 0xFF);
     ViaCrtcMask(hwp, 0x07, temp >> 5, 0x08);
     ViaCrtcMask(hwp, 0x09, temp >> 4, 0x20);
     ViaCrtcMask(hwp, 0x35, temp >> 7, 0x08);
 
     /* vertical blanking end : start + 257 */
+    /* temp = mode->CrtcVBlankEnd - 1; */
     temp = mode->CrtcVTotal - 1;
     hwp->writeCrtc(hwp, 0x16, temp);
 
@@ -409,12 +413,14 @@ ViaSecondCRTCSetMode(ScrnInfoPtr pScrn, DisplayModePtr mode)
     ViaCrtcMask(hwp, 0x55, temp >> 4, 0x70);
 
     /* horizontal blanking start : 2048 */
-    temp = mode->CrtcHBlankStart - 1;
+    /* temp = mode->CrtcHBlankStart - 1; */
+    temp = mode->CrtcHDisplay - 1;
     hwp->writeCrtc(hwp, 0x52, temp & 0xFF);
     ViaCrtcMask(hwp, 0x54, temp >> 8, 0x07);
 
     /* horizontal blanking end : 4096 */
-    temp = mode->CrtcHBlankEnd - 1;
+    /* temp = mode->CrtcHBlankEnd - 1; */
+    temp = mode->CrtcHTotal - 1;
     hwp->writeCrtc(hwp, 0x53, temp & 0xFF);
     ViaCrtcMask(hwp, 0x54, temp >> 5, 0x38);
     ViaCrtcMask(hwp, 0x5D, temp >> 5, 0x40);
@@ -444,12 +450,14 @@ ViaSecondCRTCSetMode(ScrnInfoPtr pScrn, DisplayModePtr mode)
     ViaCrtcMask(hwp, 0x5D, temp >> 5, 0x38);
 
     /* vertical blanking start : 2048 */
-    temp = mode->CrtcVBlankStart - 1;
+    /* temp = mode->CrtcVBlankStart - 1; */
+    temp = mode->CrtcVDisplay - 1;
     hwp->writeCrtc(hwp, 0x5A, temp & 0xFF);
     ViaCrtcMask(hwp, 0x5C, temp >> 8, 0x07);
 
     /* vertical blanking end : 2048 */
-    temp = mode->CrtcVBlankEnd - 1;
+    /* temp = mode->CrtcVBlankEnd - 1; */
+    temp = mode->CrtcVTotal - 1;
     hwp->writeCrtc(hwp, 0x5B, temp & 0xFF);
     ViaCrtcMask(hwp, 0x5C, temp >> 5, 0x38);
 
