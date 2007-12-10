@@ -709,7 +709,8 @@ static int LookupChipSet(PciChipsets *pset, int chipSet)
 }
       
 
-static int LookupChipID(PciChipsets* pset, int ChipID)
+static int
+LookupChipID(PciChipsets* pset, int ChipID)
 {
     /* Is there a function to do this for me? */
     while (pset->numChipset >= 0)
@@ -724,7 +725,8 @@ static int LookupChipID(PciChipsets* pset, int ChipID)
 
 } /* LookupChipID */
 
-static void VIAProbeDDC(ScrnInfoPtr pScrn, int index)
+static void
+VIAProbeDDC(ScrnInfoPtr pScrn, int index)
 {
     vbeInfoPtr pVbe;
 
@@ -736,7 +738,8 @@ static void VIAProbeDDC(ScrnInfoPtr pScrn, int index)
     }
 }
 
-static Bool VIASetupDefaultOptions(ScrnInfoPtr pScrn)
+static Bool
+VIASetupDefaultOptions(ScrnInfoPtr pScrn)
 {
     VIAPtr pVia = VIAPTR(pScrn);
 
@@ -822,7 +825,8 @@ static Bool VIASetupDefaultOptions(ScrnInfoPtr pScrn)
 }
     
 
-static Bool VIAPreInit(ScrnInfoPtr pScrn, int flags)
+static Bool
+VIAPreInit(ScrnInfoPtr pScrn, int flags)
 {
     EntityInfoPtr   pEnt;
     VIAPtr          pVia;
@@ -2918,10 +2922,11 @@ VIAFreeScreen(int scrnIndex, int flags)
     VIAFreeRec(xf86Screens[scrnIndex]);
 
     if (xf86LoaderCheckSymbol("vgaHWFreeHWRec"))
-	    vgaHWFreeHWRec(xf86Screens[scrnIndex]);
+        vgaHWFreeHWRec(xf86Screens[scrnIndex]);
 }
 
-static Bool VIASaveScreen(ScreenPtr pScreen, int mode)
+static Bool
+VIASaveScreen(ScreenPtr pScreen, int mode)
 {
     return vgaHWSaveScreen(pScreen, mode);
 }
@@ -2951,7 +2956,6 @@ VIAAdjustFrame(int scrnIndex, int x, int y, int flags)
             if (pVia->pBIOSInfo->SecondCRTC->IsActive)
                 ViaSecondCRTCSetStartingAddress(pScrn, x, y);
         }
-        
     }
 
     VIAVidAdjustFrame(pScrn, x, y);
@@ -2991,7 +2995,6 @@ VIASwitchMode(int scrnIndex, DisplayModePtr mode, int flags)
     }
 #endif
     return ret;
-    
 }
 
 
