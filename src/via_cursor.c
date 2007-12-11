@@ -187,12 +187,6 @@ viaCursorHWShow(ScrnInfoPtr pScrn)
 {
     VIAPtr pVia= VIAPTR(pScrn);
     CARD32 mode;
-    if ((pVia->Chipset == VIA_CX700) /*|| (pVia->Chipset == VIA_CN750) */ ) {
-        /* Set color to white and black. */
-        /* Use 30 bits [29:0] to specify HW cursor background/foreground color. */
-        viaCursorSetColors(pScrn, 0x3fffffff, 0);
-    }
-
     mode = VIAGETREG(VIA_REG_CURSOR_MODE);
     mode &=~0x80000003;
     

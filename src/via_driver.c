@@ -2877,8 +2877,8 @@ VIACloseScreen(int scrnIndex, ScreenPtr pScreen)
 	if (!pVia->IsSecondary) {
             /* Turn off all video activities */
             viaExitVideo(pScrn); 
-
-            viaHideCursor(pScrn);
+            if (pVia->cursor->isHWCursorEnabled)
+                viaCursorHide(pScrn);
         }
 
         if (pVia->VQEnable)
