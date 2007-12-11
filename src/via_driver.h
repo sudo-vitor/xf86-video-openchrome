@@ -105,7 +105,6 @@
 #endif
 #define VIA_VERSION     ((VERSION_MAJOR<<24) | (VERSION_MINOR<<16) | PATCHLEVEL)
 
-#define VIA_CURSOR_SIZE         (4 * 1024)
 #define VIA_VQ_SIZE             (256 * 1024)
 
 typedef struct {
@@ -196,9 +195,36 @@ typedef struct{
     int major, minor;
 } ViaVbeModeInfo;
 
+
+typedef struct ViaCursorInfo {
+    xf86CursorInfoPtr   info;
+    Bool isHWCursorEnabled;
+    /* Is hardware icon supported by this hardware? */
+    Bool isARGBSupported;
+    /* disable/enable argb */
+    Bool isARGBEnabled ;
+    /* Are we currently using ARGB cursor? see via_cursor.c */
+    Bool useARGB;
+    /* */
+    int fbCursorStart;
+    /* max width in pixels (64 or 32)*/
+    int maxWidth;
+    /* max height in pixels (64 or 32)*/
+    int maxHeight;
+    
+    /* size in bytes */
+    int size;
+    
+    unsigned char       *image;
+    
+    CARD32              foreground;
+    CARD32              background;
+    CARD32              mode;
+    
+} ViaCursorInfoRec, *ViaCursorInfoPtr ;
+
 typedef struct _VIA {
     VIARegRec           SavedReg;
-    xf86CursorInfoPtr   CursorInfoRec;
     int                 Bpp, Bpl;
 
     Bool                FirstInit;
@@ -208,7 +234,6 @@ typedef struct _VIA {
     int                 FBFreeEnd;
     int                 driSize;
     int                 maxDriSize;
-    int                 CursorStart;
     int                 VQStart;
     int                 VQEnd;
 
@@ -227,7 +252,6 @@ typedef struct _VIA {
 
     /* Here are all the Options */
     Bool                VQEnable;
-    Bool                hwcursor;
     Bool                NoAccel;
     Bool                shadowFB;
     int                 rotate;
@@ -344,11 +368,8 @@ typedef struct _VIA {
     Bool                dmaXV;
 
     CARD8               ActiveDevice;	/* Option */
-    unsigned char       *CursorImage;
-    CARD32		CursorFG;
-    CARD32		CursorBG;
-    CARD32		CursorMC;
-
+    ViaCursorInfoPtr    cursor;
+    
     /* Video */
     int                 VideoEngine;
     swovRec		swov;
@@ -400,11 +421,14 @@ void VIAInitialize3DEngine(ScrnInfoPtr pScrn);
 #endif 
 
 /* In via_cursor.c. */
-Bool VIAHWCursorInit(ScreenPtr pScreen);
-void VIAShowCursor(ScrnInfoPtr);
-void VIAHideCursor(ScrnInfoPtr);
-void ViaCursorStore(ScrnInfoPtr pScrn);
-void ViaCursorRestore(ScrnInfoPtr pScrn);
+Bool viaCursorHWInit(ScreenPtr pScreen);
+void viaCursorShow(ScrnInfoPtr);
+void viaCursorHide(ScrnInfoPtr);
+void viaCursorStore(ScrnInfoPtr pScrn);
+void viaCursorRestore(ScrnInfoPtr pScrn);
+Bool viaCursorRecInit(ScrnInfoPtr pScrn);
+void viaCursorRecDestroy(ScrnInfoPtr pScrn);
+void viaCursorSetFB(ScrnInfoPtr pScrn);
 
 /* In via_accel.c. */
 Bool viaInitAccel(ScreenPtr);
