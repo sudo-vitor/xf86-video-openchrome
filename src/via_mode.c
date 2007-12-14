@@ -1357,7 +1357,7 @@ ViaModeSecondaryLegacy(ScrnInfoPtr pScrn, DisplayModePtr mode)
         ViaTVSetMode(pScrn, mode);
 
     /* CLE266A2 apparently doesn't like this */
-    if (!(pVia->Chipset == VIA_CLE266 && pVia->ChipRev != 0x02))
+    if (!(pVia->Chipset == VIA_CLE266 && pVia->ChipRev == 0x02))
         ViaCrtcMask(hwp, 0x6C, 0x00, 0x1E);
 
     if (pBIOSInfo->Panel->IsActive
