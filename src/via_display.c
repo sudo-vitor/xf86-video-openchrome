@@ -7,43 +7,48 @@
 #include "via_vgahw.h"
 #include "via_id.h"
 
-/**
- * Enables the second display channel
+/*
+ * Enables the second display channel.
  */
-void 
+void
 ViaSecondDisplayChannelEnable(ScrnInfoPtr pScrn)
 {
     vgaHWPtr hwp = VGAHWPTR(pScrn);
-    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "ViaSecondDisplayChannelEnable\n"));
+
+    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO,
+                     "ViaSecondDisplayChannelEnable\n"));
     ViaCrtcMask(hwp, 0x6A, 0x00, 1 << 6);
     ViaCrtcMask(hwp, 0x6A, 1 << 7, 1 << 7);
     ViaCrtcMask(hwp, 0x6A, 1 << 6, 1 << 6);
 }
 
-/**
- * Disables the second display channel
+/*
+ * Disables the second display channel.
  */
-void 
+void
 ViaSecondDisplayChannelDisable(ScrnInfoPtr pScrn)
 {
     vgaHWPtr hwp = VGAHWPTR(pScrn);
-    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "ViaSecondDisplayChannelDisable\n"));
-    
+
+    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO,
+                     "ViaSecondDisplayChannelDisable\n"));
+
     ViaCrtcMask(hwp, 0x6A, 0x00, 1 << 6);
     ViaCrtcMask(hwp, 0x6A, 0x00, 1 << 7);
     ViaCrtcMask(hwp, 0x6A, 1 << 6, 1 << 6);
 }
 
-/**
- * Initial settings for displays
+/*
+ * Initial settings for displays.
  */
-void 
+void
 ViaDisplayInit(ScrnInfoPtr pScrn)
 {
-    VIAPtr pVia= VIAPTR(pScrn);
+    VIAPtr pVia = VIAPTR(pScrn);
     vgaHWPtr hwp = VGAHWPTR(pScrn);
+
     DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "ViaDisplayPreInit\n"));
-    
+
     ViaSecondDisplayChannelDisable(pScrn);
     ViaCrtcMask(hwp, 0x6A, 0x00, 0x3D);
 
@@ -54,62 +59,68 @@ ViaDisplayInit(ScrnInfoPtr pScrn)
     /* (IGA1 Timing Plus 2, added in VT3259 A3 or later) */
     if (pVia->Chipset != VIA_CLE266 && pVia->Chipset != VIA_KM400)
         ViaCrtcMask(hwp, 0x47, 0x00, 0xC8);
-
 }
 
-/**
- * Enables simultaneous mode
+/*
+ * Enables simultaneous mode.
  */
 void
 ViaDisplayEnableSimultaneous(ScrnInfoPtr pScrn)
 {
     vgaHWPtr hwp = VGAHWPTR(pScrn);
-    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "ViaDisplayEnableSimultaneous\n"));
-    ViaCrtcMask(hwp, 0x6B, 0x08, 0x08);   
+
+    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO,
+                     "ViaDisplayEnableSimultaneous\n"));
+    ViaCrtcMask(hwp, 0x6B, 0x08, 0x08);
 }
 
-/**
- * Disables simultaneous mode
+/*
+ * Disables simultaneous mode.
  */
 void
 ViaDisplayDisableSimultaneous(ScrnInfoPtr pScrn)
 {
     vgaHWPtr hwp = VGAHWPTR(pScrn);
-    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "ViaDisplayDisableSimultaneous\n"));
-    ViaCrtcMask(hwp, 0x6B, 0x00, 0x08);   
+
+    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO,
+                     "ViaDisplayDisableSimultaneous\n"));
+    ViaCrtcMask(hwp, 0x6B, 0x00, 0x08);
 }
 
-/**
- * Enables CRT using DPMS registers
+/*
+ * Enables CRT using DPMS registers.
  */
 void
-ViaDisplayEnableCRT(ScrnInfoPtr pScrn) 
+ViaDisplayEnableCRT(ScrnInfoPtr pScrn)
 {
     vgaHWPtr hwp = VGAHWPTR(pScrn);
+
     DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "ViaDisplayEnableCRT\n"));
-    ViaCrtcMask(hwp, 0x36, 0x00, 0x30);   
+    ViaCrtcMask(hwp, 0x36, 0x00, 0x30);
 }
 
-/**
- * Disables CRT using DPMS registers
+/*
+ * Disables CRT using DPMS registers.
  */
 void
-ViaDisplayDisableCRT(ScrnInfoPtr pScrn) 
+ViaDisplayDisableCRT(ScrnInfoPtr pScrn)
 {
     vgaHWPtr hwp = VGAHWPTR(pScrn);
+
     DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "ViaDisplayDisableCRT\n"));
-    ViaCrtcMask(hwp, 0x36, 0x30, 0x30);   
+    ViaCrtcMask(hwp, 0x36, 0x30, 0x30);
 }
 
-/**
- * Sets the primary or secondary display stream on CRT
+/*
+ * Sets the primary or secondary display stream on CRT.
  */
 void
-ViaDisplaySetStreamOnCRT(ScrnInfoPtr pScrn, Bool primary) {
+ViaDisplaySetStreamOnCRT(ScrnInfoPtr pScrn, Bool primary)
+{
     vgaHWPtr hwp = VGAHWPTR(pScrn);
-    
+
     DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "ViaDisplaySetStreamOnCRT\n"));
-    
+
     if (primary)
         ViaSeqMask(hwp, 0x16, 0x00, 0x40);
     else

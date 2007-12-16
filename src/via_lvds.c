@@ -21,9 +21,10 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
  * DEALINGS IN THE SOFTWARE.
- * 
- * Integrated LVDS power management functions
- * 
+ */
+
+/*
+ * Integrated LVDS power management functions.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -39,60 +40,48 @@
 static void
 ViaLVDSPowerFirstSequence(ScrnInfoPtr pScrn, Bool on)
 {
-
     vgaHWPtr hwp = VGAHWPTR(pScrn);
 
     if (on) {
-
         /* Use hardware control power sequence. */
         hwp->writeCrtc(hwp, 0x91, hwp->readCrtc(hwp, 0x91) & 0xFE);
         /* Turn on back light. */
         hwp->writeCrtc(hwp, 0x91, hwp->readCrtc(hwp, 0x91) & 0x3F);
         /* Turn on hardware power sequence. */
         hwp->writeCrtc(hwp, 0x6A, hwp->readCrtc(hwp, 0x6A) | 0x08);
-
     } else {
-
         /* Turn off power sequence. */
         hwp->writeCrtc(hwp, 0x6A, hwp->readCrtc(hwp, 0x6A) & 0xF7);
         usleep(1);
         /* Turn off back light. */
         hwp->writeCrtc(hwp, 0x91, 0xC0);
-
     }
 }
 
-static void 
+static void
 ViaLVDSPowerSecondSequence(ScrnInfoPtr pScrn, Bool on)
 {
-
     vgaHWPtr hwp = VGAHWPTR(pScrn);
 
     if (on) {
-
         /* Use hardware control power sequence. */
         hwp->writeCrtc(hwp, 0xD3, hwp->readCrtc(hwp, 0xD3) & 0xFE);
         /* Turn on back light. */
         hwp->writeCrtc(hwp, 0xD3, hwp->readCrtc(hwp, 0xD3) & 0x3F);
         /* Turn on hardware power sequence. */
         hwp->writeCrtc(hwp, 0xD4, hwp->readCrtc(hwp, 0xD4) | 0x02);
-
     } else {
-
         /* Turn off power sequence. */
         hwp->writeCrtc(hwp, 0xD4, hwp->readCrtc(hwp, 0xD4) & 0xFD);
         usleep(1);
         /* Turn off back light. */
         hwp->writeCrtc(hwp, 0xD3, 0xC0);
-
     }
-
 }
 
-static void 
+static void
 ViaLVDSDFPPower(ScrnInfoPtr pScrn, Bool on)
 {
-
     vgaHWPtr hwp = VGAHWPTR(pScrn);
 
     if (on) {
@@ -104,10 +93,9 @@ ViaLVDSDFPPower(ScrnInfoPtr pScrn, Bool on)
     }
 }
 
-static void 
+static void
 ViaLVDSPowerChannel(ScrnInfoPtr pScrn, Bool on)
 {
-
     vgaHWPtr hwp = VGAHWPTR(pScrn);
     CARD8 lvdsMask;
 
@@ -122,7 +110,7 @@ ViaLVDSPowerChannel(ScrnInfoPtr pScrn, Bool on)
     }
 }
 
-void 
+void
 ViaLVDSPower(ScrnInfoPtr pScrn, Bool on)
 {
     DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "ViaLVDSPower\n"));
@@ -130,5 +118,4 @@ ViaLVDSPower(ScrnInfoPtr pScrn, Bool on)
     ViaLVDSPowerSecondSequence(pScrn, on);
     ViaLVDSDFPPower(pScrn, on);
     ViaLVDSPowerChannel(pScrn, on);
-
 }

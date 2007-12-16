@@ -22,9 +22,10 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
  * DEALINGS IN THE SOFTWARE.
- * 
- * Panel core functions
- * 
+ */
+
+/*
+ * Core panel functions.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -37,99 +38,105 @@
 #include "via_id.h"
 
 static ViaPanelModeRec ViaPanelNativeModes[] = {
-        { 640, 480 },
-        { 800, 600 },
-        { 1024, 768 },
-        { 1280, 768 },
-        { 1280, 1024 },
-        { 1400, 1050 },
-        { 1600, 1200 },
-        { 1280, 800 },
-        { 800, 480 },
-        { 1366, 768 },
-        { 1360, 768 },
-        { 1920, 1080 },
-        { 1920, 1200 },
-        { 1024, 600 },
-        { 1440, 900 },
-        { 1280, 720 }
+    {640, 480},
+    {800, 600},
+    {1024, 768},
+    {1280, 768},
+    {1280, 1024},
+    {1400, 1050},
+    {1600, 1200},
+    {1280, 800},
+    {800, 480},
+    {1366, 768},
+    {1360, 768},
+    {1920, 1080},
+    {1920, 1200},
+    {1024, 600},
+    {1440, 900},
+    {1280, 720}
 };
 
 static int
-ViaPanelLookUpModeIndex(int width, int height) {
-    int i, index = VIA_PANEL_INVALID ;
+ViaPanelLookUpModeIndex(int width, int height)
+{
+    int i, index = VIA_PANEL_INVALID;
     int length = sizeof(ViaPanelNativeModes) / sizeof(ViaPanelModeRec);
-    
-    for (i = 0 ; i < length ; i++) {
-        if ( ViaPanelNativeModes[ i ].Width == width 
-            && ViaPanelNativeModes[ i ].Height == height ) {
-            index = i ;
-            break ;
+
+    for (i = 0; i < length; i++) {
+        if (ViaPanelNativeModes[i].Width == width
+            && ViaPanelNativeModes[i].Height == height) {
+            index = i;
+            break;
         }
     }
-    return index ;
+    return index;
 }
 
-/**
+/*
  * Sets the panel dimensions from the configuration
- * using name with format "9999x9999"
+ * using name with format "9999x9999".
  */
 void
-ViaPanelGetNativeModeFromOption(ScrnInfoPtr pScrn, char* name)
+ViaPanelGetNativeModeFromOption(ScrnInfoPtr pScrn, char *name)
 {
-    VIAPtr pVia= VIAPTR(pScrn);
+    VIAPtr pVia = VIAPTR(pScrn);
     VIABIOSInfoPtr pBIOSInfo = pVia->pBIOSInfo;
-    ViaPanelInfoPtr panel = pBIOSInfo->Panel ;
+    ViaPanelInfoPtr panel = pBIOSInfo->Panel;
     CARD8 index;
     CARD8 length;
 
-    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "ViaPanelGetNativeModeFromOption\n"));
-    
+    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO,
+                     "ViaPanelGetNativeModeFromOption\n"));
+
     panel->NativeModeIndex = VIA_PANEL_INVALID;
     if (strlen(name) < 10) {
         length = sizeof(ViaPanelNativeModes) / sizeof(ViaPanelModeRec);
         char aux[10];
+
         for (index = 0; index < length; index++) {
-            sprintf(aux, "%dx%d", ViaPanelNativeModes[ index ].Width,
-                    ViaPanelNativeModes[ index ].Height) ;
+            sprintf(aux, "%dx%d", ViaPanelNativeModes[index].Width,
+                    ViaPanelNativeModes[index].Height);
             if (!xf86NameCmp(name, aux)) {
                 panel->NativeModeIndex = index;
-                panel->NativeMode->Width = ViaPanelNativeModes[ index ].Width ;
-                panel->NativeMode->Height = ViaPanelNativeModes[ index ].Height ;
+                panel->NativeMode->Width = ViaPanelNativeModes[index].Width;
+                panel->NativeMode->Height = ViaPanelNativeModes[index].Height;
                 break;
             }
         }
     } else {
         xf86DrvMsg(pScrn->scrnIndex, X_WARNING,
-                "%s is not a valid panel size.\n", name);
+                   "%s is not a valid panel size.\n", name);
     }
 }
 
-/**
- * Gets the native panel resolution from scratch pad registers
- * 
+/*
+ * Gets the native panel resolution from scratch pad registers.
  */
-void 
-ViaPanelGetNativeModeFromScratchPad(ScrnInfoPtr pScrn) {
+void
+ViaPanelGetNativeModeFromScratchPad(ScrnInfoPtr pScrn)
+{
     VIAPtr pVia = VIAPTR(pScrn);
     vgaHWPtr hwp = VGAHWPTR(pScrn);
-    CARD8 index ;
-    
-    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "ViaPanelGetNativeModeFromScratchPad\n"));
-    
-    index = hwp->readCrtc(hwp, 0x3F) & 0x0F ;
-    
-    ViaPanelInfoPtr panel = pVia->pBIOSInfo->Panel ;
-    panel->NativeModeIndex = index ;
-    panel->NativeMode->Width = ViaPanelNativeModes[ index ].Width ;
-    panel->NativeMode->Height = ViaPanelNativeModes[ index ].Height ;
-    xf86DrvMsg(pScrn->scrnIndex, X_INFO, 
-            "Native Panel Resolution is %dx%d\n",
-            panel->NativeMode->Width, panel->NativeMode->Height);    
+    CARD8 index;
+
+    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO,
+                     "ViaPanelGetNativeModeFromScratchPad\n"));
+
+    index = hwp->readCrtc(hwp, 0x3F) & 0x0F;
+
+    ViaPanelInfoPtr panel = pVia->pBIOSInfo->Panel;
+
+    panel->NativeModeIndex = index;
+    panel->NativeMode->Width = ViaPanelNativeModes[index].Width;
+    panel->NativeMode->Height = ViaPanelNativeModes[index].Height;
+    xf86DrvMsg(pScrn->scrnIndex, X_INFO,
+               "Native Panel Resolution is %dx%d\n",
+               panel->NativeMode->Width, panel->NativeMode->Height);
 }
 
 void
-ViaPanelScaleDisable(ScrnInfoPtr pScrn) {
+ViaPanelScaleDisable(ScrnInfoPtr pScrn)
+{
     VIAPtr pVia = VIAPTR(pScrn);
     vgaHWPtr hwp = VGAHWPTR(pScrn);
 
@@ -138,58 +145,54 @@ ViaPanelScaleDisable(ScrnInfoPtr pScrn) {
         ViaCrtcMask(hwp, 0xA2, 0x00, 0xC8);
 }
 
-/**
- * 
- */
-void 
-ViaPanelScale(ScrnInfoPtr pScrn, int resWidth, int resHeight, int panelWidth, int panelHeight ) {
+void
+ViaPanelScale(ScrnInfoPtr pScrn, int resWidth, int resHeight,
+              int panelWidth, int panelHeight)
+{
     VIAPtr pVia = VIAPTR(pScrn);
     vgaHWPtr hwp = VGAHWPTR(pScrn);
-    int     horScalingFactor = 0;
-    int     verScalingFactor = 0;
-    CARD8   cra2 = 0;
-    CARD8   cr77 = 0;
-    CARD8   cr78 = 0;
-    CARD8   cr79 = 0;
-    CARD8   cr9f = 0;
-    Bool scaling = FALSE ;
+    int horScalingFactor = 0;
+    int verScalingFactor = 0;
+    CARD8 cra2 = 0;
+    CARD8 cr77 = 0;
+    CARD8 cr78 = 0;
+    CARD8 cr79 = 0;
+    CARD8 cr9f = 0;
+    Bool scaling = FALSE;
 
     DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO,
-        "ViaPanelScale: %d,%d -> %d,%d\n",
-       resWidth, resHeight, panelWidth, panelHeight ));
+                     "ViaPanelScale: %d,%d -> %d,%d\n",
+                     resWidth, resHeight, panelWidth, panelHeight));
 
     if (resWidth < panelWidth) {
-
         /* FIXME: It is different for chipset < K8M800 */
-        horScalingFactor = ((resWidth - 1) * 4096) / (panelWidth - 1) ;
+        horScalingFactor = ((resWidth - 1) * 4096) / (panelWidth - 1);
 
         /* Horizontal scaling enabled */
         cra2 = 0xC0;
-        cr9f = horScalingFactor & 0x0003;                  /* HSCaleFactor[1:0] at CR9F[1:0] */
-        cr77 = (horScalingFactor & 0x03FC)>>2;             /* HSCaleFactor[9:2] at CR77[7:0] */
-        cr79 = (horScalingFactor & 0x0C00)>>10;            /* HSCaleFactor[11:10] at CR79[5:4] */
+        cr9f = horScalingFactor & 0x0003;          /* HSCaleFactor[1:0] at CR9F[1:0] */
+        cr77 = (horScalingFactor & 0x03FC) >> 2;   /* HSCaleFactor[9:2] at CR77[7:0] */
+        cr79 = (horScalingFactor & 0x0C00) >> 10;  /* HSCaleFactor[11:10] at CR79[5:4] */
         cr79 <<= 4;
-        scaling = TRUE ;
-
+        scaling = TRUE;
     }
 
     if (resHeight < panelHeight) {
-
-        verScalingFactor = ((resHeight - 1) * 2048) / (panelHeight - 1) ;
+        verScalingFactor = ((resHeight - 1) * 2048) / (panelHeight - 1);
 
         /* Vertical scaling enabled */
         cra2 |= 0x08;
-        cr79 |= ((verScalingFactor & 0x0001)<<3);          /* VSCaleFactor[0] at CR79[3] */
-        cr78 |= (verScalingFactor & 0x01FE) >> 1;          /* VSCaleFactor[8:1] at CR78[7:0] */
-        cr79 |= ((verScalingFactor & 0x0600) >> 9) << 6;   /* VSCaleFactor[10:9] at CR79[7:6] */
-        scaling = TRUE ;
+        cr79 |= ((verScalingFactor & 0x0001) << 3);       /* VSCaleFactor[0] at CR79[3] */
+        cr78 |= (verScalingFactor & 0x01FE) >> 1;         /* VSCaleFactor[8:1] at CR78[7:0] */
+        cr79 |= ((verScalingFactor & 0x0600) >> 9) << 6;  /* VSCaleFactor[10:9] at CR79[7:6] */
+        scaling = TRUE;
     }
 
     if (scaling) {
-        
-    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO,
-        "Scaling factor: horizontal %d (0x%x), vertical %d (0x%x)\n",
-       horScalingFactor, horScalingFactor, verScalingFactor, verScalingFactor ));
+        DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO,
+                         "Scaling factor: horizontal %d (0x%x), vertical %d (0x%x)\n",
+                         horScalingFactor, horScalingFactor,
+                         verScalingFactor, verScalingFactor));
 
         ViaCrtcMask(hwp, 0x77, cr77, 0xFF);
         ViaCrtcMask(hwp, 0x78, cr78, 0xFF);
@@ -207,66 +210,69 @@ ViaPanelScale(ScrnInfoPtr pScrn, int resWidth, int resHeight, int panelWidth, in
     // ViaCrtcMask(hwp, 0x79, 0x00, 0x02);
     /* Horizontal scaling factor selection original / linear */
     //ViaCrtcMask(hwp, 0xA2, 0x40, 0x40);
-
 }
 
 
-/**
- * Generates a display mode for the native panel resolution
- * using CVT
+/*
+ * Generates a display mode for the native panel resolution,  using CVT.
  */
 static void
-ViaPanelGetNativeDisplayMode(ScrnInfoPtr pScrn) {
-    
-    VIAPtr pVia= VIAPTR(pScrn);
-    ViaPanelModePtr panelMode = pVia->pBIOSInfo->Panel->NativeMode ;
-    
-    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "ViaPanelGetNativeDisplayMode\n"));
-    
+ViaPanelGetNativeDisplayMode(ScrnInfoPtr pScrn)
+{
+    VIAPtr pVia = VIAPTR(pScrn);
+    ViaPanelModePtr panelMode = pVia->pBIOSInfo->Panel->NativeMode;
+
+    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO,
+                     "ViaPanelGetNativeDisplayMode\n"));
+
     if (panelMode->Width && panelMode->Height) {
-        
+
         /* TODO: fix refresh rate */
-        DisplayModePtr p = ViaCVTMode( panelMode->Width, panelMode->Height, 60.0, TRUE, FALSE ) ;
-    
-        /* The following code is borrowed from xf86SetModeCrtc */
+        DisplayModePtr p =
+                ViaCVTMode(panelMode->Width, panelMode->Height, 60.0, TRUE,
+                           FALSE);
+
+        /* The following code is borrowed from xf86SetModeCrtc. */
         if (p) {
-            p->CrtcHDisplay             = p->HDisplay;
-            p->CrtcHSyncStart           = p->HSyncStart;
-            p->CrtcHSyncEnd             = p->HSyncEnd;
-            p->CrtcHTotal               = p->HTotal;
-            p->CrtcHSkew                = p->HSkew;
-            p->CrtcVDisplay             = p->VDisplay;
-            p->CrtcVSyncStart           = p->VSyncStart;
-            p->CrtcVSyncEnd             = p->VSyncEnd;
-            p->CrtcVTotal               = p->VTotal;
-            
+            p->CrtcHDisplay = p->HDisplay;
+            p->CrtcHSyncStart = p->HSyncStart;
+            p->CrtcHSyncEnd = p->HSyncEnd;
+            p->CrtcHTotal = p->HTotal;
+            p->CrtcHSkew = p->HSkew;
+            p->CrtcVDisplay = p->VDisplay;
+            p->CrtcVSyncStart = p->VSyncStart;
+            p->CrtcVSyncEnd = p->VSyncEnd;
+            p->CrtcVTotal = p->VTotal;
+
             p->CrtcVBlankStart = min(p->CrtcVSyncStart, p->CrtcVDisplay);
             p->CrtcVBlankEnd = max(p->CrtcVSyncEnd, p->CrtcVTotal);
             p->CrtcHBlankStart = min(p->CrtcHSyncStart, p->CrtcHDisplay);
             p->CrtcHBlankEnd = max(p->CrtcHSyncEnd, p->CrtcHTotal);
-    
-        }
-        pVia->pBIOSInfo->Panel->NativeDisplayMode = p ;
-    } else {
-        xf86DrvMsg(pScrn->scrnIndex, X_WARNING, "Invalid panel dimension (%dx%d)\n",
-                panelMode->Width, panelMode->Height);
-    }
 
+        }
+        pVia->pBIOSInfo->Panel->NativeDisplayMode = p;
+    } else {
+        xf86DrvMsg(pScrn->scrnIndex, X_WARNING,
+                   "Invalid panel dimension (%dx%d)\n", panelMode->Width,
+                   panelMode->Height);
+    }
 }
 
-void 
-ViaPanelPreInit(ScrnInfoPtr pScrn) {
-    VIAPtr pVia= VIAPTR(pScrn);
+void
+ViaPanelPreInit(ScrnInfoPtr pScrn)
+{
+    VIAPtr pVia = VIAPTR(pScrn);
     VIABIOSInfoPtr pBIOSInfo = pVia->pBIOSInfo;
-    
+
     DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "ViaPanelPreInit\n"));
-    
+
     ViaPanelInfoPtr panel = pBIOSInfo->Panel;
-    
-    /* First try to get the mode from EDID */
+
+    /* First try to get the mode from EDID. */
     if (panel->NativeModeIndex == VIA_PANEL_INVALID) {
-        int width, height ;
-        Bool ret ;
+        int width, height;
+        Bool ret;
+
         ret = ViaPanelGetSizeFromDDCv1(pScrn, &width, &height);
 /*        
         if (!ret) 
@@ -275,44 +281,43 @@ ViaPanelPreInit(ScrnInfoPtr pScrn) {
         if (ret) {
             panel->NativeModeIndex = ViaPanelLookUpModeIndex(width, height);
             if (panel->NativeModeIndex != VIA_PANEL_INVALID) {
-                panel->NativeMode->Width = width ;
-                panel->NativeMode->Height = height ;
+                panel->NativeMode->Width = width;
+                panel->NativeMode->Height = height;
             }
         }
     }
-    
-    if (panel->NativeModeIndex == VIA_PANEL_INVALID)
-    ViaPanelGetNativeModeFromScratchPad(pScrn);
-    
+
     if (panel->NativeModeIndex == VIA_PANEL_INVALID)
         ViaPanelGetNativeModeFromScratchPad(pScrn);
-    
+
+    if (panel->NativeModeIndex == VIA_PANEL_INVALID)
+        ViaPanelGetNativeModeFromScratchPad(pScrn);
+
     if (panel->NativeModeIndex != VIA_PANEL_INVALID)
         ViaPanelGetNativeDisplayMode(pScrn);
-    
 }
 
-void 
+void
 ViaPanelCenterMode(DisplayModePtr centerMode, DisplayModePtr panelMode,
-        DisplayModePtr mode)
+                   DisplayModePtr mode)
 {
     memcpy(centerMode, mode, sizeof(DisplayModeRec));
-    
-    CARD32 HDiff = (panelMode->CrtcHDisplay - mode->CrtcHDisplay) / 2 ;
-    CARD32 VDiff = (panelMode->CrtcVDisplay - mode->CrtcVDisplay) / 2 ;
+
+    CARD32 HDiff = (panelMode->CrtcHDisplay - mode->CrtcHDisplay) / 2;
+    CARD32 VDiff = (panelMode->CrtcVDisplay - mode->CrtcVDisplay) / 2;
 
     centerMode->CrtcHTotal += HDiff * 2;
     centerMode->CrtcVTotal += VDiff * 2;
 
-    centerMode->CrtcHSyncStart += HDiff ;
-    centerMode->CrtcHSyncEnd += HDiff ;
-    centerMode->CrtcHBlankStart += HDiff ;
-    centerMode->CrtcHBlankEnd += HDiff ;
+    centerMode->CrtcHSyncStart += HDiff;
+    centerMode->CrtcHSyncEnd += HDiff;
+    centerMode->CrtcHBlankStart += HDiff;
+    centerMode->CrtcHBlankEnd += HDiff;
 
-    centerMode->CrtcVSyncStart += VDiff ;
-    centerMode->CrtcVSyncEnd += VDiff ; ;
-    centerMode->CrtcVBlankStart += VDiff ;
-    centerMode->CrtcVBlankEnd += VDiff ;
+    centerMode->CrtcVSyncStart += VDiff;
+    centerMode->CrtcVSyncEnd += VDiff;;
+    centerMode->CrtcVBlankStart += VDiff;
+    centerMode->CrtcVBlankEnd += VDiff;
 }
 
 
@@ -321,7 +326,7 @@ ViaPanelCenterMode(DisplayModePtr centerMode, DisplayModePtr panelMode,
  */
 Bool
 ViaPanelGetSizeFromEDID(ScrnInfoPtr pScrn, xf86MonPtr pMon,
-        int* width, int* height)
+                        int *width, int *height)
 {
     int i, max = 0, vsize;
 
@@ -331,7 +336,7 @@ ViaPanelGetSizeFromEDID(ScrnInfoPtr pScrn, xf86MonPtr pMon,
 
     /* checking standard timings */
     for (i = 0; i < 8; i++)
-        if ((pMon->timings2[i].hsize > 256) 
+        if ((pMon->timings2[i].hsize > 256)
             && (pMon->timings2[i].hsize > max)) {
             max = pMon->timings2[i].hsize;
             vsize = pMon->timings2[i].vsize;
@@ -351,6 +356,7 @@ ViaPanelGetSizeFromEDID(ScrnInfoPtr pScrn, xf86MonPtr pMon,
     for (i = 0; i < DET_TIMINGS; i++)
         if (pMon->det_mon[i].type == DT) {
             struct detailed_timings timing = pMon->det_mon[i].section.d_timings;
+
             /* ignore v_active for now */
             if ((timing.clock > 15000000) && (timing.h_active > max)) {
                 max = timing.h_active;
@@ -367,13 +373,10 @@ ViaPanelGetSizeFromEDID(ScrnInfoPtr pScrn, xf86MonPtr pMon,
     return FALSE;
 }
 
-/*
- *
- */
 Bool
-ViaPanelGetSizeFromDDCv1(ScrnInfoPtr pScrn, int* width, int* height)
+ViaPanelGetSizeFromDDCv1(ScrnInfoPtr pScrn, int *width, int *height)
 {
-    VIAPtr pVia= VIAPTR(pScrn);
+    VIAPtr pVia = VIAPTR(pScrn);
     xf86MonPtr pMon;
 
     DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "VIAGetPanelSizeFromDDCv1\n"));
@@ -394,19 +397,19 @@ ViaPanelGetSizeFromDDCv1(ScrnInfoPtr pScrn, int* width, int* height)
 
     if (!ViaPanelGetSizeFromEDID(pScrn, pMon, width, height)) {
         xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
-                "Unable to read PanelSize from EDID information\n");
+                   "Unable to read PanelSize from EDID information\n");
         return FALSE;
     }
 
-    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, 
-            "VIAGetPanelSizeFromDDCv1: (%dx%d)\n", *width, *height));
+    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO,
+                     "VIAGetPanelSizeFromDDCv1: (%dx%d)\n", *width, *height));
     return TRUE;
 }
 
 Bool
-ViaPanelGetSizeFromDDCv2(ScrnInfoPtr pScrn, int* width)
+ViaPanelGetSizeFromDDCv2(ScrnInfoPtr pScrn, int *width)
 {
-    VIAPtr pVia= VIAPTR(pScrn);
+    VIAPtr pVia = VIAPTR(pScrn);
     CARD8 W_Buffer[1];
     CARD8 R_Buffer[4];
     I2CDevPtr dev;
@@ -422,7 +425,7 @@ ViaPanelGetSizeFromDDCv2(ScrnInfoPtr pScrn, int* width)
 
     dev->DevName = "EDID2";
     dev->SlaveAddr = 0xA2;
-    dev->ByteTimeout = 2200; /* VESA DDC spec 3 p. 43 (+10 %) */
+    dev->ByteTimeout = 2200;  /* VESA DDC spec 3 p. 43 (+10 %) */
     dev->StartTimeout = 550;
     dev->BitTimeout = 40;
     dev->ByteTimeout = 40;
@@ -448,8 +451,8 @@ ViaPanelGetSizeFromDDCv2(ScrnInfoPtr pScrn, int* width)
 
     *width = R_Buffer[0] | (R_Buffer[1] << 8);
 
-    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, 
-            "VIAGetPanelSizeFromDDCv2: %d\n", *width));
+    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO,
+                     "VIAGetPanelSizeFromDDCv2: %d\n", *width));
 
     return TRUE;
 }

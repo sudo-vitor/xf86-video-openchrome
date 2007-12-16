@@ -36,7 +36,8 @@
 #include "via_mode.h"
 
 static void
-ViaCRTCSetGraphicsRegisters(ScrnInfoPtr pScrn) {
+ViaCRTCSetGraphicsRegisters(ScrnInfoPtr pScrn)
+{
     vgaHWPtr hwp = VGAHWPTR(pScrn);
 
     /* graphics registers */
@@ -53,35 +54,34 @@ ViaCRTCSetGraphicsRegisters(ScrnInfoPtr pScrn) {
     ViaGrMask(hwp, 0x20, 0, 0xFF);
     ViaGrMask(hwp, 0x21, 0, 0xFF);
     ViaGrMask(hwp, 0x22, 0, 0xFF);
-    
 }
 
 static void
-ViaCRTCSetAttributeRegisters(ScrnInfoPtr pScrn) {
+ViaCRTCSetAttributeRegisters(ScrnInfoPtr pScrn)
+{
     vgaHWPtr hwp = VGAHWPTR(pScrn);
-    CARD8 i ;
-    
+    CARD8 i;
+
     /* attribute registers */
-    for (i = 0 ; i <= 0xF ; i++ ) {
-        hwp->writeAttr(hwp, i, i) ;
+    for (i = 0; i <= 0xF; i++) {
+        hwp->writeAttr(hwp, i, i);
     }
     hwp->writeAttr(hwp, 0x10, 0x41);
     hwp->writeAttr(hwp, 0x11, 0xFF);
     hwp->writeAttr(hwp, 0x12, 0x0F);
     hwp->writeAttr(hwp, 0x13, 0x00);
     hwp->writeAttr(hwp, 0x14, 0x00);
-
 }
 
-void 
-ViaCRTCInit(ScrnInfoPtr pScrn) {
-    
+void
+ViaCRTCInit(ScrnInfoPtr pScrn)
+{
     vgaHWPtr hwp = VGAHWPTR(pScrn);
+
     hwp->writeSeq(hwp, 0x10, 0x01); /* unlock extended registers */
     ViaCrtcMask(hwp, 0x47, 0x00, 0x01); /* unlock CRT registers */
     ViaCRTCSetGraphicsRegisters(pScrn);
     ViaCRTCSetAttributeRegisters(pScrn);
-    
 }
 
 void
@@ -93,8 +93,7 @@ ViaFirstCRTCSetMode(ScrnInfoPtr pScrn, DisplayModePtr mode)
 
     DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "ViaFirstCRTCSetMode\n"));
 
-    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO,
-                    "Setting up %s\n", mode->name));
+    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "Setting up %s\n", mode->name));
 
     ViaCrtcMask(hwp, 0x11, 0x00, 0x80); /* modify starting address */
     ViaCrtcMask(hwp, 0x03, 0x80, 0x80); /* enable vertical retrace access */
@@ -111,10 +110,12 @@ ViaFirstCRTCSetMode(ScrnInfoPtr pScrn, DisplayModePtr mode)
     /* Sequence registers */
     hwp->writeSeq(hwp, 0x00, 0x00);
 
-    /* if (mode->Flags & V_CLKDIV2)
-     hwp->writeSeq(hwp, 0x01, 0x09);
-     else */
-    hwp->writeSeq(hwp, 0x01, 0x01);
+#if 0
+    if (mode->Flags & V_CLKDIV2)
+        hwp->writeSeq(hwp, 0x01, 0x09);
+    else
+#endif
+        hwp->writeSeq(hwp, 0x01, 0x01);
 
     hwp->writeSeq(hwp, 0x02, 0x0F);
     hwp->writeSeq(hwp, 0x03, 0x00);
@@ -130,7 +131,7 @@ ViaFirstCRTCSetMode(ScrnInfoPtr pScrn, DisplayModePtr mode)
                 ViaSeqMask(hwp, 0x15, 0x22, 0xFE);
             else
                 ViaSeqMask(hwp, 0x15, 0xA2, 0xFE);
-                
+
             break;
         case 16:
             ViaSeqMask(hwp, 0x15, 0xB6, 0xFE);
@@ -141,7 +142,7 @@ ViaFirstCRTCSetMode(ScrnInfoPtr pScrn, DisplayModePtr mode)
             break;
         default:
             xf86DrvMsg(pScrn->scrnIndex, X_ERROR, "Unhandled bitdepth: %d\n",
-                    pScrn->bitsPerPixel);
+                       pScrn->bitsPerPixel);
             break;
     }
 
@@ -150,15 +151,15 @@ ViaFirstCRTCSetMode(ScrnInfoPtr pScrn, DisplayModePtr mode)
         case VIA_K8M890:
         case VIA_CX700:
         case VIA_P4M900:
-            break ;
+            break;
         default:
-    ViaSeqMask(hwp, 0x16, 0x08, 0xBF);
-    ViaSeqMask(hwp, 0x17, 0x1F, 0xFF);
-    ViaSeqMask(hwp, 0x18, 0x4E, 0xFF);
-    ViaSeqMask(hwp, 0x1A, 0x08, 0xFD);
-         break;
+            ViaSeqMask(hwp, 0x16, 0x08, 0xBF);
+            ViaSeqMask(hwp, 0x17, 0x1F, 0xFF);
+            ViaSeqMask(hwp, 0x18, 0x4E, 0xFF);
+            ViaSeqMask(hwp, 0x1A, 0x08, 0xFD);
+            break;
     }
-    
+
     /* Crtc registers */
     /* horizontal total : 4100 */
     temp = (mode->CrtcHTotal >> 3) - 5;
@@ -252,18 +253,18 @@ ViaFirstCRTCSetMode(ScrnInfoPtr pScrn, DisplayModePtr mode)
         case VIA_K8M890:
         case VIA_CX700:
         case VIA_P4M900:
-            break ;
+            break;
         default:
-    /* some leftovers */
-    hwp->writeCrtc(hwp, 0x08, 0x00);
-    ViaCrtcMask(hwp, 0x32, 0, 0xFF); /* ? */
-    ViaCrtcMask(hwp, 0x33, 0, 0xC8);
-         break;
+            /* some leftovers */
+            hwp->writeCrtc(hwp, 0x08, 0x00);
+            ViaCrtcMask(hwp, 0x32, 0, 0xFF);  /* ? */
+            ViaCrtcMask(hwp, 0x33, 0, 0xC8);
+            break;
     }
 
     /* offset */
     temp = (pScrn->displayWidth * (pScrn->bitsPerPixel >> 3)) >> 3;
-    /* Make sure that this is 32byte aligned */
+    /* Make sure that this is 32-byte aligned. */
     if (temp & 0x03) {
         temp += 0x03;
         temp &= ~0x03;
@@ -273,7 +274,7 @@ ViaFirstCRTCSetMode(ScrnInfoPtr pScrn, DisplayModePtr mode)
 
     /* fetch count */
     temp = (mode->CrtcHDisplay * (pScrn->bitsPerPixel >> 3)) >> 3;
-    /* Make sure that this is 32byte aligned */
+    /* Make sure that this is 32-byte aligned. */
     if (temp & 0x03) {
         temp += 0x03;
         temp &= ~0x03;
@@ -286,25 +287,26 @@ ViaFirstCRTCSetMode(ScrnInfoPtr pScrn, DisplayModePtr mode)
         case VIA_K8M890:
         case VIA_CX700:
         case VIA_P4M900:
-            break ;
+            break;
         default:
-    /* some leftovers */
-    ViaCrtcMask(hwp, 0x32, 0, 0xFF);
-    ViaCrtcMask(hwp, 0x33, 0, 0xC8);
-         break;
+            /* some leftovers */
+            ViaCrtcMask(hwp, 0x32, 0, 0xFF);
+            ViaCrtcMask(hwp, 0x33, 0, 0xC8);
+            break;
     }
 }
 
 void
-ViaFirstCRTCSetStartingAddress(ScrnInfoPtr pScrn, int x, int y) {
-    
+ViaFirstCRTCSetStartingAddress(ScrnInfoPtr pScrn, int x, int y)
+{
     VIAPtr pVia = VIAPTR(pScrn);
     vgaHWPtr hwp = VGAHWPTR(pScrn);
-    CARD32 Base ;
-    CARD32 tmp ;
+    CARD32 Base;
+    CARD32 tmp;
 
-    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "ViaFirstCRTCSetStartingAddress\n"));
-    
+    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO,
+                     "ViaFirstCRTCSetStartingAddress\n"));
+
     Base = (y * pScrn->displayWidth + x) * (pScrn->bitsPerPixel / 8);
     Base = Base >> 1;
     hwp->writeCrtc(hwp, 0x0C, (Base & 0xFF00) >> 8);
@@ -313,38 +315,39 @@ ViaFirstCRTCSetStartingAddress(ScrnInfoPtr pScrn, int x, int y) {
 
     if (!(pVia->Chipset == VIA_CLE266 && CLE266_REV_IS_AX(pVia->ChipRev)))
         ViaCrtcMask(hwp, 0x48, Base >> 24, 0x0F);
-    
 }
 
 void
-ViaSecondCRTCSetStartingAddress(ScrnInfoPtr pScrn, int x, int y) {
+ViaSecondCRTCSetStartingAddress(ScrnInfoPtr pScrn, int x, int y)
+{
     vgaHWPtr hwp = VGAHWPTR(pScrn);
-    CARD32 Base ;
-    CARD32 tmp ;
+    CARD32 Base;
+    CARD32 tmp;
 
-    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "ViaSecondCRTCSetStartingAddress\n"));
-    
+    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO,
+                     "ViaSecondCRTCSetStartingAddress\n"));
+
     Base = (y * pScrn->displayWidth + x) * (pScrn->bitsPerPixel / 8);
     Base = (Base + pScrn->fbOffset) >> 3;
 
     tmp = hwp->readCrtc(hwp, 0x62) & 0x01;
-    tmp |= (Base & 0x7F) << 1 ;
+    tmp |= (Base & 0x7F) << 1;
     hwp->writeCrtc(hwp, 0x62, tmp);
 
     hwp->writeCrtc(hwp, 0x63, (Base & 0x7F80) >> 7);
     hwp->writeCrtc(hwp, 0x64, (Base & 0x7F8000) >> 15);
     hwp->writeCrtc(hwp, 0xA3, (Base & 0x03800000) >> 23);
-
 }
 
 void
-ViaSecondCRTCHorizontalQWCount(ScrnInfoPtr pScrn, int width) {
+ViaSecondCRTCHorizontalQWCount(ScrnInfoPtr pScrn, int width)
+{
     vgaHWPtr hwp = VGAHWPTR(pScrn);
     CARD16 temp;
 
     /* fetch count */
     temp = (width * (pScrn->bitsPerPixel >> 3)) >> 3;
-    /* Make sure that this is 32byte aligned */
+    /* Make sure that this is 32-byte aligned. */
     if (temp & 0x03) {
         temp += 0x03;
         temp &= ~0x03;
@@ -354,25 +357,22 @@ ViaSecondCRTCHorizontalQWCount(ScrnInfoPtr pScrn, int width) {
 }
 
 void
-ViaSecondCRTCHorizontalOffset(ScrnInfoPtr pScrn) {
-
+ViaSecondCRTCHorizontalOffset(ScrnInfoPtr pScrn)
+{
     vgaHWPtr hwp = VGAHWPTR(pScrn);
     CARD16 temp;
 
     /* offset */
     temp = (pScrn->displayWidth * (pScrn->bitsPerPixel >> 3)) >> 3;
-    if (temp & 0x03) { /* Make sure that this is 32byte aligned */
+    /* Make sure that this is 32-byte aligned. */
+    if (temp & 0x03) {
         temp += 0x03;
         temp &= ~0x03;
     }
     hwp->writeCrtc(hwp, 0x66, temp & 0xFF);
     ViaCrtcMask(hwp, 0x67, temp >> 8, 0x03);
-
 }
 
-/*
- *
- */
 void
 ViaSecondCRTCSetMode(ScrnInfoPtr pScrn, DisplayModePtr mode)
 {
@@ -381,24 +381,23 @@ ViaSecondCRTCSetMode(ScrnInfoPtr pScrn, DisplayModePtr mode)
     CARD16 temp;
 
     DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "ViaSecondCRTCSetMode\n"));
-    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO,
-                    "Setting up %s\n", mode->name));
+    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "Setting up %s\n", mode->name));
     /* bpp */
     switch (pScrn->bitsPerPixel) {
-    case 8:
-        ViaCrtcMask(hwp, 0x67, 0x00, 0xC0);
-        break;
-    case 16:
-        ViaCrtcMask(hwp, 0x67, 0x40, 0xC0);
-        break;
-    case 24:
-    case 32:
-        ViaCrtcMask(hwp, 0x67, 0xC0, 0xC0);
-        break;
-    default:
-        xf86DrvMsg(pScrn->scrnIndex, X_ERROR, "Unhandled bitdepth: %d\n",
-                   pScrn->bitsPerPixel);
-        break;
+        case 8:
+            ViaCrtcMask(hwp, 0x67, 0x00, 0xC0);
+            break;
+        case 16:
+            ViaCrtcMask(hwp, 0x67, 0x40, 0xC0);
+            break;
+        case 24:
+        case 32:
+            ViaCrtcMask(hwp, 0x67, 0xC0, 0xC0);
+            break;
+        default:
+            xf86DrvMsg(pScrn->scrnIndex, X_ERROR, "Unhandled bitdepth: %d\n",
+                       pScrn->bitsPerPixel);
+            break;
     }
 
     /* Crtc registers */
@@ -430,7 +429,7 @@ ViaSecondCRTCSetMode(ScrnInfoPtr pScrn, DisplayModePtr mode)
     hwp->writeCrtc(hwp, 0x56, temp & 0xFF);
     ViaCrtcMask(hwp, 0x54, temp >> 2, 0xC0);
     ViaCrtcMask(hwp, 0x5C, temp >> 3, 0x80);
-    
+
     if (pVia->ChipId != VIA_CLE266 && pVia->ChipId != VIA_KM400)
         ViaCrtcMask(hwp, 0x5D, temp >> 4, 0x80);
 
@@ -477,7 +476,6 @@ ViaSecondCRTCSetMode(ScrnInfoPtr pScrn, DisplayModePtr mode)
 
 /*
  * Checks for limitations imposed by the available VGA timing registers.
- *
  */
 ModeStatus
 ViaFirstCRTCModeValid(ScrnInfoPtr pScrn, DisplayModePtr mode)
@@ -489,7 +487,7 @@ ViaFirstCRTCModeValid(ScrnInfoPtr pScrn, DisplayModePtr mode)
 
     if (mode->CrtcHDisplay > 2048)
         return MODE_BAD_HVALUE;
-    
+
     if (mode->CrtcHBlankStart > 2048)
         return MODE_BAD_HVALUE;
 
@@ -498,7 +496,7 @@ ViaFirstCRTCModeValid(ScrnInfoPtr pScrn, DisplayModePtr mode)
 
     if (mode->CrtcHSyncStart > 4095)
         return MODE_BAD_HVALUE;
-    
+
     if ((mode->CrtcHSyncEnd - mode->CrtcHSyncStart) > 256)
         return MODE_HSYNC_WIDE;
 
@@ -523,9 +521,6 @@ ViaFirstCRTCModeValid(ScrnInfoPtr pScrn, DisplayModePtr mode)
     return MODE_OK;
 }
 
-/*
- *
- */
 ModeStatus
 ViaSecondCRTCModeValid(ScrnInfoPtr pScrn, DisplayModePtr mode)
 {
@@ -533,7 +528,7 @@ ViaSecondCRTCModeValid(ScrnInfoPtr pScrn, DisplayModePtr mode)
 
     if (mode->CrtcHTotal > 4096)
         return MODE_BAD_HVALUE;
-    
+
     if (mode->CrtcHDisplay > 2048)
         return MODE_BAD_HVALUE;
 
@@ -573,11 +568,11 @@ ViaSecondCRTCModeValid(ScrnInfoPtr pScrn, DisplayModePtr mode)
 /*
  * Not tested yet
  */
-void 
+void
 ViaShadowCRTCSetMode(ScrnInfoPtr pScrn, DisplayModePtr mode)
 {
     DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "ViaShadowCRTCSetMode\n"));
-    
+
     vgaHWPtr hwp = VGAHWPTR(pScrn);
     CARD16 temp;
 
@@ -609,5 +604,4 @@ ViaShadowCRTCSetMode(ScrnInfoPtr pScrn, DisplayModePtr mode)
     temp = mode->CrtcVSyncStart;
     hwp->writeCrtc(hwp, 0x75, temp & 0xFF);
     ViaCrtcMask(hwp, 0x76, temp >> 4, 0x70);
-
 }
