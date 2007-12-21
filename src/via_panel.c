@@ -290,9 +290,6 @@ ViaPanelPreInit(ScrnInfoPtr pScrn)
     if (panel->NativeModeIndex == VIA_PANEL_INVALID)
         ViaPanelGetNativeModeFromScratchPad(pScrn);
 
-    if (panel->NativeModeIndex == VIA_PANEL_INVALID)
-        ViaPanelGetNativeModeFromScratchPad(pScrn);
-
     if (panel->NativeModeIndex != VIA_PANEL_INVALID)
         ViaPanelGetNativeDisplayMode(pScrn);
 }
