@@ -779,8 +779,9 @@ VIASetupDefaultOptions(ScrnInfoPtr pScrn)
     {
         case VIA_KM400:
             /* IRQ is not broken on KM400A */
-            if (pVia->ChipRev < 0x80)
-                pVia->DRIIrqEnable = FALSE;
+            /* But test below is not enough to make sure we have a KM400A */
+            /* if (pVia->ChipRev < 0x80) */
+            pVia->DRIIrqEnable = FALSE;
             break;
         case VIA_K8M800:
             pVia->DRIIrqEnable = FALSE;
@@ -1480,6 +1481,7 @@ VIAPreInit(ScrnInfoPtr pScrn, int flags)
             pScrn->videoRam = ( 1 << ( ( pciReadByte(pciTag(0, 0, 3), 0xA1) & 0x70 ) >> 4 ) ) << 10 ;
             break;
         case VIA_K8M890:
+        case VIA_P4M890:
         case VIA_P4M900:
         case VIA_CX700:
             pScrn->videoRam = ( 1 << ( ( pciReadByte(pciTag(0, 0, 3), 0xA1) & 0x70 ) >> 4 ) ) << 12 ;
