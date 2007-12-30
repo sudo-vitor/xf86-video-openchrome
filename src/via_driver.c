@@ -25,13 +25,6 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-/*************************************************************************
- *
- *  File:       via_driver.c
- *  Content:    XFree86 4.0 for VIA/S3G UniChrome
- *
- ************************************************************************/
-
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
@@ -47,7 +40,6 @@
 
 #include "via_driver.h"
 #include "via_video.h"
-
 #include "via.h"
 
 #ifdef XF86DRI
@@ -56,10 +48,7 @@
 #include "via_vgahw.h"
 #include "via_id.h"
 
-/*
- * prototypes
- */
-
+/* Prototypes. */
 static void VIAIdentify(int flags);
 static Bool VIAProbe(DriverPtr drv, int flags);
 static Bool VIASetupDefaultOptions(ScrnInfoPtr pScrn);
@@ -78,16 +67,16 @@ static void VIAFreeScreen(int scrnIndex, int flags);
 static Bool VIASwitchMode(int scrnIndex, DisplayModePtr mode, int flags);
 static void VIAAdjustFrame(int scrnIndex, int y, int x, int flags);
 static void VIADPMS(ScrnInfoPtr pScrn, int mode, int flags);
-static const OptionInfoRec * VIAAvailableOptions(int chipid, int busid);
+static const OptionInfoRec *VIAAvailableOptions(int chipid, int busid);
 
 static Bool VIAMapMMIO(ScrnInfoPtr pScrn);
 static Bool VIAMapFB(ScrnInfoPtr pScrn);
 static void VIAUnmapMem(ScrnInfoPtr pScrn);
 
-static void VIALoadRgbLut(ScrnInfoPtr pScrn, int numColors, int *indices, LOCO *colors, VisualPtr pVisual);
+static void VIALoadRgbLut(ScrnInfoPtr pScrn, int numColors, int *indices,
+                          LOCO *colors, VisualPtr pVisual);
 
-DriverRec VIA =
-{
+DriverRec VIA = {
     VIA_VERSION,
     DRIVER_NAME,
     VIAIdentify,
@@ -97,25 +86,22 @@ DriverRec VIA =
     0
 };
 
-
 /* Supported chipsets */
-
 static SymTabRec VIAChipsets[] = {
     {VIA_CLE266,   "CLE266"},
     {VIA_KM400,    "KM400/KN400"},
-    {VIA_K8M800,   "K8M800"},
+    {VIA_K8M800,   "K8M800/K8N800"},
     {VIA_PM800,    "PM800/PM880/CN400"},
-    {VIA_VM800,    "VM800/CN700/P4M800Pro"},
-    {VIA_K8M890,   "K8M890"},
-    {VIA_P4M900,   "P4M900/VN896"},
-    {VIA_CX700,    "CX700"},
+    {VIA_VM800,    "P4M800Pro/VN800/CN700"},
+    {VIA_K8M890,   "K8M890/K8N890"},
+    {VIA_P4M900,   "P4M900/VN896/CN896"},
+    {VIA_CX700,    "CX700/VX700"},
     {VIA_P4M890,   "P4M890"},
     {-1,            NULL }
 };
 
-/* This table maps a PCI device ID to a chipset family identifier. */
+/* Mapping a PCI device ID to a chipset family identifier. */
 static PciChipsets VIAPciChipsets[] = {
-    /* {VIA_CLE266,   PCI_CHIP_CLE3022,   RES_SHARED_VGA}, */
     {VIA_CLE266,   PCI_CHIP_CLE3122,   RES_SHARED_VGA},
     {VIA_KM400,    PCI_CHIP_VT3205,    RES_SHARED_VGA},
     {VIA_K8M800,   PCI_CHIP_VT3204,    RES_SHARED_VGA},
@@ -125,7 +111,7 @@ static PciChipsets VIAPciChipsets[] = {
     {VIA_P4M900,   PCI_CHIP_VT3364,    RES_SHARED_VGA},
     {VIA_CX700,    PCI_CHIP_VT3324,    RES_SHARED_VGA},
     {VIA_P4M890,   PCI_CHIP_VT3327,    RES_SHARED_VGA},
-    {-1,            -1,                RES_UNDEFINED}
+    {-1,           -1,                 RES_UNDEFINED}
 };
 
 int gVIAEntityIndex = -1;
@@ -135,7 +121,7 @@ typedef enum {
     OPTION_PRINTVGAREGS,
     OPTION_PRINTTVREGS,
     OPTION_I2CSCAN,
-#endif /* HAVE_DEBUG */
+#endif
     OPTION_VBEMODES,
     OPTION_NOACCEL,
 #ifdef VIA_HAVE_EXA
@@ -171,45 +157,45 @@ typedef enum {
 } VIAOpts;
 
 
-static OptionInfoRec VIAOptions[] =
-{
-#ifdef HAVE_DEBUG /* Don't document these */
-    {OPTION_PRINTVGAREGS, "PrintVGARegs", OPTV_BOOLEAN, {0}, FALSE},
-    {OPTION_PRINTTVREGS,  "PrintTVRegs",  OPTV_BOOLEAN, {0}, FALSE},
-    {OPTION_I2CSCAN, "I2CScan", OPTV_BOOLEAN, {0}, FALSE},
-#endif /* HAVE_DEBUG */
-    {OPTION_VBEMODES,   "VBEModes", OPTV_BOOLEAN, {0}, FALSE},
-    {OPTION_NOACCEL,    "NoAccel",      OPTV_BOOLEAN, {0}, FALSE},
+static OptionInfoRec VIAOptions[] = {
+#ifdef HAVE_DEBUG /* Don't document these three. */
+    {OPTION_PRINTVGAREGS,        "PrintVGARegs",     OPTV_BOOLEAN, {0}, FALSE},
+    {OPTION_PRINTTVREGS,         "PrintTVRegs",      OPTV_BOOLEAN, {0}, FALSE},
+    {OPTION_I2CSCAN,             "I2CScan",          OPTV_BOOLEAN, {0}, FALSE},
+#endif 
+    {OPTION_VBEMODES,            "VBEModes",         OPTV_BOOLEAN, {0}, FALSE},
+    {OPTION_NOACCEL,             "NoAccel",          OPTV_BOOLEAN, {0}, FALSE},
 #ifdef VIA_HAVE_EXA
-    {OPTION_ACCELMETHOD, "AccelMethod", OPTV_STRING,  {0}, FALSE},
-    {OPTION_EXA_NOCOMPOSITE, "ExaNoComposite", OPTV_BOOLEAN, {0}, FALSE},
-    {OPTION_EXA_SCRATCH_SIZE, "ExaScratchSize", OPTV_INTEGER, {0}, FALSE},
-#endif /* VIA_HAVE_EXA */
-    {OPTION_HWCURSOR,   "HWCursor",     OPTV_BOOLEAN, {0}, FALSE},
-    {OPTION_SWCURSOR,   "SWCursor",     OPTV_BOOLEAN, {0}, FALSE},
-    {OPTION_SHADOW_FB,  "ShadowFB",     OPTV_BOOLEAN, {0}, FALSE},
-    {OPTION_ROTATE,     "Rotate",       OPTV_ANYSTR,  {0}, FALSE},
-    {OPTION_VIDEORAM,   "VideoRAM",     OPTV_INTEGER, {0}, FALSE},
-    {OPTION_ACTIVEDEVICE,     "ActiveDevice",       OPTV_ANYSTR,  {0}, FALSE},
-    {OPTION_BUSWIDTH,	"BusWidth",  	OPTV_ANYSTR, {0}, FALSE},
-    {OPTION_CENTER,     "Center",       OPTV_BOOLEAN, {0}, FALSE},
-    {OPTION_PANELSIZE,  "PanelSize",    OPTV_ANYSTR,  {0}, FALSE},
-    {OPTION_FORCEPANEL, "ForcePanel",   OPTV_BOOLEAN, {0}, FALSE}, /* last resort - don't doc */
-    {OPTION_TVDOTCRAWL, "TVDotCrawl",   OPTV_BOOLEAN, {0}, FALSE},
-    {OPTION_TVDEFLICKER,"TVDeflicker",  OPTV_INTEGER, {0}, FALSE},
-    {OPTION_TVPROGRESSIVE, "TVProgressive", OPTV_BOOLEAN, {0}, FALSE},
-    {OPTION_TVTYPE,     "TVType",       OPTV_ANYSTR,  {0}, FALSE},
-    {OPTION_TVOUTPUT,   "TVOutput",     OPTV_ANYSTR,  {0}, FALSE},
-    {OPTION_DISABLEVQ,  "DisableVQ",    OPTV_BOOLEAN, {0}, FALSE},
-    {OPTION_DISABLEIRQ, "DisableIRQ", OPTV_BOOLEAN, {0}, FALSE},
-    {OPTION_AGP_DMA, "EnableAGPDMA", OPTV_BOOLEAN, {0}, FALSE},
-    {OPTION_2D_DMA, "NoAGPFor2D", OPTV_BOOLEAN, {0}, FALSE},
-    {OPTION_XV_DMA, "NoXVDMA", OPTV_BOOLEAN, {0}, FALSE},
-    {OPTION_VBE_SAVERESTORE, "VbeSaveRestore", OPTV_BOOLEAN, {0}, FALSE},
+    {OPTION_ACCELMETHOD,         "AccelMethod",      OPTV_STRING,  {0}, FALSE},
+    {OPTION_EXA_NOCOMPOSITE,     "ExaNoComposite",   OPTV_BOOLEAN, {0}, FALSE},
+    {OPTION_EXA_SCRATCH_SIZE,    "ExaScratchSize",   OPTV_INTEGER, {0}, FALSE},
+#endif
+    {OPTION_HWCURSOR,            "HWCursor",         OPTV_BOOLEAN, {0}, FALSE},
+    {OPTION_SWCURSOR,            "SWCursor",         OPTV_BOOLEAN, {0}, FALSE},
+    {OPTION_SHADOW_FB,           "ShadowFB",         OPTV_BOOLEAN, {0}, FALSE},
+    {OPTION_ROTATE,              "Rotate",           OPTV_ANYSTR,  {0}, FALSE},
+    {OPTION_VIDEORAM,            "VideoRAM",         OPTV_INTEGER, {0}, FALSE},
+    {OPTION_ACTIVEDEVICE,        "ActiveDevice",     OPTV_ANYSTR,  {0}, FALSE},
+    {OPTION_BUSWIDTH,            "BusWidth",         OPTV_ANYSTR,  {0}, FALSE},
+    {OPTION_CENTER,              "Center",           OPTV_BOOLEAN, {0}, FALSE},
+    {OPTION_PANELSIZE,           "PanelSize",        OPTV_ANYSTR,  {0}, FALSE},
+    /* Forcing use of panel is a last resort - don't document this one. */
+    {OPTION_FORCEPANEL,          "ForcePanel",       OPTV_BOOLEAN, {0}, FALSE},
+    {OPTION_TVDOTCRAWL,          "TVDotCrawl",       OPTV_BOOLEAN, {0}, FALSE},
+    {OPTION_TVDEFLICKER,         "TVDeflicker",      OPTV_INTEGER, {0}, FALSE},
+    {OPTION_TVPROGRESSIVE,       "TVProgressive",    OPTV_BOOLEAN, {0}, FALSE},
+    {OPTION_TVTYPE,              "TVType",           OPTV_ANYSTR,  {0}, FALSE},
+    {OPTION_TVOUTPUT,            "TVOutput",         OPTV_ANYSTR,  {0}, FALSE},
+    {OPTION_DISABLEVQ,           "DisableVQ",        OPTV_BOOLEAN, {0}, FALSE},
+    {OPTION_DISABLEIRQ,          "DisableIRQ",       OPTV_BOOLEAN, {0}, FALSE},
+    {OPTION_AGP_DMA,             "EnableAGPDMA",     OPTV_BOOLEAN, {0}, FALSE},
+    {OPTION_2D_DMA,              "NoAGPFor2D",       OPTV_BOOLEAN, {0}, FALSE},
+    {OPTION_XV_DMA,              "NoXVDMA",          OPTV_BOOLEAN, {0}, FALSE},
+    {OPTION_VBE_SAVERESTORE,     "VbeSaveRestore",   OPTV_BOOLEAN, {0}, FALSE},
     {OPTION_DISABLE_XV_BW_CHECK, "DisableXvBWCheck", OPTV_BOOLEAN, {0}, FALSE},
-    {OPTION_MAX_DRIMEM,   "MaxDRIMem",     OPTV_INTEGER, {0}, FALSE},
-    {OPTION_AGPMEM,   "AGPMem",     OPTV_INTEGER, {0}, FALSE},
-    {-1,                NULL,           OPTV_NONE,    {0}, FALSE}
+    {OPTION_MAX_DRIMEM,          "MaxDRIMem",        OPTV_INTEGER, {0}, FALSE},
+    {OPTION_AGPMEM,              "AGPMem",           OPTV_INTEGER, {0}, FALSE},
+    {-1,                         NULL,               OPTV_NONE,    {0}, FALSE}
 };
 
 
@@ -231,7 +217,6 @@ static const char *vgaHWSymbols[] = {
     "vgaHWGetIndex",  /* Through VGAHWPTR() */
     NULL
 };
-
 
 static const char *ramdacSymbols[] = {
     "xf86InitCursor",
@@ -270,7 +255,6 @@ static const char *ddcSymbols[] = {
     "xf86SetDDCproperties",
     NULL
 };
-
 
 static const char *i2cSymbols[] = {
     "xf86CreateI2CBusRec",
@@ -418,9 +402,11 @@ static XF86ModuleVersionInfo VIAVersRec = {
     {0, 0, 0, 0}
 };
 
-XF86ModuleData openchromeModuleData = {&VIAVersRec, VIASetup, NULL};
+XF86ModuleData openchromeModuleData = { &VIAVersRec, VIASetup, NULL };
 
-static pointer VIASetup(pointer module, pointer opts, int *errmaj, int *errmin)
+
+static pointer
+VIASetup(pointer module, pointer opts, int *errmaj, int *errmin)
 {
     static Bool setupDone = FALSE;
 
@@ -449,8 +435,7 @@ static pointer VIASetup(pointer module, pointer opts, int *errmaj, int *errmin)
                           NULL);
 
         return (pointer) 1;
-    }
-    else {
+    } else {
         if (errmaj)
             *errmaj = LDR_ONCEONLY;
 
@@ -1053,6 +1038,52 @@ VIAPreInit(ScrnInfoPtr pScrn, int flags)
         return FALSE;
     }
 
+    xfree(pEnt);
+
+    /* Detect the amount of installed RAM */
+    from = X_PROBED;
+    switch (pVia->Chipset) {
+        case VIA_CLE266:
+        case VIA_KM400:
+            pScrn->videoRam = ( 1 << ( ( pciReadByte(pciTag(0, 0, 0), 0xE1) & 0x70 ) >> 4 ) ) << 10 ;
+            break;
+        case VIA_PM800:
+        case VIA_VM800:
+        case VIA_K8M800:
+            pScrn->videoRam = ( 1 << ( ( pciReadByte(pciTag(0, 0, 3), 0xA1) & 0x70 ) >> 4 ) ) << 10 ;
+            break;
+        case VIA_K8M890:
+        case VIA_P4M890:
+        case VIA_P4M900:
+        case VIA_CX700:
+            pScrn->videoRam = ( 1 << ( ( pciReadByte(pciTag(0, 0, 3), 0xA1) & 0x70 ) >> 4 ) ) << 12 ;
+            break;
+        default:
+            if (pScrn->videoRam < 16384 || pScrn->videoRam > 65536) {
+                xf86DrvMsg(pScrn->scrnIndex, X_WARNING,
+                           "Using old memory-detection method.\n");
+                bMemSize = hwp->readSeq(hwp, 0x39);
+                if (bMemSize > 16 && bMemSize <= 128)
+                    pScrn->videoRam = (bMemSize + 1) << 9;
+                else if (bMemSize > 0 && bMemSize < 31)
+                    pScrn->videoRam = bMemSize << 12;
+                else {
+                    from = X_DEFAULT;
+                    xf86DrvMsg(pScrn->scrnIndex, X_WARNING,
+                               "Memory size detection failed: using 16 MB.\n");
+                    pScrn->videoRam = 16 << 10;
+                }
+            } else {
+                from = X_DEFAULT;
+                xf86DrvMsg(pScrn->scrnIndex, X_WARNING,
+                           "No memory-detection done.  Use VideoRAM option.\n");
+            }
+    }
+
+    if (from == X_PROBED)
+        xf86DrvMsg(pScrn->scrnIndex, from,
+                   "Probed amount of VideoRAM = %d kB\n", pScrn->videoRam);
+
     xf86DrvMsg(pScrn->scrnIndex, X_INFO, 
 	       "Setting up default chipset options...\n");
     if (!VIASetupDefaultOptions(pScrn)) {
@@ -1065,16 +1096,9 @@ VIAPreInit(ScrnInfoPtr pScrn, int flags)
     xf86DrvMsg(pScrn->scrnIndex, X_INFO, 
 	       "Starting to parse config file options...\n");
 
-    pScrn->videoRam = pEnt->device->videoRam;
-    from = xf86GetOptValInteger(VIAOptions, OPTION_VIDEORAM,
-				&pScrn->videoRam) ? 
-	X_CONFIG : X_PROBED;
-    xf86DrvMsg(pScrn->scrnIndex, from, "VideoRAM is set to %d kB\n",
-               pScrn->videoRam);
-    if (pScrn->videoRam != pEnt->device->videoRam)
-        xf86DrvMsg(pScrn->scrnIndex, X_WARNING,
-                   "Detected VideoRAM was %d kB!\n", pEnt->device->videoRam);
-    xfree(pEnt);
+    if (xf86GetOptValInteger(VIAOptions, OPTION_VIDEORAM, &pScrn->videoRam))
+        xf86DrvMsg(pScrn->scrnIndex, X_CONFIG,
+                   "Setting amount of VideoRAM to %d kB\n", pScrn->videoRam);
 
     //pVia->shadowFB = FALSE;
     from = xf86GetOptValBool(VIAOptions, OPTION_SHADOW_FB, &pVia->shadowFB) ? 
@@ -1467,51 +1491,6 @@ VIAPreInit(ScrnInfoPtr pScrn, int flags)
         return FALSE;
     }
 
-    from = X_PROBED;
-
-    /* Detect the amount of installed RAM */
-    switch (pVia->Chipset) {
-        case VIA_CLE266:
-        case VIA_KM400:
-            pScrn->videoRam = ( 1 << ( ( pciReadByte(pciTag(0, 0, 0), 0xE1) & 0x70 ) >> 4 ) ) << 10 ;
-            break;
-        case VIA_PM800:
-        case VIA_VM800:
-        case VIA_K8M800:
-            pScrn->videoRam = ( 1 << ( ( pciReadByte(pciTag(0, 0, 3), 0xA1) & 0x70 ) >> 4 ) ) << 10 ;
-            break;
-        case VIA_K8M890:
-        case VIA_P4M890:
-        case VIA_P4M900:
-        case VIA_CX700:
-            pScrn->videoRam = ( 1 << ( ( pciReadByte(pciTag(0, 0, 3), 0xA1) & 0x70 ) >> 4 ) ) << 12 ;
-            break;
-        default:
-            if (pScrn->videoRam < 16384 || pScrn->videoRam > 65536) {
-                xf86DrvMsg(pScrn->scrnIndex, X_WARNING,
-                          "Using old memory-detection method.\n");
-                bMemSize = hwp->readSeq(hwp, 0x39);
-                if (bMemSize > 16 && bMemSize <= 128)
-                    pScrn->videoRam = (bMemSize + 1) << 9;
-                else if (bMemSize > 0 && bMemSize < 31)
-                    pScrn->videoRam = bMemSize << 12;
-                else {
-                    from = X_DEFAULT;
-                    xf86DrvMsg(pScrn->scrnIndex, X_WARNING,
-                               "Memory size detection failed: using 16 MB.\n");
-                    pScrn->videoRam = 16 << 10;
-                }
-            } else {
-                from = X_DEFAULT;
-                xf86DrvMsg(pScrn->scrnIndex, X_WARNING,
-                          "No memory-detection done.  Use VideoRAM option.\n");
-            }
-    }
-
-    if (from == X_PROBED)
-        xf86DrvMsg(pScrn->scrnIndex, from, "Probed VideoRAM = %d kB\n",
-                   pScrn->videoRam);
-
     /* Split FB for SAMM */
     /* FIXME: For now, split FB into two equal sections. This should
      *        be able to be adjusted by user with a config option. */
@@ -1572,11 +1551,12 @@ VIAPreInit(ScrnInfoPtr pScrn, int flags)
         ((pVia->Chipset == VIA_K8M800) ||
         (pVia->Chipset == VIA_PM800) ||
         (pVia->Chipset == VIA_VM800) ||
+        (pVia->Chipset == VIA_CX700) ||
         (pVia->Chipset == VIA_P4M890) ||
         (pVia->Chipset == VIA_K8M890) )) {
 
         xf86DrvMsg(pScrn->scrnIndex, X_WARNING,
-                   "Panel on K8M800, PM800, VM800, P4M890, K8M890 or P4M900 "
+                   "Panel on K8M800, PM800, VN800, CX700, P4M890, or K8M890 "
                    "is currently not supported.\n");
         xf86DrvMsg(pScrn->scrnIndex, X_WARNING,
                    "Using VBE to set modes to work around this.\n");
