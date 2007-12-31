@@ -1,3 +1,11 @@
+2007-12-31  Jon Nettleton  <jon-dot-nettleton-at-gmail-dot-com>
+
+	* src/via_driver.c: (VIAPreInit), (VIAMapMMIO):
+
+	Finally got a chance to work some more on libpciaccess.
+	Memory detection is still not 100% proper but should be
+	more functional and working at least.
+
 2007-10-29  Benno Schulenberg  <bensberg-at-justemail-dot-net>
 
 	* src/via_driver.c: (VIAPreInit):

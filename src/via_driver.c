@@ -868,6 +868,10 @@ static Bool VIAPreInit(ScrnInfoPtr pScrn, int flags)
     vgaHWPtr        hwp;
     int             i, bMemSize = 0;
 
+#if XSERVER_LIBPCIACCESS
+    struct pci_device *bridge = via_host_bridge ();
+#endif
+
     DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "VIAPreInit\n"));
 
     if (pScrn->numEntities > 1)
@@ -1536,18 +1540,33 @@ static Bool VIAPreInit(ScrnInfoPtr pScrn, int flags)
     switch (pVia->Chipset) {
         case VIA_CLE266:
         case VIA_KM400:
+#if XSERVER_LIBPCIACCESS
+            pci_device_cfg_read_u32 (bridge, & pScrn->videoRam, 0xE1);
+            pScrn->videoRam = (1 << ( ( pScrn->videoRam & 0x70) >> 4 )) << 10 ;
+#else
             pScrn->videoRam = ( 1 << ( ( pciReadByte(pciTag(0, 0, 0), 0xE1) & 0x70 ) >> 4 ) ) << 10 ;
             break;
+#endif
         case VIA_PM800:
         case VIA_VM800:
-  //      case VIA_K8M800:
+        case VIA_K8M800:
+#if XSERVER_LIBPCIACCESS
+            pci_device_cfg_read_u32 (bridge, & pScrn->videoRam, 0xA1);
+            pScrn->videoRam = (1 << ( ( pScrn->videoRam & 0x70) >> 4 )) << 10 ;
+#else
             pScrn->videoRam = ( 1 << ( ( pciReadByte(pciTag(0, 0, 3), 0xA1) & 0x70 ) >> 4 ) ) << 10 ;
             break;
+#endif
         case VIA_K8M890:
         case VIA_P4M900:
         case VIA_CX700:
+#if XSERVER_LIBPCIACCESS
+            pci_device_cfg_read_u32 (bridge, & pScrn->videoRam, 0xA1);
+            pScrn->videoRam = (1 << ( ( pScrn->videoRam & 0x70) >> 4 )) << 12 ;
+#else
             pScrn->videoRam = ( 1 << ( ( pciReadByte(pciTag(0, 0, 3), 0xA1) & 0x70 ) >> 4 ) ) << 12 ;
             break;
+#endif
         default:
             if (pScrn->videoRam < 16384 || pScrn->videoRam > 65536) {
                 xf86DrvMsg(pScrn->scrnIndex, X_WARNING,
@@ -2258,7 +2277,6 @@ VIAMapMMIO(ScrnInfoPtr pScrn)
     pVia->VidMapBase = pVia->MapBase + 0x200;
     /* Memory mapped IO for Mpeg Engine */
     pVia->MpegMapBase = pVia->MapBase + 0xc00;
-    return TRUE;
 
     /* Set up MMIO vgaHW */
     {
