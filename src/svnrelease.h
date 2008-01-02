@@ -21,5 +21,5 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#define BUILDCOMMENT "(openchrome 0.2.900 release)\n"
+#define BUILDCOMMENT "(openchrome 0.2.901 release)\n"
 
