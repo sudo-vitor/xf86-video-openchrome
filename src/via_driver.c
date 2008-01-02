@@ -2295,10 +2295,10 @@ VIAMapMMIO(ScrnInfoPtr pScrn)
 	hwp->writeSeq(hwp, 0x10, 0x01);
 
 	/* Enable MMIO */
-	/*if (pVia->IsSecondary)
+	if (pVia->IsSecondary)
 	    ViaSeqMask(hwp, 0x1A, 0x38, 0x38);
 	else
-	    ViaSeqMask(hwp, 0x1A, 0x68, 0x68);*/
+	    ViaSeqMask(hwp, 0x1A, 0x68, 0x68);
 
 	vgaHWGetIOBase(hwp);
     }
