@@ -188,12 +188,19 @@ viaCursorHWShow(ScrnInfoPtr pScrn)
     mode = VIAGETREG(VIA_REG_CURSOR_MODE);
     mode &= ~0x80000003;
 
-    /* Turn on hardware cursor. */
-    if (pVia->pBIOSInfo->FirstCRTC->IsActive)
-        VIASETREG(VIA_REG_CURSOR_MODE, mode | 0x1);
+    /* Hardware cursor size */
+    if (pVia->cursor->maxWidth == 32)
+        mode |= 0x00000002 ;
+    
+    /* Enable cursor */
+    mode |= 0x00000001 ;
+    
     if (pVia->pBIOSInfo->SecondCRTC->IsActive)
-        VIASETREG(VIA_REG_CURSOR_MODE, mode | 0x80000001);
-
+        mode |= 0x80000000 ;
+    
+    /* Turn on hardware cursor. */
+    VIASETREG(VIA_REG_CURSOR_MODE, mode);
+    
 }
 
 static void
