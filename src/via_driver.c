@@ -130,7 +130,6 @@ typedef enum {
     OPTION_EXA_SCRATCH_SIZE,
 #endif
     OPTION_SWCURSOR,
-    OPTION_HWCURSOR,
     OPTION_SHADOW_FB,
     OPTION_ROTATE,
     OPTION_VIDEORAM,
@@ -140,11 +139,9 @@ typedef enum {
     OPTION_PANELSIZE,
     OPTION_FORCEPANEL,
     OPTION_TVDOTCRAWL,
-    OPTION_TVPROGRESSIVE,
     OPTION_TVTYPE,
     OPTION_TVOUTPUT,
     OPTION_DISABLEVQ,
-    OPTION_DRIXINERAMA,
     OPTION_DISABLEIRQ,
     OPTION_TVDEFLICKER,
     OPTION_AGP_DMA,
@@ -170,7 +167,6 @@ static OptionInfoRec VIAOptions[] = {
     {OPTION_EXA_NOCOMPOSITE,     "ExaNoComposite",   OPTV_BOOLEAN, {0}, FALSE},
     {OPTION_EXA_SCRATCH_SIZE,    "ExaScratchSize",   OPTV_INTEGER, {0}, FALSE},
 #endif
-    {OPTION_HWCURSOR,            "HWCursor",         OPTV_BOOLEAN, {0}, FALSE},
     {OPTION_SWCURSOR,            "SWCursor",         OPTV_BOOLEAN, {0}, FALSE},
     {OPTION_SHADOW_FB,           "ShadowFB",         OPTV_BOOLEAN, {0}, FALSE},
     {OPTION_ROTATE,              "Rotate",           OPTV_ANYSTR,  {0}, FALSE},
@@ -183,7 +179,6 @@ static OptionInfoRec VIAOptions[] = {
     {OPTION_FORCEPANEL,          "ForcePanel",       OPTV_BOOLEAN, {0}, FALSE},
     {OPTION_TVDOTCRAWL,          "TVDotCrawl",       OPTV_BOOLEAN, {0}, FALSE},
     {OPTION_TVDEFLICKER,         "TVDeflicker",      OPTV_INTEGER, {0}, FALSE},
-    {OPTION_TVPROGRESSIVE,       "TVProgressive",    OPTV_BOOLEAN, {0}, FALSE},
     {OPTION_TVTYPE,              "TVType",           OPTV_ANYSTR,  {0}, FALSE},
     {OPTION_TVOUTPUT,            "TVOutput",         OPTV_ANYSTR,  {0}, FALSE},
     {OPTION_DISABLEVQ,           "DisableVQ",        OPTV_BOOLEAN, {0}, FALSE},
@@ -445,7 +440,8 @@ VIASetup(pointer module, pointer opts, int *errmaj, int *errmin)
 
 #endif /* XFree86LOADER */
 
-static Bool VIAGetRec(ScrnInfoPtr pScrn)
+static Bool
+VIAGetRec(ScrnInfoPtr pScrn)
 {
     Bool ret ;
     DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "VIAGetRec\n"));
@@ -539,22 +535,22 @@ static void VIAFreeRec(ScrnInfoPtr pScrn)
 } /* VIAFreeRec */
 
 
-
-static const OptionInfoRec * VIAAvailableOptions(int chipid, int busid)
+static const
+OptionInfoRec * VIAAvailableOptions(int chipid, int busid)
 {
-
     return VIAOptions;
+}
 
-} /* VIAAvailableOptions */
 
-
-static void VIAIdentify(int flags)
+static void
+VIAIdentify(int flags)
 {
     xf86PrintChipsets("OPENCHROME", "Driver for VIA Chrome chipsets",
                       VIAChipsets);
-} /* VIAIdentify */
+}
 
-static Bool VIAProbe(DriverPtr drv, int flags)
+static Bool
+VIAProbe(DriverPtr drv, int flags)
 {
     GDevPtr *devSections;
     int     *usedChips;
@@ -666,7 +662,8 @@ static Bool VIAProbe(DriverPtr drv, int flags)
 } /* VIAProbe */
 
 #ifdef XF86DRI
-static void kickVblank(ScrnInfoPtr pScrn)
+static void
+kickVblank(ScrnInfoPtr pScrn)
 {
     /*
      * Switching mode will clear registers that make vblank
@@ -685,7 +682,8 @@ static void kickVblank(ScrnInfoPtr pScrn)
 }
 #endif
 
-static int LookupChipSet(PciChipsets *pset, int chipSet)
+static int
+LookupChipSet(PciChipsets *pset, int chipSet)
 {
   while (pset->numChipset >= 0) {
     if (pset->numChipset == chipSet) return pset->PCIid;
@@ -699,8 +697,7 @@ static int
 LookupChipID(PciChipsets* pset, int ChipID)
 {
     /* Is there a function to do this for me? */
-    while (pset->numChipset >= 0)
-    {
+    while (pset->numChipset >= 0) {
         if (pset->PCIid == ChipID)
             return pset->numChipset;
 
@@ -708,8 +705,7 @@ LookupChipID(PciChipsets* pset, int ChipID)
     }
 
     return -1;
-
-} /* LookupChipID */
+}
 
 static void
 VIAProbeDDC(ScrnInfoPtr pScrn, int index)
@@ -736,8 +732,8 @@ VIASetupDefaultOptions(ScrnInfoPtr pScrn)
 #ifdef VIA_HAVE_EXA 
     pVia->noComposite = FALSE;
     pVia->exaScratchSize = VIA_SCRATCH_SIZE / 1024;
-#endif /* VIA_HAVE_EXA */
-    pVia->cursor->isHWCursorEnabled = pVia->shadowFB ? FALSE : TRUE;
+#endif
+    pVia->cursor->isHWCursorEnabled = TRUE;
     pVia->VQEnable = TRUE;
     pVia->DRIIrqEnable = TRUE;
     pVia->agpEnable = TRUE;
@@ -755,17 +751,15 @@ VIASetupDefaultOptions(ScrnInfoPtr pScrn)
 #ifdef HAVE_DEBUG
     pVia->PrintVGARegs = FALSE;
 #endif
-    pVia->swov.maxWInterp = 800 ;
-    pVia->swov.maxHInterp = 600 ;
+    pVia->swov.maxWInterp = 800;
+    pVia->swov.maxHInterp = 600;
     pVia->useLegacyVBE = TRUE;
-    pVia->UseLegacyModeSwitch = TRUE ;
+    pVia->UseLegacyModeSwitch = TRUE;
     
-    switch (pVia->Chipset)
-    {
+    switch (pVia->Chipset) {
         case VIA_KM400:
-            /* IRQ is not broken on KM400A */
-            /* But test below is not enough to make sure we have a KM400A */
-            /* if (pVia->ChipRev < 0x80) */
+            /* IRQ is not broken on KM400A, but testing (pVia->ChipRev < 0x80)
+               is not enough to make sure we have an older, broken KM400. */
             pVia->DRIIrqEnable = FALSE;
             break;
         case VIA_K8M800:
@@ -773,7 +767,7 @@ VIASetupDefaultOptions(ScrnInfoPtr pScrn)
             break;
         case VIA_P4M900:
     	    pVia->useLegacyVBE = FALSE;
-    	    /* FIXME: It needs to be tested */
+    	    /* FIXME: this needs to be tested */
     	    pVia->dmaXV = FALSE;
     	    
             /* FIXME:
@@ -800,8 +794,8 @@ VIASetupDefaultOptions(ScrnInfoPtr pScrn)
             pVia->UseLegacyModeSwitch = FALSE ;
         case VIA_PM800:
             pVia->VideoEngine = VIDEO_ENGINE_CME;
-            pVia->swov.maxWInterp = 1920 ;
-            pVia->swov.maxHInterp = 1080 ;
+            pVia->swov.maxWInterp = 1920;
+            pVia->swov.maxHInterp = 1080;
 	    break;
 	case VIA_P4M890:
             pVia->VideoEngine = VIDEO_ENGINE_CME;
@@ -997,27 +991,25 @@ VIAPreInit(ScrnInfoPtr pScrn, int flags)
     */
 
     if (pEnt->device->chipset && *pEnt->device->chipset) {
+        from = X_CONFIG;
         pScrn->chipset = pEnt->device->chipset;
         pVia->Chipset = xf86StringToToken(VIAChipsets, pScrn->chipset);
-        pVia->ChipId = pEnt->device->chipID = LookupChipSet(VIAPciChipsets, pVia->Chipset);
-        from = X_CONFIG;
+        pVia->ChipId = LookupChipSet(VIAPciChipsets, pVia->Chipset);
     } else if (pEnt->device->chipID >= 0) {
+        from = X_CONFIG;
         pVia->ChipId = pEnt->device->chipID;
         pVia->Chipset = LookupChipID(VIAPciChipsets, pVia->ChipId);
-        pScrn->chipset = (char *)xf86TokenToString(VIAChipsets,
-                                                   pVia->Chipset);
-        from = X_CONFIG;
+        pScrn->chipset = (char *)xf86TokenToString(VIAChipsets, pVia->Chipset);
         xf86DrvMsg(pScrn->scrnIndex, X_CONFIG, "ChipID override: 0x%04X\n",
                    pEnt->device->chipID);
     } else {
         from = X_PROBED;
         pVia->ChipId = pVia->PciInfo->chipType;
         pVia->Chipset = LookupChipID(VIAPciChipsets, pVia->ChipId);
-        pScrn->chipset = (char *)xf86TokenToString(VIAChipsets,
-                                                   pVia->Chipset);
+        pScrn->chipset = (char *)xf86TokenToString(VIAChipsets, pVia->Chipset);
     }
 
-    xf86DrvMsg(pScrn->scrnIndex, from, "Chipset: \"%s\"\n", pScrn->chipset);
+    xf86DrvMsg(pScrn->scrnIndex, from, "Chipset: %s\n", pScrn->chipset);
 
     if (pEnt->device->chipRev >= 0) {
         pVia->ChipRev = pEnt->device->chipRev;
@@ -1085,12 +1077,13 @@ VIAPreInit(ScrnInfoPtr pScrn, int flags)
                    "Probed amount of VideoRAM = %d kB\n", pScrn->videoRam);
 
     xf86DrvMsg(pScrn->scrnIndex, X_INFO, 
-	       "Setting up default chipset options...\n");
+	       "Setting up default chipset options.\n");
     if (!VIASetupDefaultOptions(pScrn)) {
         VIAFreeRec(pScrn);
         return FALSE;
     }
 
+    xf86DrvMsg(pScrn->scrnIndex, X_INFO, "Reading config file...\n");
     xf86ProcessOptions(pScrn->scrnIndex, pScrn->options, VIAOptions);
 
     xf86DrvMsg(pScrn->scrnIndex, X_INFO, 
@@ -1176,26 +1169,18 @@ VIAPreInit(ScrnInfoPtr pScrn, int flags)
     }
 #endif /* VIA_HAVE_EXA */
 
-    /*
-     * The SWCursor setting takes priority over HWCursor.  The default
-     * if neither is specified is HW.
-     */
-
-    //pVia->hwcursor = pVia->shadowFB ? FALSE : TRUE;
+    /* Whether to use a software cursor or the default hardware cursor. */
     from = X_DEFAULT;
-    if (xf86GetOptValBool(VIAOptions, OPTION_HWCURSOR,
-            &pVia->cursor->isHWCursorEnabled))
-        from = X_CONFIG;
-    if (xf86GetOptValBool(VIAOptions, OPTION_SWCURSOR,
-            &pVia->cursor->isHWCursorEnabled)) {
+    if (pVia->IsSecondary || pVia->shadowFB) 
+        pVia->cursor->isHWCursorEnabled = FALSE;
+    else if (xf86GetOptValBool(VIAOptions, OPTION_SWCURSOR,
+                               &pVia->cursor->isHWCursorEnabled)) {
         pVia->cursor->isHWCursorEnabled = !pVia->cursor->isHWCursorEnabled;
         from = X_CONFIG;
     }
-    if (pVia->IsSecondary) 
-	pVia->cursor->isHWCursorEnabled = FALSE;
     if (pVia->cursor->isHWCursorEnabled)
-        xf86DrvMsg(pScrn->scrnIndex, from, "Hardware two-color cursors; "
-                                           "software full-color cursors.\n");
+        xf86DrvMsg(pScrn->scrnIndex, from, "Using hardware two-color "
+                   "cursors and software full-color cursors.\n");
     else
 	xf86DrvMsg(pScrn->scrnIndex, from, "Using software cursors.\n");
 
@@ -1514,8 +1499,7 @@ VIAPreInit(ScrnInfoPtr pScrn, int flags)
     if (!xf86LoadSubModule(pScrn, "i2c")) {
         VIAFreeRec(pScrn);
         return FALSE;
-    }
-    else {
+    } else {
         xf86LoaderReqSymLists(i2cSymbols,NULL);
         ViaI2CInit(pScrn);
     }
@@ -1970,8 +1954,7 @@ VIASave(ScrnInfoPtr pScrn)
         Regs->SR46 = hwp->readSeq(hwp, 0x46);
         Regs->SR47 = hwp->readSeq(hwp, 0x47);
 
-        switch (pVia->Chipset)
-        {
+        switch (pVia->Chipset) {
             case VIA_CLE266:
             case VIA_KM400:
                 break;
@@ -2087,8 +2070,7 @@ VIARestore(ScrnInfoPtr pScrn)
     hwp->writeSeq(hwp, 0x46, Regs->SR46);
     hwp->writeSeq(hwp, 0x47, Regs->SR47);
 
-    switch (pVia->Chipset)
-    {
+    switch (pVia->Chipset) {
         case VIA_CLE266:
         case VIA_KM400:
             break;
@@ -2495,9 +2477,6 @@ VIALoadPalette(ScrnInfoPtr pScrn, int numColors, int *indices,
 }
 
 
-/*
- *
- */
 static Bool 
 VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
 {
@@ -2850,7 +2829,6 @@ VIACloseScreen(int scrnIndex, ScreenPtr pScreen)
 #endif
         /* Wait Hardware Engine idle to exit graphical mode */
         viaAccelSync(pScrn);
- 
 
 	/* A soft reset Fixes 3D Hang after X restart */
         if (pVia->Chipset != VIA_K8M890 && pVia->Chipset != VIA_P4M900)	
@@ -3057,43 +3035,27 @@ VIAInitialize3DEngine(ScrnInfoPtr pScrn)
     int i;
 
     VIASETREG(VIA_REG_TRANSET, 0x00010000);
-
     for (i = 0; i <= 0x7D; i++)
-      {
 	VIASETREG(VIA_REG_TRANSPACE, (CARD32) i << 24);
-      }
 
     VIASETREG(VIA_REG_TRANSET, 0x00020000);
-
     for (i = 0; i <= 0x94; i++)
-      {
 	VIASETREG(VIA_REG_TRANSPACE, (CARD32) i << 24);
-      }
-
     VIASETREG(VIA_REG_TRANSPACE, 0x82400000);
 
     VIASETREG(VIA_REG_TRANSET, 0x01020000);
-
-
     for (i = 0; i <= 0x94; i++)
-      {
 	VIASETREG(VIA_REG_TRANSPACE, (CARD32) i << 24);
-      }
-
     VIASETREG(VIA_REG_TRANSPACE, 0x82400000);
-    VIASETREG(VIA_REG_TRANSET, 0xfe020000);
 
+    VIASETREG(VIA_REG_TRANSET, 0xfe020000);
     for (i = 0; i <= 0x03; i++)
-      {
 	VIASETREG(VIA_REG_TRANSPACE, (CARD32) i << 24);
-      }
 
     VIASETREG(VIA_REG_TRANSET, 0x00030000);
-
     for (i = 0; i <= 0xff; i++)
-      {
 	VIASETREG(VIA_REG_TRANSPACE, 0);
-      }
+
     VIASETREG(VIA_REG_TRANSET, 0x00100000);
     VIASETREG(VIA_REG_TRANSPACE, 0x00333004);
     VIASETREG(VIA_REG_TRANSPACE, 0x10000002);
@@ -3106,9 +3068,9 @@ VIAInitialize3DEngine(ScrnInfoPtr pScrn)
     VIASETREG(VIA_REG_TRANSET, 0x00fe0000);
 
     if (pVia->Chipset == VIA_CLE266 && pVia->ChipRev >= 3)
-      VIASETREG(VIA_REG_TRANSPACE,0x40008c0f);
+        VIASETREG(VIA_REG_TRANSPACE,0x40008c0f);
     else
-      VIASETREG(VIA_REG_TRANSPACE,0x4000800f);
+        VIASETREG(VIA_REG_TRANSPACE,0x4000800f);
 
     VIASETREG(VIA_REG_TRANSPACE,0x44000000);
     VIASETREG(VIA_REG_TRANSPACE,0x45080C04);
@@ -3117,7 +3079,6 @@ VIAInitialize3DEngine(ScrnInfoPtr pScrn)
     VIASETREG(VIA_REG_TRANSPACE,0x51000000);
     VIASETREG(VIA_REG_TRANSPACE,0x52000000);
     VIASETREG(VIA_REG_TRANSPACE,0x53000000);
-
     
     VIASETREG(VIA_REG_TRANSET,0x00fe0000);
     VIASETREG(VIA_REG_TRANSPACE,0x08000001);
