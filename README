@@ -1,0 +1,8 @@
+
+The changes for modern Chrome chips were merged to trunk a while ago,
+so the experimental branch is dead.  Use trunk.
+
+If you want to test the libpciaccess changes, use the pciaccess_branch.
+But try that only when you know what it means.  Normal users should just
+use trunk.
+
