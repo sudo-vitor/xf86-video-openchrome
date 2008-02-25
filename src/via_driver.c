@@ -1519,6 +1519,7 @@ VIAPreInit(ScrnInfoPtr pScrn, int flags)
             ViaPanelPreInit(pScrn);
     }
 
+#if 0
     if (pBIOSInfo->Panel->IsActive && 
         ((pVia->Chipset == VIA_K8M800) ||
         (pVia->Chipset == VIA_PM800) ||
@@ -1535,6 +1536,7 @@ VIAPreInit(ScrnInfoPtr pScrn, int flags)
 
         pVia->useVBEModes = TRUE;
     }
+#endif
 
     pVia->pVbe = NULL;
     if (pVia->useVBEModes) {
