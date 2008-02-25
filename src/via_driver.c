@@ -764,41 +764,29 @@ VIASetupDefaultOptions(ScrnInfoPtr pScrn)
             break;
         case VIA_K8M800:
             pVia->DRIIrqEnable = FALSE;
+            pVia->UseLegacyModeSwitch = FALSE ;
             break;
         case VIA_P4M900:
     	    pVia->useLegacyVBE = FALSE;
     	    /* FIXME: this needs to be tested */
     	    pVia->dmaXV = FALSE;
-    	    
-            /* FIXME:
-             * Only for testing, this code will be removed
-             * when randr 1.2 support is added
-             */
-            pVia->pBIOSInfo->FirstCRTC->IsActive = TRUE ;
-            pVia->pBIOSInfo->SecondCRTC->IsActive = TRUE ;
-            pVia->pBIOSInfo->Simultaneous->IsActive = FALSE ;
-            pVia->pBIOSInfo->Lvds->IsActive = TRUE ;
             pVia->UseLegacyModeSwitch = FALSE ;
-    	    
     	    /* no break here */
         case VIA_K8M890:
             pVia->VideoEngine = VIDEO_ENGINE_CME;
             pVia->agpEnable = FALSE;
+            pVia->UseLegacyModeSwitch = FALSE ;
             break;
 	case VIA_CX700:
-            /* FIXME:
-             * Only for testing, this code will be removed
-             * when randr 1.2 support is added
-             */
-            pVia->pBIOSInfo->FirstCRTC->IsActive = TRUE ;
-            pVia->UseLegacyModeSwitch = FALSE ;
         case VIA_PM800:
             pVia->VideoEngine = VIDEO_ENGINE_CME;
             pVia->swov.maxWInterp = 1920;
             pVia->swov.maxHInterp = 1080;
+            pVia->UseLegacyModeSwitch = FALSE ;
 	    break;
 	case VIA_P4M890:
             pVia->VideoEngine = VIDEO_ENGINE_CME;
+            pVia->UseLegacyModeSwitch = FALSE ;
 	    break;
     }
 

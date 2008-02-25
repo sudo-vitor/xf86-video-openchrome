@@ -443,6 +443,15 @@ ViaOutputsSelect(ScrnInfoPtr pScrn)
             pBIOSInfo->CrtActive = TRUE;
         }
     }
+    if (!pVia->UseLegacyModeSwitch) {
+        if (pBIOSInfo->CrtActive)
+            pBIOSInfo->FirstCRTC->IsActive = TRUE ;
+        if (pBIOSInfo->Panel->IsActive) {
+            pVia->pBIOSInfo->SecondCRTC->IsActive = TRUE ;
+            if (pVia->Chipset == VIA_P4M900 || pVia->Chipset == VIA_CX700)
+                pVia->pBIOSInfo->Lvds->IsActive = TRUE ;
+        }
+    }
 
 #ifdef HAVE_DEBUG
     if (pBIOSInfo->CrtActive)
@@ -802,17 +811,17 @@ ViaValidMode(int scrnIndex, DisplayModePtr mode, Bool verbose, int flags)
 
     } else {
 
-        if (pBIOSInfo->FirstCRTC->IsActive)
+        if (pBIOSInfo->FirstCRTC->IsActive) {
             ret = ViaFirstCRTCModeValid(pScrn, mode);
+            if (ret != MODE_OK)
+                return ret;
+        }
 
-        if (ret != MODE_OK)
-            return ret;
-
-        if (pBIOSInfo->SecondCRTC->IsActive)
+        if (pBIOSInfo->SecondCRTC->IsActive) {
             ret = ViaSecondCRTCModeValid(pScrn, mode);
-
-        if (ret != MODE_OK)
-            return ret;
+            if (ret != MODE_OK)
+                return ret;
+        }
 
         if (pBIOSInfo->Panel->IsActive) {
             ViaPanelModePtr nativeMode = pBIOSInfo->Panel->NativeMode;
