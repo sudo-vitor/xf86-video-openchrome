@@ -1,3 +1,13 @@
+2008-03-06  Jon Nettleton  <jon-dot-nettleton-at-gmail-dot-com>
+
+	* src/via.h:
+	* src/via_driver.c: (VIAPreInit):
+	* src/via_id.c: (ViaCheckCardId):
+
+	Switched ViaCheckCardId to use the macros defined in 
+	via.h.  This allows it to work with libpciaccess enabled
+	xorg servers as well as legacy versions.
+
 2007-12-31  Jon Nettleton  <jon-dot-nettleton-at-gmail-dot-com>
 
 	* src/via_driver.c: (VIAPreInit), (VIAMapMMIO):

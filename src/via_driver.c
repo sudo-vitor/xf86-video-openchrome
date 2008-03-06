@@ -1499,9 +1499,7 @@ static Bool VIAPreInit(ScrnInfoPtr pScrn, int flags)
     xf86DrvMsg(pScrn->scrnIndex, X_INFO, 
 	       "...Finished parsing config file options.\n");
 
-#ifndef XSERVER_LIBPCIACCESS
     ViaCheckCardId(pScrn);   
-#endif
 
     /* Read memory bandwidth from registers */
     pVia->MemClk = hwp->readCrtc(hwp, 0x3D) >> 4;

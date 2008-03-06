@@ -252,22 +252,21 @@ ViaDoubleCheckCLE266Revision(ScrnInfoPtr pScrn)
 /*
  *
  */
-#ifndef XSERVER_LIBPCIACCESS
 void
 ViaCheckCardId(ScrnInfoPtr pScrn)
 {
     struct ViaCardIdStruct *Id;
     VIAPtr pVia = VIAPTR(pScrn);
     
-    if ((pVia->PciInfo->subsysVendor == pVia->PciInfo->vendor) &&
-	(pVia->PciInfo->subsysCard == pVia->PciInfo->chipType))
+    if ((SUBVENDOR_ID(pVia->PciInfo) == VENDOR_ID(pVia->PciInfo)) &&
+	(SUBSYS_ID(pVia->PciInfo) == DEICE_ID(pVia->PciInfo)))
         xf86DrvMsg(pScrn->scrnIndex, X_WARNING,
                    "Manufacturer plainly copied main PCI IDs to subsystem/card IDs.\n");
 
     for (Id = ViaCardId; Id->String; Id++) {
 	if ((Id->Chip == pVia->Chipset) && 
-	    (Id->Vendor == pVia->PciInfo->subsysVendor) &&
-	    (Id->Device == pVia->PciInfo->subsysCard)) {
+	    (Id->Vendor == SUBVENDOR_ID(pVia->PciInfo)) &&
+	    (Id->Device == SUBSYS_ID(pVia->PciInfo))) {
 	    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "Detected %s.\n", Id->String);
 	    pVia->Id = Id;
 	    return;
@@ -276,7 +275,6 @@ ViaCheckCardId(ScrnInfoPtr pScrn)
     
     xf86DrvMsg(pScrn->scrnIndex, X_ERROR, 
 	       "Unknown Card-Ids (%4X|%4X); please report to openchrome-users@openchrome.org\n",
-	       pVia->PciInfo->subsysVendor, pVia->PciInfo->subsysCard);
+	       SUBVENDOR_ID(pVia->PciInfo), SUBSYS_ID(pVia->PciInfo));
     pVia->Id = NULL;
 }
-#endif
