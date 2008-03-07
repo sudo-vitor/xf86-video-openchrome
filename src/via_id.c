@@ -249,9 +249,6 @@ ViaDoubleCheckCLE266Revision(ScrnInfoPtr pScrn)
     hwp->writeCrtc(hwp, 0x4F, tmp);
 }
 
-/*
- *
- */
 void
 ViaCheckCardId(ScrnInfoPtr pScrn)
 {
@@ -259,7 +256,7 @@ ViaCheckCardId(ScrnInfoPtr pScrn)
     VIAPtr pVia = VIAPTR(pScrn);
     
     if ((SUBVENDOR_ID(pVia->PciInfo) == VENDOR_ID(pVia->PciInfo)) &&
-	(SUBSYS_ID(pVia->PciInfo) == DEICE_ID(pVia->PciInfo)))
+	(SUBSYS_ID(pVia->PciInfo) == DEVICE_ID(pVia->PciInfo)))
         xf86DrvMsg(pScrn->scrnIndex, X_WARNING,
                    "Manufacturer plainly copied main PCI IDs to subsystem/card IDs.\n");
 
