@@ -1543,8 +1543,8 @@ static Bool VIAPreInit(ScrnInfoPtr pScrn, int flags)
             pScrn->videoRam = (1 << ( ( pScrn->videoRam & 0x70) >> 4 )) << 10 ;
 #else
             pScrn->videoRam = ( 1 << ( ( pciReadByte(pciTag(0, 0, 0), 0xE1) & 0x70 ) >> 4 ) ) << 10 ;
-            break;
 #endif
+            break;
         case VIA_PM800:
         case VIA_VM800:
         case VIA_K8M800:
@@ -1553,8 +1553,8 @@ static Bool VIAPreInit(ScrnInfoPtr pScrn, int flags)
             pScrn->videoRam = (1 << ( ( pScrn->videoRam & 0x70) >> 4 )) << 10 ;
 #else
             pScrn->videoRam = ( 1 << ( ( pciReadByte(pciTag(0, 0, 3), 0xA1) & 0x70 ) >> 4 ) ) << 10 ;
-            break;
 #endif
+            break;
         case VIA_K8M890:
         case VIA_P4M900:
         case VIA_CX700:
@@ -1563,8 +1563,8 @@ static Bool VIAPreInit(ScrnInfoPtr pScrn, int flags)
             pScrn->videoRam = (1 << ( ( pScrn->videoRam & 0x70) >> 4 )) << 12 ;
 #else
             pScrn->videoRam = ( 1 << ( ( pciReadByte(pciTag(0, 0, 3), 0xA1) & 0x70 ) >> 4 ) ) << 12 ;
-            break;
 #endif
+            break;
         default:
             if (pScrn->videoRam < 16384 || pScrn->videoRam > 65536) {
                 xf86DrvMsg(pScrn->scrnIndex, X_WARNING,
