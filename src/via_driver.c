@@ -62,19 +62,32 @@
 
 static void VIAIdentify(int flags);
 #if XSERVER_LIBPCIACCESS
+struct pci_device*
+via_pci_device(const struct pci_slot_match *bridge_match) {
+    struct pci_device_iterator  *slot_iterator;
+    struct pci_device           *bridge;
+
+    slot_iterator = pci_slot_match_iterator_create (bridge_match);
+    bridge = pci_device_next (slot_iterator);
+    pci_iterator_destroy (slot_iterator);
+    return bridge;
+}
+
 struct pci_device *
 via_host_bridge (void)
 {
     static const struct pci_slot_match bridge_match = {
-        0, 0, 0, PCI_MATCH_ANY, 0
+        0, 0, 0, 0, 0
     };
-    struct pci_device_iterator  *slot_iterator;
-    struct pci_device           *bridge;
+    return via_pci_device(&bridge_match);
+}
 
-    slot_iterator = pci_slot_match_iterator_create (&bridge_match);
-    bridge = pci_device_next (slot_iterator);
-    pci_iterator_destroy (slot_iterator);
-    return bridge;
+viaPciDeviceVga(void)
+{
+    static const struct pci_slot_match bridge_match = {
+        0, 0, 0, 3, 0
+    };
+    return via_pci_device(&bridge_match);
 }
 
 static Bool via_pci_probe (DriverPtr          drv,
@@ -1533,37 +1546,41 @@ static Bool VIAPreInit(ScrnInfoPtr pScrn, int flags)
     }
 
     from = X_PROBED;
+    CARD8 videoRam ;
+#if XSERVER_LIBPCIACCESS
+    struct pci_device *vgaDevice = viaPciDeviceVga() ;
+#endif
 
     /* Detect the amount of installed RAM */
     switch (pVia->Chipset) {
         case VIA_CLE266:
         case VIA_KM400:
 #if XSERVER_LIBPCIACCESS
-            pci_device_cfg_read_u32 (bridge, & pScrn->videoRam, 0xE1);
-            pScrn->videoRam = (1 << ( ( pScrn->videoRam & 0x70) >> 4 )) << 10 ;
+            pci_device_cfg_read_u8(bridge, &videoRam, 0xE1);
 #else
-            pScrn->videoRam = ( 1 << ( ( pciReadByte(pciTag(0, 0, 0), 0xE1) & 0x70 ) >> 4 ) ) << 10 ;
+            videoRam = pciReadByte(pciTag(0, 0, 0), 0xE1) & 0x70 ;
 #endif
+            pScrn->videoRam = ( 1 << ((videoRam & 0x70) >> 4 )) << 10 ;
             break;
         case VIA_PM800:
         case VIA_VM800:
         case VIA_K8M800:
 #if XSERVER_LIBPCIACCESS
-            pci_device_cfg_read_u32 (bridge, & pScrn->videoRam, 0xA1);
-            pScrn->videoRam = (1 << ( ( pScrn->videoRam & 0x70) >> 4 )) << 10 ;
+            pci_device_cfg_read_u8(vgaDevice, &videoRam, 0xA1);
 #else
-            pScrn->videoRam = ( 1 << ( ( pciReadByte(pciTag(0, 0, 3), 0xA1) & 0x70 ) >> 4 ) ) << 10 ;
+            videoRam = pciReadByte(pciTag(0, 0, 3), 0xA1) & 0x70;
 #endif
+            pScrn->videoRam = (1 << ((videoRam & 0x70) >> 4)) << 10;
             break;
         case VIA_K8M890:
         case VIA_P4M900:
         case VIA_CX700:
 #if XSERVER_LIBPCIACCESS
-            pci_device_cfg_read_u32 (bridge, & pScrn->videoRam, 0xA1);
-            pScrn->videoRam = (1 << ( ( pScrn->videoRam & 0x70) >> 4 )) << 12 ;
+            pci_device_cfg_read_u8(vgaDevice, &videoRam, 0xA1);
 #else
-            pScrn->videoRam = ( 1 << ( ( pciReadByte(pciTag(0, 0, 3), 0xA1) & 0x70 ) >> 4 ) ) << 12 ;
+            videoRam = pciReadByte(pciTag(0, 0, 3), 0xA1) & 0x70;
 #endif
+            pScrn->videoRam = (1 << ((videoRam & 0x70) >> 4 )) << 12;
             break;
         default:
             if (pScrn->videoRam < 16384 || pScrn->videoRam > 65536) {
@@ -2218,8 +2235,7 @@ VIAMapMMIO(ScrnInfoPtr pScrn)
         err = pci_device_map_range (pVia->PciInfo,
                                     pVia->MmioBase,
                                     VIA_MMIO_REGSIZE,
-                                    (PCI_DEV_MAP_FLAG_WRITABLE
-                                    |PCI_DEV_MAP_FLAG_WRITE_COMBINE),
+                                    PCI_DEV_MAP_FLAG_WRITABLE,
                                     (void **) &pVia->MapBase);
 
         if (err)
