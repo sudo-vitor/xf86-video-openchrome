@@ -23,6 +23,7 @@
 # -avoid-version prevents gratuitous .0.0.0 version numbers on the end
 # _ladir passes a dummy rpath to libtool so the thing will actually link
 # TODO: -nostdlib/-Bstatic/-lgcc platform magic, not installing the .a, etc.
+
 EXTRA_DIST = svnversion.h
 CONFIG_CLEAN_FILES= svnversion.h
 AM_CFLAGS = @XORG_CFLAGS@ @DRI_CFLAGS@
@@ -31,9 +32,10 @@ openchrome_drv_la_LDFLAGS = -module -avoid-version
 openchrome_drv_ladir = @moduledir@/drivers
 
 openchrome_drv_la_SOURCES = \
-         via_3d_reg.h \
+         via.h \
          via_3d.c \
          via_3d.h \
+         via_3d_reg.h \
          via_accel.c \
          via_bandwidth.c \
          via_bios.h \
@@ -47,7 +49,6 @@ openchrome_drv_la_SOURCES = \
          via_dmabuffer.h \
          via_driver.c \
          via_driver.h \
-         via.h \
          via_i2c.c \
          via_id.c \
          via_id.h \
@@ -79,7 +80,6 @@ openchrome_drv_la_SOURCES += \
          via_drmclient.h \
          via_xvmc.c \
          via_xvmc.h 
-
 else
 EXTRA_DIST += \
          via_dri.c \
@@ -89,8 +89,9 @@ EXTRA_DIST += \
          via_xvmc.h 
 endif
 
+
 via_driver.lo: svnversion.h
-svnversion.h:
+svnversion.h: $(openchrome_drv_la_SOURCES)
 	@if [ -f svnrelease.h ]; then \
 	echo '#include "svnrelease.h"' > $@.tmp; \
 	elif [ -d .svn ]; then \
@@ -101,7 +102,7 @@ svnversion.h:
 	> $@.tmp; \
 	fi
 
-	@(chmod 666 $@.tmp 2> /dev/null || /bin/true)
-	@cmp -s $@ $@.tmp || (mv $@.tmp $@; echo created $@)
+	@chmod 666 $@.tmp
+	@mv $@.tmp $@
+	@echo "created $@"
 
-.PHONY: svnversion.h
