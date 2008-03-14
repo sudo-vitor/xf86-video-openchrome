@@ -1592,14 +1592,13 @@ VIAPreInit(ScrnInfoPtr pScrn, int flags)
          *   Max Line Pitch: 4080, (FB corruption when higher, driver problem?)
          *   Max Height: 4096 (and beyond)
          *
-         * CLE266A: primary AdjustFrame only is able to use 24bits, so we are
-         * limited to 12x11bits; 4080x2048 (~2:1), 3344x2508 (4:3) or 2896x2896
-         * (1:1).
+         * CLE266A: primary AdjustFrame can use only 24 bits, so we are limited
+	 * to 12x11bits; 4080x2048 (~2:1), 3344x2508 (4:3) or 2896x2896 (1:1).
          * Test CLE266Cx, KM400, KM400A, K8M800, PM800, CN400 please.
          *
          * We should be able to limit the memory available for a mode to 32MB,
-         * yet xf86ValidateModes (or miScanLineWidth) fails to catch this properly
-         * (apertureSize).
+         * but xf86ValidateModes (or miScanLineWidth) fails to catch this
+	 * properly (apertureSize).
          */
 
         /* Select valid modes from those available */
@@ -2735,9 +2734,8 @@ VIAInternalScreenInit(int scrnIndex, ScreenPtr pScreen)
             return cfb32ScreenInit(pScreen, FBStart, width, height, pScrn->xDpi,
                                    pScrn->yDpi, displayWidth);
         default:
-            xf86DrvMsg(scrnIndex, X_ERROR,
-                       "Internal error: invalid bpp (%d) in "
-                       "VIAInternalScreenInit\n", pScrn->bitsPerPixel);
+            xf86DrvMsg(scrnIndex, X_ERROR, "Internal error: invalid bpp (%d) "
+                       "in VIAInternalScreenInit\n", pScrn->bitsPerPixel);
             return FALSE;
     }
 #endif
