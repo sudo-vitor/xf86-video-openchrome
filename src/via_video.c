@@ -1076,7 +1076,7 @@ Flip(VIAPtr pVia, viaPortPrivPtr pPriv, int fourcc,
 {
     unsigned long proReg = 0;
 
-    if (pVia->ChipId == PCI_CHIP_VT3259 
+    if (pVia->ChipId == PCI_CHIP_VT3259
         && !(pVia->swov.gdwVideoFlagSW & VIDEO_1_INUSE))
         proReg = PRO_HQV1_OFFSET;
 

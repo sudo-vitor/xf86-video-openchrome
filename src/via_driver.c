@@ -1730,12 +1730,12 @@ VIAPreInit(ScrnInfoPtr pScrn, int flags)
          *   Max Height: 4096 (and beyond)
          *
          * CLE266A: primary AdjustFrame can use only 24 bits, so we are limited
-	 * to 12x11bits; 4080x2048 (~2:1), 3344x2508 (4:3) or 2896x2896 (1:1).
+         * to 12x11 bits; 4080x2048 (~2:1), 3344x2508 (4:3) or 2896x2896 (1:1).
          * Test CLE266Cx, KM400, KM400A, K8M800, PM800, CN400 please.
          *
-         * We should be able to limit the memory available for a mode to 32MB,
+         * We should be able to limit the memory available for a mode to 32 MB,
          * but xf86ValidateModes (or miScanLineWidth) fails to catch this
-	 * properly (apertureSize).
+         * properly (apertureSize).
          */
 
         /* Select valid modes from those available */
