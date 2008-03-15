@@ -67,6 +67,10 @@
 #include "via_3d.h"
 #include "via_video.h"
 
+#ifdef XSERVER_LIBPCIACCESS
+#include <pciaccess.h>
+#endif
+
 #ifdef XF86DRI
 #define _XF86DRI_SERVER_
 #include "sarea.h"
@@ -259,8 +263,15 @@ typedef struct _VIA {
     int                 agpMem;
 
     CloseScreenProcPtr  CloseScreen;
-    pciVideoPtr         PciInfo;
-    PCITAG              PciTag;
+#ifdef XSERVER_LIBPCIACCESS
+    struct pci_device *PciInfo;
+    int mmio_bar;
+    int fb_bar;
+    PCITAG PciTag;
+#else
+    pciVideoPtr PciInfo;
+    PCITAG PciTag;
+#endif
     int                 Chipset;
     int                 ChipId;
     int                 ChipRev;

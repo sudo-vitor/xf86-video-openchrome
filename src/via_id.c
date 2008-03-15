@@ -30,6 +30,7 @@
 #endif
 
 #include "via_driver.h"
+#include "via.h"
 #include "via_id.h"
 
 /*
@@ -166,6 +167,7 @@ static struct ViaCardIdStruct ViaCardId[] = {
     {"Asustek P5VD2-VM SE",                   VIA_P4M900,  0x1043, 0x8252, VIA_DEVICE_CRT},
     {"Mitac 8515",                            VIA_P4M900,  0x1071, 0x8515, VIA_DEVICE_CRT | VIA_DEVICE_LCD},
     {"Medion Notebook MD96483",               VIA_P4M900,  0x1071, 0x8615, VIA_DEVICE_CRT | VIA_DEVICE_LCD},
+    {"Mitac 8624",                            VIA_P4M900,  0x1071, 0x8624, VIA_DEVICE_CRT | VIA_DEVICE_LCD},
     {"VIA VT3364 (P4M900)",                   VIA_P4M900,  0x1106, 0x3371, VIA_DEVICE_CRT | VIA_DEVICE_LCD},
     {"Gigabyte GA-VM900M",                    VIA_P4M900,  0x1458, 0xD000, VIA_DEVICE_CRT},
     {"MSI P4M900M / P4M900M2-F/L",            VIA_P4M900,  0x1462, 0x7255, VIA_DEVICE_CRT},
@@ -228,15 +230,15 @@ ViaCheckCardId(ScrnInfoPtr pScrn)
     struct ViaCardIdStruct *Id;
     VIAPtr pVia = VIAPTR(pScrn);
     
-    if ((pVia->PciInfo->subsysVendor == pVia->PciInfo->vendor) &&
-	(pVia->PciInfo->subsysCard == pVia->PciInfo->chipType))
+    if ((SUBVENDOR_ID(pVia->PciInfo) == VENDOR_ID(pVia->PciInfo)) &&
+       (SUBSYS_ID(pVia->PciInfo) == DEVICE_ID(pVia->PciInfo)))
         xf86DrvMsg(pScrn->scrnIndex, X_WARNING,
                    "Manufacturer plainly copied main PCI IDs to subsystem/card IDs.\n");
 
     for (Id = ViaCardId; Id->String; Id++) {
 	if ((Id->Chip == pVia->Chipset) && 
-	    (Id->Vendor == pVia->PciInfo->subsysVendor) &&
-	    (Id->Device == pVia->PciInfo->subsysCard)) {
+           (Id->Vendor == SUBVENDOR_ID(pVia->PciInfo)) &&
+           (Id->Device == SUBSYS_ID(pVia->PciInfo))) {
 	    xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "Detected %s.\n", Id->String);
 	    pVia->Id = Id;
 	    return;
@@ -245,7 +247,7 @@ ViaCheckCardId(ScrnInfoPtr pScrn)
     
     xf86DrvMsg(pScrn->scrnIndex, X_ERROR, 
 	       "Unknown Card-Ids (%4X|%4X|%4X); please report to openchrome-users@openchrome.org\n",
-	       pVia->PciInfo->chipType, pVia->PciInfo->subsysVendor, pVia->PciInfo->subsysCard);
+               DEVICE_ID(pVia->PciInfo), SUBVENDOR_ID(pVia->PciInfo), SUBSYS_ID(pVia->PciInfo));
     pVia->Id = NULL;
 }
 
