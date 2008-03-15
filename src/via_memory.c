@@ -53,7 +53,7 @@
  */
 
 static void
-viaExaFBSave(ScreenPtr pScreen, ExaOffscreenArea *exa)
+viaExaFBSave(ScreenPtr pScreen, ExaOffscreenArea * exa)
 {
     FatalError("Xserver is incompatible with openchrome EXA.\n"
                "\t\tPlease look at Xorg bugzilla bug #7639, and at\n"

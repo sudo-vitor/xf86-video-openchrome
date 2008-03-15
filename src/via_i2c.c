@@ -282,7 +282,7 @@ ViaI2C3GetBit(I2CBusPtr b, int timeout)
 }
 
 static Bool
-ViaI2C3GetByte(I2CDevPtr d, I2CByte *data, Bool last)
+ViaI2C3GetByte(I2CDevPtr d, I2CByte * data, Bool last)
 {
     I2CBusPtr b = d->pI2CBus;
     vgaHWPtr hwp = VGAHWPTR(xf86Screens[b->scrnIndex]);

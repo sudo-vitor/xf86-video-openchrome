@@ -66,7 +66,7 @@
 #define VIA_AGP_FW_MODE 0x10
 
 extern void GlxSetVisualConfigs(int nconfigs,
-                                __GLXvisualConfig *configs,
+                                __GLXvisualConfig * configs,
                                 void **configprivs);
 
 typedef struct
