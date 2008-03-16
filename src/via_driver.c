@@ -1575,7 +1575,7 @@ VIAPreInit(ScrnInfoPtr pScrn, int flags)
 
     ViaCheckCardId(pScrn);
 
-    /* Read memory bandwidth from registers */
+    /* Read memory bandwidth from registers. */
     pVia->MemClk = hwp->readCrtc(hwp, 0x3D) >> 4;
     DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO,
                      "Detected MemClk %d\n", pVia->MemClk));
@@ -1587,7 +1587,7 @@ VIAPreInit(ScrnInfoPtr pScrn, int flags)
     pBIOSInfo->Bandwidth = ViaGetMemoryBandwidth(pScrn);
 
     if (pBIOSInfo->TVType == TVTYPE_NONE) {
-        /* Use jumper to determine TV type */
+        /* Use jumper to determine TV type. */
         if (hwp->readCrtc(hwp, 0x3B) & 0x02) {
             pBIOSInfo->TVType = TVTYPE_PAL;
             DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO,
@@ -1605,9 +1605,9 @@ VIAPreInit(ScrnInfoPtr pScrn, int flags)
         return FALSE;
     }
 
-    /* Split FB for SAMM */
-    /* FIXME: For now, split FB into two equal sections. This should
-     *        be able to be adjusted by user with a config option. */
+    /* Split the FB for SAMM. */
+    /* FIXME: For now, split the FB into two equal sections.
+     * This should be user-adjustable via a config option. */
     if (pVia->IsSecondary) {
         DevUnion *pPriv;
         VIAEntPtr pVIAEnt;
@@ -1680,7 +1680,7 @@ VIAPreInit(ScrnInfoPtr pScrn, int flags)
 
     pVia->pVbe = NULL;
     if (pVia->useVBEModes) {
-        /* VBE doesn't properly initialise int10 itself */
+        /* VBE doesn't properly initialise int10 itself. */
         if (xf86LoadSubModule(pScrn, "int10")
             && xf86LoadSubModule(pScrn, "vbe")) {
             xf86LoaderReqSymLists(vbeSymbols, NULL);
@@ -1702,14 +1702,13 @@ VIAPreInit(ScrnInfoPtr pScrn, int flags)
         }
 
     } else {
-        /* Add own Modes */
+        /* Add own modes. */
         ViaModesAttach(pScrn, pScrn->monitor);
 
         /*
-         * Setup the ClockRanges, which describe what clock ranges are available,
-         * and what sort of modes they can be used for.
+         * Set up ClockRanges, which describe what clock ranges are
+         * available, and what sort of modes they can be used for.
          */
-
         clockRanges = xnfalloc(sizeof(ClockRange));
         clockRanges->next = NULL;
         clockRanges->minClock = 20000;
@@ -1730,7 +1729,7 @@ VIAPreInit(ScrnInfoPtr pScrn, int flags)
          *   Max Height: 4096 (and beyond)
          *
          * CLE266A: primary AdjustFrame can use only 24 bits, so we are limited
-         * to 12x11 bits; 4080x2048 (~2:1), 3344x2508 (4:3) or 2896x2896 (1:1).
+         * to 12x11 bits; 4080x2048 (~2:1), 3344x2508 (4:3), or 2896x2896 (1:1).
          * Test CLE266Cx, KM400, KM400A, K8M800, PM800, CN400 please.
          *
          * We should be able to limit the memory available for a mode to 32 MB,
@@ -1738,7 +1737,7 @@ VIAPreInit(ScrnInfoPtr pScrn, int flags)
          * properly (apertureSize).
          */
 
-        /* Select valid modes from those available */
+        /* Select valid modes from those available. */
         i = xf86ValidateModes(pScrn, pScrn->monitor->Modes,     /* availModes */
                               pScrn->display->modes,    /* modeNames */
                               clockRanges,      /* list of clock ranges */
@@ -1786,7 +1785,7 @@ VIAPreInit(ScrnInfoPtr pScrn, int flags)
     xf86LoaderReqSymLists(fbSymbols, NULL);
 
 #else
-    /* load bpp-specific modules */
+    /* Load bpp-specific modules. */
     switch (pScrn->bitsPerPixel) {
         case 8:
             mod = "cfb";
@@ -1873,7 +1872,7 @@ VIAEnterVT(int scrnIndex, int flags)
     vgaHWPtr hwp = VGAHWPTR(pScrn);
     Bool ret;
 
-    /* FIXME: Rebind AGP memory here */
+    /* FIXME: Rebind AGP memory here. */
     DEBUG(xf86DrvMsg(scrnIndex, X_INFO, "VIAEnterVT\n"));
 
     if (pVia->pVbe) {
@@ -1890,12 +1889,11 @@ VIAEnterVT(int scrnIndex, int flags)
 
     VIASaveScreen(pScrn->pScreen, SCREEN_SAVER_ON);
 
-
-    /* Patch for APM suspend resume, HWCursor has garbage */
+    /* A patch for APM suspend/resume, when HWCursor has garbage. */
     if (pVia->cursor->isHWCursorEnabled)
         viaCursorRestore(pScrn);
 
-    /* restore video status */
+    /* Restore video status. */
     if (!pVia->IsSecondary)
         viaRestoreVideo(pScrn);
 
@@ -1946,9 +1944,7 @@ VIALeaveVT(int scrnIndex, int flags)
 
     viaAccelSync(pScrn);
 
-    /*
-     * A soft reset helps fix 3D hang on VT switch.
-     */
+    /* A soft reset helps to avoid a 3D hang on VT switch. */
     if (pVia->Chipset != VIA_K8M890 && pVia->Chipset != VIA_P4M900)
         hwp->writeSeq(hwp, 0x1A, pVia->SavedReg.SR1A | 0x40);
 
@@ -1962,8 +1958,7 @@ VIALeaveVT(int scrnIndex, int flags)
     if (pVia->VQEnable)
         viaDisableVQ(pScrn);
 
-    /* Save video status and turn off all video activities */
-
+    /* Save video status and turn off all video activities. */
     if (!pVia->IsSecondary)
         viaSaveVideo(pScrn);
 
@@ -2047,7 +2042,7 @@ VIASave(ScrnInfoPtr pScrn)
         else
             vgaHWSave(pScrn, &hwp->SavedReg, VGA_SR_MODE);
 
-        /* Unlock extended regs */
+        /* Unlock and save extended registers. */
         hwp->writeSeq(hwp, 0x10, 0x01);
 
         Regs->SR14 = hwp->readSeq(hwp, 0x14);
@@ -2109,7 +2104,7 @@ VIASave(ScrnInfoPtr pScrn)
         if (pBIOSInfo->TVI2CDev)
             ViaTVSave(pScrn);
 
-        /* Save LCD control regs */
+        /* Save LCD control registers. */
         for (i = 0; i < 68; i++)
             Regs->CRTCRegs[i] = hwp->readCrtc(hwp, i + 0x50);
 
@@ -2146,7 +2141,7 @@ VIARestore(ScrnInfoPtr pScrn)
 
     vgaHWProtect(pScrn, TRUE);
 
-    /* Unlock extended regs */
+    /* Unlock extended registers. */
     hwp->writeSeq(hwp, 0x10, 0x01);
 
     hwp->writeCrtc(hwp, 0x6A, 0x00);
@@ -2158,13 +2153,13 @@ VIARestore(ScrnInfoPtr pScrn)
     if (pBIOSInfo->TVI2CDev)
         ViaTVRestore(pScrn);
 
-    /* Restore the standard vga regs */
+    /* Restore the standard VGA registers. */
     if (xf86IsPrimaryPci(pVia->PciInfo))
         vgaHWRestore(pScrn, &hwp->SavedReg, VGA_SR_ALL);
     else
         vgaHWRestore(pScrn, &hwp->SavedReg, VGA_SR_MODE);
 
-    /* Restore extended regs */
+    /* Restore extended registers. */
     hwp->writeSeq(hwp, 0x14, Regs->SR14);
     hwp->writeSeq(hwp, 0x15, Regs->SR15);
     hwp->writeSeq(hwp, 0x16, Regs->SR16);
@@ -2207,7 +2202,7 @@ VIARestore(ScrnInfoPtr pScrn)
             break;
     }
 
-    /* Reset dotclocks */
+    /* Reset dotclocks. */
     ViaSeqMask(hwp, 0x40, 0x06, 0x06);
     ViaSeqMask(hwp, 0x40, 0x00, 0x06);
 
@@ -2221,7 +2216,7 @@ VIARestore(ScrnInfoPtr pScrn)
     hwp->writeCrtc(hwp, 0x48, Regs->CR48);
     hwp->writeCrtc(hwp, 0x49, Regs->CR49);
 
-    /* Restore LCD control regs */
+    /* Restore LCD control registers. */
     for (i = 0; i < 68; i++)
         hwp->writeCrtc(hwp, i + 0x50, Regs->CRTCRegs[i]);
 
@@ -2243,7 +2238,7 @@ VIARestore(ScrnInfoPtr pScrn)
 
     ViaDisablePrimaryFIFO(pScrn);
 
-    /* Reset clock */
+    /* Reset clock. */
     tmp = hwp->readMiscOut(hwp);
     hwp->writeMiscOut(hwp, tmp);
 
@@ -2374,12 +2369,12 @@ VIAMapMMIO(ScrnInfoPtr pScrn)
         return FALSE;
     }
 
-    /* Memory mapped IO for Video Engine */
+    /* Memory mapped IO for video engine. */
     pVia->VidMapBase = pVia->MapBase + 0x200;
-    /* Memory mapped IO for Mpeg Engine */
+    /* Memory mapped IO for mpeg engine. */
     pVia->MpegMapBase = pVia->MapBase + 0xc00;
 
-    /* Set up MMIO vgaHW */
+    /* Set up MMIO vgaHW. */
     {
         vgaHWPtr hwp = VGAHWPTR(pScrn);
         CARD8 val;
@@ -2392,14 +2387,14 @@ VIAMapMMIO(ScrnInfoPtr pScrn)
         val = hwp->readMiscOut(hwp);
         hwp->writeMiscOut(hwp, val | 0x01);
 
-        /* Unlock Extended IO Space */
+        /* Unlock extended IO space. */
         ViaSeqMask(hwp, 0x10, 0x01, 0x01);
 
         ViaMMIOEnable(pScrn);
 
         vgaHWSetMmioFuncs(hwp, pVia->MapBase, 0x8000);
 
-        /* unlock crtc */
+        /* Unlock CRTC. */
         ViaCrtcMask(hwp, 0x47, 0x00, 0x01);
     }
 
@@ -2422,13 +2417,13 @@ VIAMapFB(ScrnInfoPtr pScrn)
 
     if (pVia->videoRambytes) {
 
+#ifndef XSERVER_LIBPCIACCESS
         /*
          * FIXME: This is a hack to get rid of offending wrongly sized
          * MTRR regions set up by the VIA BIOS. Should be taken care of
          * in the OS support layer.
          */
 
-#ifndef XSERVER_LIBPCIACCESS
         unsigned char *tmp;
 
         tmp = xf86MapPciMem(pScrn->scrnIndex, VIDMEM_MMIO, pVia->PciTag,
@@ -2436,18 +2431,18 @@ VIAMapFB(ScrnInfoPtr pScrn)
         xf86UnMapVidMem(pScrn->scrnIndex, (pointer) tmp, pVia->videoRambytes);
 
         /*
-         * And, as if this wasn't enough, 2.6 series kernels doesn't
-         * remove MTRR regions on the first attempt. Try again.
+         * And, as if this wasn't enough, 2.6 series kernels don't
+         * remove MTRR regions on the first attempt. So try again.
          */
 
         tmp = xf86MapPciMem(pScrn->scrnIndex, VIDMEM_MMIO, pVia->PciTag,
                             pVia->FrameBufferBase, pVia->videoRambytes);
         xf86UnMapVidMem(pScrn->scrnIndex, (pointer) tmp, pVia->videoRambytes);
 
-#endif
         /*
          * End of hack.
          */
+#endif
 
 #ifdef XSERVER_LIBPCIACCESS
         err = pci_device_map_range(pVia->PciInfo, pVia->FrameBufferBase,
@@ -2658,7 +2653,7 @@ VIALoadPalette(ScrnInfoPtr pScrn, int numColors, int *indices,
             hwp->writeCrtc(hwp, 0x6A, CR6A);
 
             /* Screen 0 palette was changed by mode setting of Screen 1,
-             * so load again */
+             * so load it again. */
             for (i = 0; i < numColors; i++) {
                 index = indices[i];
                 hwp->writeDacWriteAddr(hwp, index);
@@ -2667,7 +2662,6 @@ VIALoadPalette(ScrnInfoPtr pScrn, int numColors, int *indices,
                 hwp->writeDacData(hwp, colors[index].blue);
             }
         }
-
     }
 }
 
@@ -2716,7 +2710,7 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
     }
     pVia->FirstInit = FALSE;
 
-    /* Darken the screen for aesthetic reasons and set the viewport */
+    /* Darken the screen for aesthetic reasons and set the viewport. */
     VIASaveScreen(pScreen, SCREEN_SAVER_ON);
     pScrn->AdjustFrame(scrnIndex, pScrn->frameX0, pScrn->frameY0, 0);
 
@@ -2767,7 +2761,7 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
         }
     }
 #ifdef USE_FB
-    /* must be after RGB ordering fixed */
+    /* Must be after RGB ordering is fixed. */
     fbPictureInit(pScreen, 0, 0);
 #endif
 
@@ -2777,7 +2771,9 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
 
     miInitializeBackingStore(pScreen);
     xf86SetBackingStore(pScreen);
-    /*xf86SetSilkenMouse(pScreen); */
+#if 0
+    xf86SetSilkenMouse(pScreen);
+#endif
     DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "- Backing store set up\n"));
 
     if (!pVia->shadowFB)        /* hardware cursor needs to wrap this layer */
@@ -2978,16 +2974,14 @@ VIAWriteMode(ScrnInfoPtr pScrn, DisplayModePtr mode)
         if (!ViaVbeSetMode(pScrn, mode))
             return FALSE;
         /*
-         * FIXME: pVia->IsSecondary is not working here.
-         * We should be able to detect when the display
-         * is using the secondary head.
-         * TODO: This should be enabled for others
-         * chipsets as well
+         * FIXME: pVia->IsSecondary is not working here.  We should be able
+         * to detect when the display is using the secondary head.
+         * TODO: This should be enabled for other chipsets as well.
          */
         if (pVia->Chipset == VIA_P4M900 && pVia->pBIOSInfo->Panel->IsActive) {
             /*
              * Since we are using virtual, we need to adjust
-             * the offset to match the framebuffer alignment
+             * the offset to match the framebuffer alignment.
              */
             if (pScrn->displayWidth != mode->CrtcHDisplay)
                 ViaSecondCRTCHorizontalOffset(pScrn);
@@ -3015,22 +3009,22 @@ VIACloseScreen(int scrnIndex, ScreenPtr pScreen)
     VIAPtr pVia = VIAPTR(pScrn);
 
     DEBUG(xf86DrvMsg(scrnIndex, X_INFO, "VIACloseScreen\n"));
-    /* Is the display currently visible ? */
-    if (pScrn->vtSema) {
 
+    /* Is the display currently visible? */
+    if (pScrn->vtSema) {
 #ifdef XF86DRI
         if (pVia->directRenderingEnabled)
             DRILock(screenInfo.screens[scrnIndex], 0);
 #endif
-        /* Wait Hardware Engine idle to exit graphical mode */
+        /* Wait for hardware engine to idle before exiting graphical mode. */
         viaAccelSync(pScrn);
 
-        /* A soft reset Fixes 3D Hang after X restart */
+        /* A soft reset avoids a 3D hang after X restart. */
         if (pVia->Chipset != VIA_K8M890 && pVia->Chipset != VIA_P4M900)
             hwp->writeSeq(hwp, 0x1A, pVia->SavedReg.SR1A | 0x40);
 
         if (!pVia->IsSecondary) {
-            /* Turn off all video activities */
+            /* Turn off all video activities. */
             viaExitVideo(pScrn);
             if (pVia->cursor->isHWCursorEnabled)
                 viaCursorHide(pScrn);
@@ -3258,12 +3252,10 @@ VIAInitialize3DEngine(ScrnInfoPtr pScrn)
     VIASETREG(VIA_REG_TRANSPACE, 0x64000000);
 
     VIASETREG(VIA_REG_TRANSET, 0x00fe0000);
-
     if (pVia->Chipset == VIA_CLE266 && pVia->ChipRev >= 3)
         VIASETREG(VIA_REG_TRANSPACE, 0x40008c0f);
     else
         VIASETREG(VIA_REG_TRANSPACE, 0x4000800f);
-
     VIASETREG(VIA_REG_TRANSPACE, 0x44000000);
     VIASETREG(VIA_REG_TRANSPACE, 0x45080C04);
     VIASETREG(VIA_REG_TRANSPACE, 0x46800408);
