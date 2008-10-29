@@ -1437,9 +1437,29 @@ viaInitAccel(ScreenPtr pScreen)
     VIAPtr pVia = VIAPTR(pScrn);
     Bool nPOTSupported;
     int ret;
+    unsigned long exaMemSize = pScrn->videoRam * 1024 / 2;
 
     viaInitialize2DEngine(pScrn);
 
+#ifdef XF86DRI
+    if (pVia->directRenderingEnabled) {
+	struct drm_via_memsize_arg arg;
+
+	ret = drmCommandRead(pVia->drmFD, DRM_VIA_MEM_SIZE, &arg, 
+			     sizeof(arg));
+	if (ret == 0) {
+	    xf86DrvMsg(pScrn->scrnIndex, X_INFO,
+		       "[Accel] Largest free vram region is %lu bytes.\n",
+		       (unsigned long) arg.vram_size);
+	    exaMemSize = (unsigned long) arg.vram_size / 2;
+	}
+    }
+#endif
+    xf86DrvMsg(pScrn->scrnIndex, X_INFO,
+	       "[Accel] Setting evictable pixmap cache "
+	       "to %lu bytes.\n",
+	       exaMemSize);
+	    
     /*
      * Pixmap cache.
      */
@@ -1455,7 +1475,7 @@ viaInitAccel(ScreenPtr pScreen)
 	return FALSE;
     }
 
-    ret = driBOData(pVia->exaMem.buf, 32*1024*1024, NULL, NULL, 0);
+    ret = driBOData(pVia->exaMem.buf, exaMemSize, NULL, NULL, 0);
     if (ret) {
 	xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
 	       "[Accel] Failed allocating offscreen pixmap space.\n");	

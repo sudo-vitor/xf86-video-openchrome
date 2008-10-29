@@ -573,7 +573,7 @@ viaInitVideo(ScreenPtr pScreen)
         ((pVia->drmVerMajor == 2) && (pVia->drmVerMinor < 9)))
         pVia->useDmaBlit = FALSE;
 #endif
-    pVia->useDmaBlit = pVia->useDmaBlit && pVia->dmaXV;
+    pVia->useDmaBlit = FALSE /* pVia->useDmaBlit && pVia->dmaXV */;
 
     if (pVia->useDmaBlit)
         xf86DrvMsg(pScrn->scrnIndex, X_INFO,
@@ -1120,6 +1120,7 @@ nv12cp(unsigned char *dst,
 
 #ifdef XF86DRI
 
+#if 0
 static int
 viaDmaBlitImage(VIAPtr pVia,
     viaPortPrivPtr pPort,
@@ -1255,7 +1256,7 @@ viaDmaBlitImage(VIAPtr pVia,
 
     return Success;
 }
-
+#endif
 #endif
 
 

@@ -1022,6 +1022,7 @@ AddHQVSurface(ScrnInfoPtr pScrn, unsigned int numbuf, CARD32 fourcc)
     unsigned int i, width, height, pitch, fbsize, addr;
     unsigned long retCode;
     BOOL isplanar;
+    void *hqvMap;
 
     VIAPtr pVia = VIAPTR(pScrn);
     CARD32 AddrReg[3] = { HQV_DST_STARTADDR0, HQV_DST_STARTADDR1,
@@ -1039,13 +1040,19 @@ AddHQVSurface(ScrnInfoPtr pScrn, unsigned int numbuf, CARD32 fourcc)
     pitch = pVia->swov.SWDevice.dwPitch;
     fbsize = pitch * height * (isplanar ? 2 : 1);
 
-    //    VIAFreeLinear(&pVia->swov.HQVMem);
-    //    retCode = VIAAllocLinear(&pVia->swov.HQVMem, pScrn, fbsize * numbuf);
-    if (retCode != Success)
-        return retCode;
-    //    addr = pVia->swov.HQVMem.base;
+    retCode = driBOData(pVia->scanout.bufs[VIA_SCANOUT_HQV], fbsize * numbuf, 
+			NULL, NULL, 0);
+    if (retCode)
+	return BadAlloc;
 
-    //    ViaYUVFillBlack(pVia, pVia->FBBase + addr, fbsize);
+    hqvMap = driBOMap(pVia->scanout.bufs[VIA_SCANOUT_HQV], WS_DRI_MAP_WRITE);
+    if (hqvMap == NULL)
+	return BadAlloc;
+
+    driBOUnmap(pVia->scanout.bufs[VIA_SCANOUT_HQV]);
+    ViaYUVFillBlack(pVia, hqvMap, fbsize);
+
+    addr = driBOOffset(pVia->scanout.bufs[VIA_SCANOUT_HQV]);
 
     for (i = 0; i < numbuf; i++) {
         pVia->swov.overlayRecordV1.dwHQVAddr[i] = addr;
@@ -1226,22 +1233,26 @@ ViaSwovSurfaceDestroy(ScrnInfoPtr pScrn, viaPortPrivPtr pPriv)
             case FOURCC_RV32:
             case FOURCC_RV15:
                 pVia->swov.SrcFourCC = 0;
-
-		//                if ((pVia->swov.gdwVideoFlagSW & SW_USE_HQV))
-		//                    VIAFreeLinear(&pVia->swov.HQVMem);
+		
+		if ((pVia->swov.gdwVideoFlagSW & SW_USE_HQV))
+		    (void) driBOData(pVia->scanout.bufs[VIA_SCANOUT_HQV], 0, 
+				     NULL, NULL, 0);
                 pVia->swov.gdwVideoFlagSW = 0;
                 break;
 
             case FOURCC_HQVSW:
-		//                VIAFreeLinear(&pVia->swov.HQVMem);
+		(void) driBOData(pVia->scanout.bufs[VIA_SCANOUT_HQV], 0, 
+				 NULL, NULL, 0);
                 pVia->swov.gdwVideoFlagSW = 0;
                 break;
 
             case FOURCC_YV12:
+		(void) driBOData(pVia->scanout.bufs[VIA_SCANOUT_OVERLAY], 0, 
+				 NULL, NULL, 0);
             case FOURCC_XVMC:
                 pVia->swov.SrcFourCC = 0;
-
-		//                VIAFreeLinear(&pVia->swov.HQVMem);
+		(void) driBOData(pVia->scanout.bufs[VIA_SCANOUT_HQV], 0, 
+				 NULL, NULL, 0);
                 pVia->swov.gdwVideoFlagSW = 0;
                 break;
         }

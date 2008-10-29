@@ -900,6 +900,9 @@ VIAPreInit(ScrnInfoPtr pScrn, int flags)
         } else {
             DevUnion *pPriv;
             VIAEntPtr pVIAEnt;
+	    
+	    FatalError("This driver does currently "
+		       "not support a dual screen setup.\n");
 
             xf86SetPrimInitDone(pScrn->entityList[0]);
             pPriv = xf86GetEntityPrivate(pScrn->entityList[0], gVIAEntityIndex);
@@ -1759,8 +1762,6 @@ VIAEnterVT(int scrnIndex, int flags)
     Bool ret;
     int retVal;
 
-    ErrorF("Entervt vtsema = %d\n", pScrn->vtSema);
-  
     /* FIXME: Rebind AGP memory here. */
     DEBUG(xf86DrvMsg(scrnIndex, X_INFO, "VIAEnterVT\n"));
 
@@ -1784,7 +1785,6 @@ VIAEnterVT(int scrnIndex, int flags)
 	struct drm_via_vt vt;
 
 	vt.enter = 1;
-	ErrorF("Vt enter\n");
 	if (drmCommandWrite(pVia->drmFD, DRM_VIA_VT,
 			    &vt, sizeof(vt)) < 0)
 	    ErrorF("Failed DRM VT enter.\n");
@@ -1829,7 +1829,6 @@ VIAEnterVT(int scrnIndex, int flags)
     }
 
     pVia->displayOffset = driBOOffset(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY]);
-    ErrorF("Frontoffset is 0x%08x\n", pVia->displayOffset);
     pScrn->AdjustFrame(scrnIndex, pScrn->frameX0, pScrn->frameY0, 0);
 
     retVal = driBOSetStatus(pVia->scanout.bufs[VIA_SCANOUT_CURSOR],
@@ -1919,8 +1918,8 @@ VIALeaveVT(int scrnIndex, int flags)
 			  0,
 			  DRM_BO_FLAG_NO_EVICT);
 
-    (void) driBOData(pVia->scanout.bufs[VIA_SCANOUT_OVERLAY],
-		     0, NULL, NULL, 0);
+    //    (void) driBOData(pVia->scanout.bufs[VIA_SCANOUT_OVERLAY],
+    //		     0, NULL, NULL, 0);
 
     (void) driBOData(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY],
 		     0, NULL, NULL, 0);
@@ -1960,8 +1959,6 @@ VIALeaveVT(int scrnIndex, int flags)
 
 
     vgaHWLock(hwp);
-
-    ErrorF("Vgahwlock done.\n");
 }
 
 
@@ -2436,7 +2433,6 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
     int ret;
     unsigned int displaySize;
 
-    ErrorF("Screeninit\n");
     pScrn->pScreen = pScreen;
     DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "VIAScreenInit\n"));
 
@@ -2557,7 +2553,6 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
     pVia->front.size = driBOSize(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY]);
 
     pVia->displayOffset = driBOOffset(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY]);
-    ErrorF("Frontoffset is 0x%08x\n", pVia->displayOffset);
 
     pScrn->AdjustFrame(scrnIndex, pScrn->frameX0, pScrn->frameY0, 0);
 
@@ -2826,8 +2821,6 @@ VIACloseScreen(int scrnIndex, ScreenPtr pScreen)
     vgaHWPtr hwp = VGAHWPTR(pScrn);
     VIAPtr pVia = VIAPTR(pScrn);
 
-    ErrorF("Closescreen vtsema = %d\n", pScrn->vtSema);
-
     DEBUG(xf86DrvMsg(scrnIndex, X_INFO, "VIACloseScreen\n"));
 
     /* Is the display currently visible? */
@@ -2943,7 +2936,6 @@ VIAAdjustFrame(int scrnIndex, int x, int y, int flags)
     CARD32 Base;
     CARD32 offset;
 
-    ErrorF("Adjustframe\n");
     DEBUG(xf86DrvMsg(scrnIndex, X_INFO, "VIAAdjustFrame\n"));
 
     offset =  pVia->displayOffset;
