@@ -1267,7 +1267,7 @@ viaExaPrepareComposite(int op, PicturePtr pSrcPicture,
         if (!v3d->setTexture(v3d, buf, delta, curTex,
                              exaGetPixmapPitch(pSrc), pVia->nPOT[curTex],
                              1 << width, 1 << height, pSrcPicture->format,
-                             via_repeat, via_repeat, srcMode)) {
+                             via_repeat, via_repeat, srcMode, TRUE)) {
 	  
 #ifdef VIA_DEBUG_COMPOSITE
         ErrorF("Src setTexture\n");
@@ -1287,7 +1287,7 @@ viaExaPrepareComposite(int op, PicturePtr pSrcPicture,
                              1 << width, 1 << height, pMaskPicture->format,
                              via_repeat, via_repeat,
                              ((pMaskPicture->componentAlpha)
-                              ? via_comp_mask : via_mask))) {
+                              ? via_comp_mask : via_mask), TRUE)) {
 #ifdef VIA_DEBUG_COMPOSITE
         ErrorF("Dst setTexture\n");
 #endif

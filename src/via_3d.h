@@ -108,7 +108,8 @@ typedef struct _Via3DState
 			   CARD32 pitch, Bool nPot, CARD32 width, 
 			   CARD32 height, int format,
 			   ViaTextureModes sMode, ViaTextureModes tMode,
-			   ViaTexBlendingModes blendingMode);
+			   ViaTexBlendingModes blendingMode,
+			   Bool preMult);
     void (*setTexBlendCol) (struct _Via3DState * v3d, int tex, Bool component,
 	CARD32 color);
     void (*setCompositeOperator) (struct _Via3DState * v3d, CARD8 op);

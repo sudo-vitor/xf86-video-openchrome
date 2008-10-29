@@ -205,9 +205,11 @@ viaSet3DTexture(Via3DState * v3d, struct _WsbmBufferObject *buf,
 		CARD32 delta, int tex, 
                 CARD32 pitch, Bool npot, CARD32 width, CARD32 height,
                 int format, ViaTextureModes sMode, ViaTextureModes tMode,
-                ViaTexBlendingModes blendingMode)
+                ViaTexBlendingModes blendingMode,
+		Bool premult)
 {
     ViaTextureUnit *vTex = v3d->tex + tex;
+    CARD32 pmFlags;
 
     vTex->list.buf = buf;
     vTex->list.delta = delta;
@@ -227,43 +229,66 @@ viaSet3DTexture(Via3DState * v3d, struct _WsbmBufferObject *buf,
     vTex->textureFormat = via3DTexFormat(format);
 
     switch (blendingMode) {
-        case via_src:
-            vTex->texCsat = (0x01 << 23) | 
-		(((PICT_FORMAT_TYPE(format) == PICT_TYPE_A) ? 0x00 : 0x10) << 14) | 
-		(0x03 << 7) | 0x00;
-	    vTex->texAsat = ((0x0B << 14)
-                             | ((PICT_FORMAT_A(format) ? 0x04 : 0x02) << 7)
-                             | 0x03);
-            vTex->texRCa = 0x00000000;
-            vTex->texRAa = 0x00000000;
-            vTex->texBColDirty = TRUE;
-            break;
-        case via_src_onepix_mask:
-            vTex->texCsat = (0x01 << 23) | 
-		(((PICT_FORMAT_TYPE(format) == PICT_TYPE_A) ? 0x00 : 0x09) << 14) | 
-		(0x03 << 7) | 0x00;
-            vTex->texAsat = ((0x03 << 14)
-                             | ((PICT_FORMAT_A(format) ? 0x04 : 0x02) << 7)
-                             | 0x03);
-            break;
-        case via_src_onepix_comp_mask:
-            vTex->texCsat = (0x01 << 23) | 
-		(((PICT_FORMAT_TYPE(format) == PICT_TYPE_A) ? 0x00 : 0x09) << 14) | 
-		(0x03 << 7) | 0x00;
-            vTex->texAsat = ((0x03 << 14)
-                             | ((PICT_FORMAT_A(format) ? 0x04 : 0x02) << 7)
-                             | 0x03);
-            break;
-        case via_mask:
-            vTex->texCsat = (0x01 << 23) | (0x07 << 14) | (0x04 << 7) | 0x00;
-            vTex->texAsat = (0x01 << 23) | (0x04 << 14) | (0x02 << 7) | 0x03;
-            break;
-        case via_comp_mask:
-            vTex->texCsat = (0x01 << 23) | (0x03 << 14) | (0x04 << 7) | 0x00;
-            vTex->texAsat = (0x01 << 23) | (0x04 << 14) | (0x02 << 7) | 0x03;
-            break;
-        default:
-            return FALSE;
+    case via_src:
+	vTex->texCsat =  HC_HTXnTBLCsat_MASK |
+	    ((PICT_FORMAT_TYPE(format) == PICT_TYPE_A) ? 
+	     HC_HTXnTBLCa_0 : HC_HTXnTBLCa_InvTOPC |  HC_HTXnTBLCa_0) |
+	    HC_HTXnTBLCb_Tex |
+	    HC_HTXnTBLCc_0;
+	vTex->texAsat = HC_HTXnTBLAa_InvTOPA |
+	    HC_HTXnTBLAa_HTXnTBLRA |
+	    (PICT_FORMAT_A(format) ? 
+	     HC_HTXnTBLAb_Atex : HC_HTXnTBLAb_Acur) |
+	    HC_HTXnTBLAc_HTXnTBLRA;
+	vTex->texRCa = 0x00000000;
+	vTex->texRAa = 0x00000000;
+	vTex->texBColDirty = TRUE;
+	break;
+    case via_src_onepix_mask: 
+    case via_src_onepix_comp_mask:
+	pmFlags = (premult) ? 
+	    HC_HTXnTBLCa_HTXnTBLRC :  
+	HC_HTXnTBLCa_0 | HC_HTXnTBLCa_InvTOPC; 
+	vTex->texCsat =  HC_HTXnTBLCsat_MASK | 
+	    ((PICT_FORMAT_TYPE(format) == PICT_TYPE_A) ?
+	     HC_HTXnTBLCa_0 :  pmFlags) |
+	    HC_HTXnTBLCb_Tex |
+	    HC_HTXnTBLCc_0;
+	vTex->texAsat =  HC_HTXnTBLAsat_MASK |		
+	    HC_HTXnTBLAa_HTXnTBLRA |
+	    (PICT_FORMAT_A(format) ? 
+	     HC_HTXnTBLAb_Atex :
+	     HC_HTXnTBLAb_Acur) |
+	    HC_HTXnTBLAc_HTXnTBLRA;
+	break;
+    case via_mask:
+	pmFlags = (premult) ? 
+	    HC_HTXnTBLCa_Atex :  
+	HC_HTXnTBLCa_0 | HC_HTXnTBLCa_InvTOPC; 
+	vTex->texCsat =  HC_HTXnTBLCsat_MASK |  
+	    pmFlags | 
+	    HC_HTXnTBLCb_Cur | 
+	    HC_HTXnTBLCc_0;
+	vTex->texAsat =  HC_HTXnTBLAsat_MASK | 
+	    HC_HTXnTBLAa_Atex |
+	    HC_HTXnTBLAb_Acur |
+	    HC_HTXnTBLAc_HTXnTBLRA;
+	break;
+    case via_comp_mask:
+	pmFlags = (premult) ? 
+	    HC_HTXnTBLCa_Tex :  
+	HC_HTXnTBLCa_0 | HC_HTXnTBLCa_InvTOPC;
+	vTex->texCsat =  HC_HTXnTBLCsat_MASK |
+	    pmFlags |
+	    HC_HTXnTBLCb_Cur |
+	    HC_HTXnTBLCc_0;
+	vTex->texAsat =  HC_HTXnTBLAsat_MASK |  
+	    HC_HTXnTBLAa_Atex |  
+	    HC_HTXnTBLAb_Acur |
+	    HC_HTXnTBLAc_HTXnTBLRA;
+	break;
+    default:
+	return FALSE;
     }
 
     vTex->textureDirty = TRUE;
