@@ -1833,10 +1833,28 @@ VIAEnterVT(int scrnIndex, int flags)
     VIAPtr pVia = VIAPTR(pScrn);
     vgaHWPtr hwp = VGAHWPTR(pScrn);
     Bool ret;
+    int retVal;
 
+    ErrorF("Entervt vtsema = %d\n", pScrn->vtSema);
+  
     /* FIXME: Rebind AGP memory here. */
     DEBUG(xf86DrvMsg(scrnIndex, X_INFO, "VIAEnterVT\n"));
 
+    if (pVia->pVbe) {
+	if (pVia->vbeSR) 
+	    ViaVbeSaveRestore(pScrn, MODE_SAVE);
+ 	else
+ 	    VIASave(pScrn);
+ 	//	ret = ViaVbeSetMode(pScrn, pScrn->currentMode); 
+    } else {
+ 	VIASave(pScrn);
+    }
+    ret = VIAWriteMode(pScrn, pScrn->currentMode);
+    
+    VIASaveScreen(pScrn->pScreen, SCREEN_SAVER_ON);
+    
+    vgaHWUnlock(hwp);
+    
 #ifdef XF86DRI
     if (pVia->directRenderingEnabled) {
 	struct drm_via_vt vt;
@@ -1851,19 +1869,46 @@ VIAEnterVT(int scrnIndex, int flags)
     }
 #endif 
 
-    if (pVia->pVbe) {
-	if (pVia->vbeSR) 
-	    ViaVbeSaveRestore(pScrn, MODE_SAVE);
-	else
-	    VIASave(pScrn);
-	//	ret = ViaVbeSetMode(pScrn, pScrn->currentMode); 
-    } else {
-	VIASave(pScrn);
+    retVal = driBOData(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY],
+		       pVia->Bpl * pScrn->virtualY , NULL, NULL, 0);
+    if (retVal) {
+	xf86DrvMsg(scrnIndex, X_ERROR, 
+		   "Failed reallocating the display buffer.");
+	return FALSE;
     }
-    ret = VIAWriteMode(pScrn, pScrn->currentMode);
-    vgaHWUnlock(hwp);
+    pVia->displayMap = driBOMap(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY], 
+				WS_DRI_MAP_READ | WS_DRI_MAP_WRITE);
+    if (!pVia->displayMap) {
+	xf86DrvMsg(pScrn->scrnIndex, X_ERROR, 
+		   "Failed mapping display video RAM: \"%s\".\n",
+		   strerror(-ret));
+	return FALSE;
+    }
+    driBOUnmap(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY]);
+    pVia->displayOffset = driBOOffset(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY]);
 
-    VIASaveScreen(pScrn->pScreen, SCREEN_SAVER_ON);
+
+    retVal = driBOSetStatus(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY],
+			 DRM_BO_FLAG_MEM_VRAM | DRM_BO_FLAG_NO_EVICT,
+			 DRM_BO_FLAG_MEM_LOCAL);
+    if (retVal) {
+	xf86DrvMsg(scrnIndex, X_ERROR, 
+		   "Failed moving in the display buffer.");
+	return FALSE;
+    }
+
+    retVal = driBOSetStatus(pVia->scanout.bufs[VIA_SCANOUT_CURSOR],
+			 DRM_BO_FLAG_MEM_VRAM | DRM_BO_FLAG_NO_EVICT,
+			 DRM_BO_FLAG_MEM_LOCAL);
+
+    if (retVal) {
+	xf86DrvMsg(scrnIndex, X_ERROR, 
+		   "Failed moving in the cursor buffer.");
+	return FALSE;
+    }
+
+    pVia->cursorOffset = driBOOffset(pVia->scanout.bufs[VIA_SCANOUT_CURSOR]);
+
 
     /* A patch for APM suspend/resume, when HWCursor has garbage. */
     if (pVia->hwcursor)
@@ -1907,6 +1952,10 @@ VIALeaveVT(int scrnIndex, int flags)
 
     DEBUG(xf86DrvMsg(scrnIndex, X_INFO, "VIALeaveVT\n"));
 
+    ErrorF("leavevt vtsema = %d\n", pScrn->vtSema);
+
+    vgaHWBlankScreen(pScrn, FALSE);
+
 #ifdef XF86DRI
     if (pVia->directRenderingEnabled) {
 	volatile struct drm_via_sarea *saPriv = (struct drm_via_sarea *)
@@ -1919,7 +1968,9 @@ VIALeaveVT(int scrnIndex, int flags)
 
     viaAccelSync(pScrn);
 
-    /* A soft reset helps to avoid a 3D hang on VT switch. */
+    /* 
+     * A soft reset helps to avoid a 3D hang on VT switch.
+     */
     if (pVia->Chipset != VIA_K8M890 && pVia->Chipset != VIA_P4M900)
         hwp->writeSeq(hwp, 0x1A, pVia->SavedReg.SR1A | 0x40);
 
@@ -1930,10 +1981,40 @@ VIALeaveVT(int scrnIndex, int flags)
     if (pVia->hwcursor)
         ViaCursorStore(pScrn);
 
+    /*
+     * Release the scanouts.
+     */
+
+    pVia->displayMap = 0;
+
+    /*
+     * First move out all buffers so any DRI references won't keep them
+     * in VRAM.
+     */
+
+    ErrorF("Move out display\n");
+    (void) driBOSetStatus(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY],
+			  0,
+			  DRM_BO_FLAG_NO_EVICT);
+
+    ErrorF("Move out cursor\n");
+    (void) driBOSetStatus(pVia->scanout.bufs[VIA_SCANOUT_CURSOR],
+			  DRM_BO_FLAG_MEM_LOCAL,
+			  DRM_BO_FLAG_MEM_VRAM | DRM_BO_FLAG_NO_EVICT);
+
+    ErrorF("Free overlay\n");
+    (void) driBOData(pVia->scanout.bufs[VIA_SCANOUT_OVERLAY],
+		     0, NULL, NULL, 0);
+
+    ErrorF("Free display\n");
+    (void) driBOData(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY],
+		     0, NULL, NULL, 0);
+
 #ifdef XF86DRI
     if (pVia->directRenderingEnabled) {
 	struct drm_via_vt vt;
 
+	ErrorF("offscreensave\n");
 	viaDRIOffscreenSave(pScrn);
 	vt.enter = 0;
 	ErrorF("Vt leave\n");
@@ -1944,13 +2025,17 @@ VIALeaveVT(int scrnIndex, int flags)
 	    pVia->vtNotified = GL_TRUE;
     }
 #endif
+    ErrorF("Vt leave done.\n");
 
     if (pVia->pVbe && pVia->vbeSR)
         ViaVbeSaveRestore(pScrn, MODE_RESTORE);
     else
         VIARestore(pScrn);
 
+
     vgaHWLock(hwp);
+
+    ErrorF("Vgahwlock done.\n");
 }
 
 
@@ -2554,6 +2639,7 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
     int ret;
     unsigned int displaySize;
 
+    ErrorF("Screeninit\n");
     pScrn->pScreen = pScreen;
     DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "VIAScreenInit\n"));
 
@@ -2639,7 +2725,7 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
 	pVia->mainPool = pVia1->mainPool;
     }
 
-    displaySize = pScrn->displayWidth * pVia->Bpl, pScrn->virtualY;
+    displaySize = pVia->Bpl*pScrn->virtualY;
     ret = driBOData(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY], 
 		    displaySize, NULL, NULL, 0);
     if (ret) {
@@ -2950,6 +3036,8 @@ VIACloseScreen(int scrnIndex, ScreenPtr pScreen)
     vgaHWPtr hwp = VGAHWPTR(pScrn);
     VIAPtr pVia = VIAPTR(pScrn);
 
+    ErrorF("Closescreen vtsema = %d\n", pScrn->vtSema);
+
     DEBUG(xf86DrvMsg(scrnIndex, X_INFO, "VIACloseScreen\n"));
 
     /* Is the display currently visible? */
@@ -2962,11 +3050,9 @@ VIACloseScreen(int scrnIndex, ScreenPtr pScreen)
         viaAccelSync(pScrn);
 
         /* A soft reset avoids a 3D hang after X restart. */
-#if 1
-    ErrorF("Seq reg is 0x%02x\n", pVia->SavedReg.SR1A);
         if (pVia->Chipset != VIA_K8M890 && pVia->Chipset != VIA_P4M900)
             hwp->writeSeq(hwp, 0x1A, pVia->SavedReg.SR1A | 0x40);
-#endif
+
         if (!pVia->IsSecondary) {
             /* Turn off all video activities. */
             viaExitVideo(pScrn);
@@ -2975,6 +3061,9 @@ VIACloseScreen(int scrnIndex, ScreenPtr pScreen)
         }
 
     }
+
+    driDeleteBuffers(VIA_SCANOUT_NUM, pVia->scanout.bufs);
+
 #ifdef XF86DRI
     if (pVia->directRenderingEnabled)
         VIADRICloseScreen(pScreen);
@@ -3005,8 +3094,6 @@ VIACloseScreen(int scrnIndex, ScreenPtr pScreen)
     }
     pScrn->vtSema = FALSE;
     pScreen->CloseScreen = pVia->CloseScreen;
-
-    driDeleteBuffers(VIA_SCANOUT_NUM, pVia->scanout.bufs);
 
     if (pVia->mainPool && !pVia->IsSecondary)
 	pVia->mainPool->takeDown(pVia->mainPool);

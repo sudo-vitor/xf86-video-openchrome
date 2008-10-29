@@ -405,9 +405,7 @@ typedef struct _VIA {
     CARD32		CursorRegTransKey;
 
     CARD32		CursorControl0;
-    CARD32		CursorHiBase0;
     CARD32		CursorControl1;
-    CARD32		CursorHiBase1;
     CARD32		CursorFifo;
     CARD32		CursorTransparentKey;
     CARD32		CursorPrimHiInvtColor;

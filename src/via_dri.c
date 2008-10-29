@@ -728,7 +728,8 @@ viaDRIOffscreenSave(ScrnInfoPtr pScrn)
 
     pVia->driOffScreenSave = malloc(saveSize + 16);
     if (pVia->driOffScreenSave) {
-        if ((pVia->drmVerMajor == 2) && (pVia->drmVerMinor >= 8)) {
+        if ((pVia->drmVerMajor == 2) && (pVia->drmVerMinor >= 8) ||
+	    (pVia->drmVerMajor > 2)) {
             err = viaDRIFBMemcpy(pVia->drmFD, pVIADRI->fbOffset,
                                  (unsigned char *)
                                  ALIGN_TO((unsigned long)

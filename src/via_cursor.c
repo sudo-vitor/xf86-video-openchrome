@@ -172,10 +172,8 @@ ViaCursorStore(ScrnInfoPtr pScrn)
 
     if (pVia->CursorPipe) {
 	pVia->CursorControl1 = VIAGETREG(pVia->CursorRegControl);
-	pVia->CursorHiBase1 = VIAGETREG(pVia->CursorRegBase);
     } else {
 	pVia->CursorControl0 = VIAGETREG(pVia->CursorRegControl);
-	pVia->CursorHiBase0 = VIAGETREG(pVia->CursorRegBase);
     }
 
     pVia->CursorTransparentKey = VIAGETREG(pVia->CursorRegTransKey);
@@ -202,11 +200,11 @@ ViaCursorRestore(ScrnInfoPtr pScrn)
 
     if (pVia->CursorPipe) {
 	VIASETREG(pVia->CursorRegControl, pVia->CursorControl1);
-	VIASETREG(pVia->CursorRegBase, pVia->CursorHiBase1);
     } else {
 	VIASETREG(pVia->CursorRegControl, pVia->CursorControl0);
-	VIASETREG(pVia->CursorRegBase, pVia->CursorHiBase0);
     }
+
+    VIASETREG(pVia->CursorRegBase, pVia->cursorOffset);
 
     VIASETREG(pVia->CursorRegTransKey, pVia->CursorTransparentKey);
 
