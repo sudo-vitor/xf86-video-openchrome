@@ -1113,6 +1113,13 @@ viaExaUploadToScratch(PixmapPtr pSrc, PixmapPtr pDst)
 }
 
 static Bool
+viaIsPot(unsigned int val)
+{
+    return ((val & (val - 1)) == 0);
+}
+
+
+static Bool
 viaExaCheckComposite(int op, PicturePtr pSrcPicture,
                      PicturePtr pMaskPicture, PicturePtr pDstPicture)
 {
@@ -1138,6 +1145,19 @@ viaExaCheckComposite(int op, PicturePtr pSrcPicture,
 #endif
         return FALSE;
     }
+
+    if (pSrcPicture->repeat && 
+	(!viaIsPot(pSrcPicture->pDrawable->width) ||
+	 !viaIsPot(pSrcPicture->pDrawable->height)))
+	return FALSE;
+
+
+    if (pMaskPicture && pMaskPicture->repeat && 
+	(!viaIsPot(pMaskPicture->pDrawable->width) ||
+	 !viaIsPot(pMaskPicture->pDrawable->height)))
+	return FALSE;
+
+
     if (pSrcPicture->transform ||
 	(pMaskPicture && pMaskPicture->transform)) {
 #ifdef VIA_DEBUG_COMPOSITE
@@ -1214,10 +1234,10 @@ viaExaPrepareComposite(int op, PicturePtr pSrcPicture,
     v3d->setDestination(v3d, buf, delta,
                         exaGetPixmapPitch(pDst), pDstPicture->format);
     v3d->setCompositeOperator(v3d, op);
-    v3d->setDrawing(v3d, 0x0c, 0xFFFFFFFF, 0x000000FF, 0xFF);
-
-    viaOrder(pSrc->drawable.width, &width);
-    viaOrder(pSrc->drawable.height, &height);
+    v3d->setDrawing(v3d, 0x0c, 0xFFFFFFFF, 0x000000FF, 0xFF);    
+    
+    viaOrder(pSrcPicture->pDrawable->width, &width);
+    viaOrder(pSrcPicture->pDrawable->height, &height);
 
     /*
      * For one-pixel repeat mask pictures we avoid using multitexturing by
