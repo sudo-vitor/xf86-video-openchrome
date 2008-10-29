@@ -68,8 +68,7 @@ openchrome_drv_la_SOURCES = \
          via_vt162x.h \
          via_xvpriv.h \
 	 ochr_ws_driver.h \
-	 ochr_ws_driver.c \
-	 ws_dri_drmpool.c 
+	 ochr_ws_driver.c
 
 
 if DRI

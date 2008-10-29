@@ -2502,7 +2502,7 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
     pVia->directRenderingEnabled = VIADRIScreenInit(pScreen);
     pVia->vtNotified = FALSE;
     if (pVia->directRenderingEnabled && !pVia->IsSecondary) {
-	pVia->mainPool = driDRMPoolInit(pVia->drmFD);
+	pVia->mainPool = driDRMPoolInit(pVia->drmFD, DRM_VIA_TTM_OFFSET);
     }
 #else
     /*
