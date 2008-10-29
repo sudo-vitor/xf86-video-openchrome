@@ -1914,8 +1914,6 @@ VIALeaveVT(int scrnIndex, int flags)
 
     DEBUG(xf86DrvMsg(scrnIndex, X_INFO, "VIALeaveVT\n"));
 
-    ErrorF("leavevt vtsema = %d\n", pScrn->vtSema);
-
     vgaHWBlankScreen(pScrn, FALSE);
 
 #ifdef XF86DRI
@@ -1930,18 +1928,12 @@ VIALeaveVT(int scrnIndex, int flags)
 
     viaAccelSync(pScrn);
 
-    /* 
-     * A soft reset helps to avoid a 3D hang on VT switch.
-     */
-    if (pVia->Chipset != VIA_K8M890 && pVia->Chipset != VIA_P4M900)
-        hwp->writeSeq(hwp, 0x1A, pVia->SavedReg.SR1A | 0x40);
+    if (pVia->hwcursor)
+        ViaCursorStore(pScrn);
 
     /* Save video status and turn off all video activities. */
     if (!pVia->IsSecondary)
         viaSaveVideo(pScrn);
-
-    if (pVia->hwcursor)
-        ViaCursorStore(pScrn);
 
     /*
      * Release the scanouts.
@@ -1953,22 +1945,17 @@ VIALeaveVT(int scrnIndex, int flags)
      * First move out all buffers so any DRI references won't keep them
      * in VRAM.
      */
-
-    ErrorF("Move out display\n");
     (void) driBOSetStatus(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY],
 			  0,
 			  DRM_BO_FLAG_NO_EVICT);
 
-    ErrorF("Move out cursor\n");
     (void) driBOSetStatus(pVia->scanout.bufs[VIA_SCANOUT_CURSOR],
 			  DRM_BO_FLAG_MEM_LOCAL,
 			  DRM_BO_FLAG_MEM_VRAM | DRM_BO_FLAG_NO_EVICT);
 
-    ErrorF("Free overlay\n");
     (void) driBOData(pVia->scanout.bufs[VIA_SCANOUT_OVERLAY],
 		     0, NULL, NULL, 0);
 
-    ErrorF("Free display\n");
     (void) driBOData(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY],
 		     0, NULL, NULL, 0);
 
@@ -1976,18 +1963,30 @@ VIALeaveVT(int scrnIndex, int flags)
     if (pVia->directRenderingEnabled) {
 	struct drm_via_vt vt;
 
-	ErrorF("offscreensave\n");
 	viaDRIOffscreenSave(pScrn);
 	vt.enter = 0;
-	ErrorF("Vt leave\n");
+
 	if (drmCommandWrite(pVia->drmFD, DRM_VIA_VT,
 			    &vt, sizeof(vt)) < 0)
 	    ErrorF("Failed DRM VT leave.\n");
 	else
 	    pVia->vtNotified = GL_TRUE;
+
     }
 #endif
-    ErrorF("Vt leave done.\n");
+
+    /*
+     * This sequence is necessary to prevent 3D malfunction after next
+     * modeset: Set the soft reset bit in SR1A and write some stuff to the
+     * 3D engine.
+     */
+
+    if (pVia->Chipset != VIA_K8M890 && pVia->Chipset != VIA_P4M900)
+	hwp->writeSeq(hwp, 0x1A, pVia->SavedReg.SR1A | 0x40);
+
+    VIASETREG(VIA_REG_TRANSET, 0x00000000);
+    VIASETREG(VIA_REG_TRANSPACE, 0xCCCCCCCC);
+    (void )VIAGETREG(VIA_REG_TRANSET);
 
     if (pVia->pVbe && pVia->vbeSR)
         ViaVbeSaveRestore(pScrn, MODE_RESTORE);
@@ -3004,16 +3003,14 @@ VIACloseScreen(int scrnIndex, ScreenPtr pScreen)
 
     /* Is the display currently visible? */
     if (pScrn->vtSema) {
+	vgaHWBlankScreen(pScrn, FALSE);
+
 #ifdef XF86DRI
         if (pVia->directRenderingEnabled)
             DRILock(screenInfo.screens[scrnIndex], 0);
 #endif
         /* Wait for hardware engine to idle before exiting graphical mode. */
         viaAccelSync(pScrn);
-
-        /* A soft reset avoids a 3D hang after X restart. */
-        if (pVia->Chipset != VIA_K8M890 && pVia->Chipset != VIA_P4M900)
-            hwp->writeSeq(hwp, 0x1A, pVia->SavedReg.SR1A | 0x40);
 
         if (!pVia->IsSecondary) {
             /* Turn off all video activities. */
@@ -3025,6 +3022,9 @@ VIACloseScreen(int scrnIndex, ScreenPtr pScreen)
     }
 
     driDeleteBuffers(VIA_SCANOUT_NUM, pVia->scanout.bufs);
+
+    if (pVia->mainPool && !pVia->IsSecondary)
+	pVia->mainPool->takeDown(pVia->mainPool);
 
 #ifdef XF86DRI
     if (pVia->directRenderingEnabled)
@@ -3046,6 +3046,15 @@ VIACloseScreen(int scrnIndex, ScreenPtr pScreen)
     }
 
     if (pScrn->vtSema) {
+        /* A soft reset avoids a 3D hang after X restart. */
+
+        if (pVia->Chipset != VIA_K8M890 && pVia->Chipset != VIA_P4M900)
+            hwp->writeSeq(hwp, 0x1A, pVia->SavedReg.SR1A | 0x40);
+
+	VIASETREG(VIA_REG_TRANSET, 0x00000000);
+	VIASETREG(VIA_REG_TRANSPACE, 0xCCCCCCCC);
+	(void )VIAGETREG(VIA_REG_TRANSET);
+
         if (pVia->pVbe && pVia->vbeSR)
             ViaVbeSaveRestore(pScrn, MODE_RESTORE);
         else
@@ -3056,9 +3065,6 @@ VIACloseScreen(int scrnIndex, ScreenPtr pScreen)
     }
     pScrn->vtSema = FALSE;
     pScreen->CloseScreen = pVia->CloseScreen;
-
-    if (pVia->mainPool && !pVia->IsSecondary)
-	pVia->mainPool->takeDown(pVia->mainPool);
 
     return (*pScreen->CloseScreen) (scrnIndex, pScreen);
 }
