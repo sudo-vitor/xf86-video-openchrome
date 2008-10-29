@@ -67,7 +67,7 @@ VIAHWCursorInit(ScreenPtr pScreen)
 
     infoPtr->MaxWidth = MAX_CURS;
     infoPtr->MaxHeight = MAX_CURS;
-    infoPtr->Flags = (HARDWARE_CURSOR_SOURCE_MASK_INTERLEAVE_32 |
+    infoPtr->Flags = (HARDWARE_CURSOR_SOURCE_MASK_INTERLEAVE_64 |
                       HARDWARE_CURSOR_AND_SOURCE_WITH_MASK |
                       /*HARDWARE_CURSOR_SWAP_SOURCE_AND_MASK | */
                       HARDWARE_CURSOR_TRUECOLOR_AT_8BPP |
@@ -95,13 +95,13 @@ VIAHWCursorInit(ScreenPtr pScreen)
 
     /* HI hack */
     xf86DrvMsg(pScrn->scrnIndex, X_INFO, "HAXOR\n");
-    VIASETREG(0x2E8,0x0D000D0F);
-    VIASETREG(0x2EC, 0);
+    VIASETREG(0x2F4, pVia->CursorStart); // VIA_REG_HI_BASE0
+    VIASETREG(VIA_REG_HI_CONTROL0, 0);
+    VIASETREG(0x2E8, 0x0D000D0F); // VIA_FIFO
+    //VIASETREG(0x2E8, 0);
+    VIASETREG(0x2EC, 0); // TRANSPARENT_KEY
     VIASETREG(0x120C, 0x00FFFFFF); // VIA_REG_PRIM_HI_INVTCOLOR
     VIASETREG(0x2E4, 0x00FFFFFF); // VIA_REG_V327_HI_INVTCOLOR
-
-    VIASETREG(VIA_REG_HI_CONTROL0, 0);
-    VIASETREG(VIA_REG_HI_BASE0, pVia->CursorStart);
     VIASETREG(VIA_REG_HI_POS0, 0);
 
     return xf86InitCursor(pScreen, infoPtr);
@@ -302,8 +302,8 @@ VIASetCursorPositionARGB(ScrnInfoPtr pScrn, int x, int y)
 
     temp = VIAGETREG(VIA_REG_HI_CONTROL0);
     VIASETREG(VIA_REG_HI_CONTROL0, temp & 0xFFFFFFFA);
-    VIASETREG(VIA_REG_HI_POS0, ((x << 16) | (y & 0x07ff)));
-    VIASETREG(0x20C, 0);
+    VIASETREG(0x2F8, ((x << 16) | (y & 0x07ff))); // VIA_REG_HI_POS0
+    VIASETREG(0x20C, ((0<< 16) | (0 & 0x07ff)));
     VIASETREG(VIA_REG_HI_CONTROL0, temp);
 }
 
@@ -328,10 +328,12 @@ VIALoadCursorARGB(ScrnInfoPtr pScrn, CursorPtr pCurs)
     /* Turn off the cursor */
     temp = VIAGETREG(VIA_REG_HI_CONTROL0);
     VIASETREG(VIA_REG_HI_CONTROL0, temp & 0xFFFFFFFA);
-
+    VIASETREG(VIA_REG_HI_CONTROL1, temp & 0xFFFFFFFA);
     dst = (CARD32*)(pVia->FBBase + pVia->CursorStart);
     image = pCurs->bits->argb;
 
+    memset(dst, 0xFF, VIA_CURSOR_SIZE);
+    return;
     w = pCurs->bits->width;
     if (w > MAX_CURS)
 	w = MAX_CURS;
@@ -352,6 +354,6 @@ VIALoadCursorARGB(ScrnInfoPtr pScrn, CursorPtr pCurs)
 	    *dst++ = 0;
 
     /* Restore cursor */
-    VIASETREG(VIA_REG_HI_BASE0, pVia->CursorStart);
-    VIASETREG(VIA_REG_HI_CONTROL0, temp);
+//    VIASETREG(VIA_REG_HI_BASE0, pVia->CursorStart);
+//    VIASETREG(VIA_REG_HI_CONTROL0, temp);
 }
