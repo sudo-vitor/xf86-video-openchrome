@@ -1337,7 +1337,7 @@ viaInitAccel(ScreenPtr pScreen)
 	return FALSE;
     }
 
-    ret = driBOData(pVia->exaMem.buf, 1*1024*1024, NULL, NULL, 0);
+    ret = driBOData(pVia->exaMem.buf, 32*1024*1024, NULL, NULL, 0);
     if (ret) {
 	xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
 	       "[Accel] Failed allocating offscreen pixmap space.\n");	
