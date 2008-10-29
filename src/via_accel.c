@@ -1218,6 +1218,44 @@ viaAccelWaitMarker(ScreenPtr pScreen, int marker)
     }
 }
 
+/*
+ * Check if we need to force upload of the whole 3D state (when other
+ * clients or subsystems have touched the 3D engine). Also tell DRI
+ * clients and subsystems that we have touched the 3D engine.
+ */
+static Bool
+viaCheckUpload(ScrnInfoPtr pScrn, Via3DState * v3d)
+{
+    VIAPtr pVia = VIAPTR(pScrn);
+    Bool forceUpload;
+
+    forceUpload = (pVia->lastToUpload != v3d);
+    pVia->lastToUpload = v3d;
+
+#ifdef XF86DRI
+    if (pVia->directRenderingEnabled) {
+        volatile drm_via_sarea_t *saPriv = (drm_via_sarea_t *)
+                DRIGetSAREAPrivate(pScrn->pScreen);
+        int myContext = DRIGetContext(pScrn->pScreen);
+
+        forceUpload = forceUpload || (saPriv->ctxOwner != myContext);
+        saPriv->ctxOwner = myContext;
+    }
+#endif
+    return forceUpload;
+}
+
+static Bool
+viaOrder(CARD32 val, CARD32 * shift)
+{
+    *shift = 0;
+
+    while (val > (1 << *shift))
+        (*shift)++;
+    return (val == (1 << *shift));
+}
+
+
 #ifdef VIA_HAVE_EXA
 /*
  * Exa functions. It is assumed that EXA does not exceed the blitter limits.
@@ -1489,43 +1527,6 @@ viaExpandablePixel(int format)
 
     return (formatType == PICT_TYPE_A ||
             formatType == PICT_TYPE_ABGR || formatType == PICT_TYPE_ARGB);
-}
-
-/*
- * Check if we need to force upload of the whole 3D state (when other
- * clients or subsystems have touched the 3D engine). Also tell DRI
- * clients and subsystems that we have touched the 3D engine.
- */
-static Bool
-viaCheckUpload(ScrnInfoPtr pScrn, Via3DState * v3d)
-{
-    VIAPtr pVia = VIAPTR(pScrn);
-    Bool forceUpload;
-
-    forceUpload = (pVia->lastToUpload != v3d);
-    pVia->lastToUpload = v3d;
-
-#ifdef XF86DRI
-    if (pVia->directRenderingEnabled) {
-        volatile drm_via_sarea_t *saPriv = (drm_via_sarea_t *)
-                DRIGetSAREAPrivate(pScrn->pScreen);
-        int myContext = DRIGetContext(pScrn->pScreen);
-
-        forceUpload = forceUpload || (saPriv->ctxOwner != myContext);
-        saPriv->ctxOwner = myContext;
-    }
-#endif
-    return forceUpload;
-}
-
-static Bool
-viaOrder(CARD32 val, CARD32 * shift)
-{
-    *shift = 0;
-
-    while (val > (1 << *shift))
-        (*shift)++;
-    return (val == (1 << *shift));
 }
 
 #ifdef XF86DRI
@@ -2322,8 +2323,8 @@ viaInitAccel(ScreenPtr pScreen)
     Bool nPOTSupported;
 
     pVia->VQStart = 0;
-    if (((pVia->FBFreeEnd - pVia->FBFreeStart) >= VIA_VQ_SIZE) &&
-        pVia->VQEnable) {
+    if (((pVia->FBFreeEnd - pVia->FBFreeStart) >= VIA_VQ_SIZE)
+        && pVia->VQEnable) {
         pVia->VQStart = pVia->FBFreeEnd - VIA_VQ_SIZE;
         pVia->VQEnd = pVia->VQStart + VIA_VQ_SIZE - 1;
         pVia->FBFreeEnd -= VIA_VQ_SIZE;
