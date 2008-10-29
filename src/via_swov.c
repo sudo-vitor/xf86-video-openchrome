@@ -1457,16 +1457,17 @@ SetColorKey(VIAPtr pVia, unsigned long videoFlag,
     if (pVia->VideoEngine == VIDEO_ENGINE_CME)
         keyLow |= 0x40000000;
 
-    if (videoFlag & VIDEO_1_INUSE) {
+    if ((videoFlag & VIDEO_1_INUSE) || !pVia->HWDiff.dwSupportTwoColorKey) {
         SaveVideoRegister(pVia, V_COLOR_KEY, keyLow);
+        SaveVideoRegister(pVia, SND_COLOR_KEY, keyLow);
     } else {
-        if (pVia->HWDiff.dwSupportTwoColorKey)    /*CLE_C0 */
-            SaveVideoRegister(pVia, V3_COLOR_KEY, keyLow);
+        SaveVideoRegister(pVia, V3_COLOR_KEY, keyLow);
     }
 
     /*CLE_C0 */
-    compose = ((compose & ~0x0f) | SELECT_VIDEO_IF_COLOR_KEY |
-               SELECT_VIDEO3_IF_COLOR_KEY);
+    compose = 
+        (compose & ~0x0003000f) | SELECT_VIDEO_IF_COLOR_KEY |
+        SELECT_VIDEO3_IF_COLOR_KEY | SECOND_DISPLAY_COLOR_KEY_ENABLE;
 
     return compose;
 }
@@ -1496,10 +1497,7 @@ SetChromaKey(VIAPtr pVia, unsigned long videoFlag,
     }
 
     /* Modified by Scottie[2001.12.5] for select video if (Color key & Chroma key) */
-    if (compose == SELECT_VIDEO_IF_COLOR_KEY)
-        compose = SELECT_VIDEO_IF_COLOR_KEY | SELECT_VIDEO_IF_CHROMA_KEY;
-    else
-        compose = (compose & ~0x0f) | SELECT_VIDEO_IF_CHROMA_KEY;
+    compose |= SELECT_VIDEO_IF_CHROMA_KEY;
 
     return compose;
 }
@@ -1694,10 +1692,13 @@ Upd_Video(ScrnInfoPtr pScrn, unsigned long videoFlag,
     if (pVia->ChipId == PCI_CHIP_VT3259 && !(videoFlag & VIDEO_1_INUSE))
         proReg = PRO_HQV1_OFFSET;
 
-    compose = ((VIDInD(V_COMPOSE_MODE)
-                & ~(SELECT_VIDEO_IF_COLOR_KEY
-                    | V1_COMMAND_FIRE | V3_COMMAND_FIRE))
-               | V_COMMAND_LOAD_VBI);
+    compose = (VIDInD(V_COMPOSE_MODE) &
+                ~( SELECT_VIDEO_IF_COLOR_KEY |
+                   SECOND_DISPLAY_COLOR_KEY_ENABLE |
+                   SELECT_VIDEO3_IF_COLOR_KEY |
+                   V1_COMMAND_FIRE |
+                   V3_COMMAND_FIRE ) ) |
+              V_COMMAND_LOAD_VBI;
 
     DBG_DD(ErrorF("// Upd_Video:\n"));
     DBG_DD(ErrorF("Modified rSrc  X (%ld,%ld) Y (%ld,%ld)\n",
@@ -1727,7 +1728,8 @@ Upd_Video(ScrnInfoPtr pScrn, unsigned long videoFlag,
      * FIXME:
      * Enable video on secondary 
      */
-    if (pVia->Chipset == VIA_P4M900 && pVia->pBIOSInfo->PanelActive) {
+    if ((pVia->Chipset == VIA_P4M900 || pVia->Chipset == VIA_CX700)
+        && pVia->pBIOSInfo->PanelActive) {
         /* V1_ON_SND_DISPLAY */
         vidCtl |= 0x80000000;
         /* SECOND_DISPLAY_COLOR_KEY_ENABLE */
