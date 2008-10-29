@@ -1779,6 +1779,29 @@ VIAPreInit(ScrnInfoPtr pScrn, int flags)
     return TRUE;
 }
 
+static void 
+viaNewRootPixmap(ScrnInfoPtr pScrn)
+{
+    ScreenPtr pScreen = pScrn->pScreen;
+    VIAPtr      pVia = VIAPTR(pScrn);
+    PixmapPtr rootPixmap = pScreen->GetScreenPixmap(pScreen);
+    Bool fbAccessDisabled;
+    CARD8 *fbMap;
+
+    fbMap = (pVia->shadowFB) ? pVia->ShadowPtr : pVia->displayMap;
+
+    fbAccessDisabled = (rootPixmap->devPrivate.ptr == NULL);
+    pScreen->ModifyPixmapHeader(rootPixmap,
+				pScrn->virtualX, pScrn->virtualY,
+				pScrn->depth, pScrn->bitsPerPixel,
+				pVia->Bpl, fbMap);
+    if (fbAccessDisabled) {
+	pScrn->pixmapPrivate.ptr = fbMap;
+	rootPixmap->devPrivate.ptr = NULL;
+    }
+}
+
+
 
 static Bool
 VIAEnterVT(int scrnIndex, int flags)
@@ -1842,9 +1865,7 @@ VIAEnterVT(int scrnIndex, int flags)
 
     pVia->front.virtual = pVia->displayMap;
     pVia->front.size = driBOSize(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY]);
-
-    pVia->displayOffset = driBOOffset(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY]);
-
+    viaNewRootPixmap(pScrn);
 
     retVal = driBOSetStatus(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY],
 			 DRM_BO_FLAG_MEM_VRAM | DRM_BO_FLAG_NO_EVICT,
@@ -1854,6 +1875,8 @@ VIAEnterVT(int scrnIndex, int flags)
 		   "Failed moving in the display buffer.");
 	return FALSE;
     }
+
+    pVia->displayOffset = driBOOffset(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY]);
 
     retVal = driBOSetStatus(pVia->scanout.bufs[VIA_SCANOUT_CURSOR],
 			 DRM_BO_FLAG_MEM_VRAM | DRM_BO_FLAG_NO_EVICT,
@@ -1866,6 +1889,12 @@ VIAEnterVT(int scrnIndex, int flags)
     }
 
     pVia->cursorOffset = driBOOffset(pVia->scanout.bufs[VIA_SCANOUT_CURSOR]);
+
+    /*
+     * For now, bring in the EXA pixmap cache.
+     */
+
+    driBOSetStatus(pVia->exaMem.buf, 0, 0);
 
 
     /* A patch for APM suspend/resume, when HWCursor has garbage. */
