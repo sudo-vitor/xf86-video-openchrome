@@ -1500,7 +1500,6 @@ viaInitAccel(ScreenPtr pScreen)
 	 * VIAInitLinear.
 	 */
 	
-	pVia->NoAccel = TRUE;
 	goto out_err0;
     }
     
@@ -1510,6 +1509,7 @@ viaInitAccel(ScreenPtr pScreen)
     return TRUE;
  out_err0:
 
+    pVia->NoAccel = TRUE;
     driDeleteBuffers(1, &pVia->exaMem.buf);
     return FALSE;
 

@@ -244,6 +244,7 @@ typedef struct _VIA {
     xf86CursorInfoPtr   CursorInfoRec;
     int                 Bpp, Bpl;
 
+    Bool                haveScreen;
     Bool                FirstInit;
     unsigned long       videoRambytes;
     int                 videoRamKbytes;

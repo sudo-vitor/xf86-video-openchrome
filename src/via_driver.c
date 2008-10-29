@@ -29,6 +29,8 @@
 #include "config.h"
 #endif
 
+#include <signal.h>
+
 #include "xf86RAC.h"
 #include "shadowfb.h"
 
@@ -1878,8 +1880,17 @@ VIALeaveVT(int scrnIndex, int flags)
     VIAPtr pVia = VIAPTR(pScrn);
 
     DEBUG(xf86DrvMsg(scrnIndex, X_INFO, "VIALeaveVT\n"));
+    ErrorF("Leavevt\n");
 
     vgaHWBlankScreen(pScrn, FALSE);
+
+    /*
+     * A segfault happened during the screen setup process.
+     * Just restore the console screen.
+     */
+
+    if (!pVia->haveScreen) 
+	goto out_restore;
 
 #ifdef XF86DRI
     if (pVia->directRenderingEnabled) {
@@ -1941,6 +1952,8 @@ VIALeaveVT(int scrnIndex, int flags)
      * modeset: Set the soft reset bit in SR1A and write some stuff to the
      * 3D engine.
      */
+
+  out_restore:
 
     if (pVia->Chipset != VIA_K8M890 && pVia->Chipset != VIA_P4M900)
 	hwp->writeSeq(hwp, 0x1A, pVia->SavedReg.SR1A | 0x40);
@@ -2430,7 +2443,19 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
     int ret;
     unsigned int displaySize;
 
+    pVia->haveScreen = FALSE;
+
+
+    /*
+     * FIXME: pScrn->pScreen should really be NULL during the screen setup
+     * process. It's set to pScreen by the server code after ScreenInit.
+     * Should remove all references to pScrn->pScreen from driver screen setup
+     * functions.
+     */
+
     pScrn->pScreen = pScreen;
+
+
     DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "VIAScreenInit\n"));
 
     pScrn->memPhysBase = 0;
@@ -2451,13 +2476,13 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
         vgaHWBlankScreen(pScrn, FALSE);
         if (!ViaVbeSetMode(pScrn, pScrn->currentMode)) {
             vgaHWBlankScreen(pScrn, TRUE);
-            return FALSE;
+            goto out_err0;
         }
     } else {
         vgaHWBlankScreen(pScrn, FALSE);
         if (!VIAWriteMode(pScrn, pScrn->currentMode)) {
             vgaHWBlankScreen(pScrn, TRUE);
-            return FALSE;
+	    goto out_err0;
         }
     }
     pVia->FirstInit = FALSE;
@@ -2493,7 +2518,7 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
     if (pVia->mainPool == NULL) {
 	xf86DrvMsg(pScrn->scrnIndex, X_ERROR, 
 		   "This driver currently requires DRM to operate.\n");
-	return FALSE;
+	goto out_err1;
     }	
     ret = driGenBuffers(pVia->mainPool, "Scanouts", VIA_SCANOUT_NUM,
 			pVia->scanout.bufs, 0,
@@ -2504,7 +2529,7 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
     if (ret) {
 	xf86DrvMsg(pScrn->scrnIndex, X_ERROR, 
 		   "Failed allocating scanout buffers.\n");
-	return FALSE;
+	goto out_err2;
     }
 
     if (pVia->IsSecondary) {
@@ -2531,7 +2556,7 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
 	xf86DrvMsg(pScrn->scrnIndex, X_ERROR, 
 		   "Failed allocating display video RAM: \"%s\".\n",
 		   strerror(-ret));
-	return FALSE;
+	goto out_err3;
     }
 
     pVia->front.buf = driBOReference(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY]);
@@ -2542,7 +2567,7 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
 	xf86DrvMsg(pScrn->scrnIndex, X_ERROR, 
 		   "Failed mapping display video RAM: \"%s\".\n",
 		   strerror(-ret));
-	return FALSE;
+	goto out_err3;
     }
     
     driBOUnmap(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY]);
@@ -2560,22 +2585,23 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
     if (pScrn->bitsPerPixel > 8 && !pVia->IsSecondary) {
         if (!miSetVisualTypes(pScrn->depth, TrueColorMask,
                               pScrn->rgbBits, pScrn->defaultVisual))
-            return FALSE;
+	    goto out_err3;
         if (!miSetPixmapDepths())
-            return FALSE;
+            goto out_err3;
     } else {
         if (!miSetVisualTypes(pScrn->depth,
                               miGetDefaultVisualMask(pScrn->depth),
                               pScrn->rgbBits, pScrn->defaultVisual))
-            return FALSE;
+            goto out_err3;
         if (!miSetPixmapDepths())
-            return FALSE;
+            goto out_err3;
     }
 
     DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "- Visuals set up\n"));
 
     if (!VIAInternalScreenInit(scrnIndex, pScreen))
-        return FALSE;
+        goto out_err4;
+
 
     xf86SetBlackWhitePixels(pScreen);
     DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "- B & W\n"));
@@ -2601,7 +2627,7 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
 #endif
 
     if (!pVia->NoAccel) {
-        viaInitAccel(pScreen);
+	viaInitAccel(pScreen);
     }
 
     miInitializeBackingStore(pScreen);
@@ -2628,13 +2654,13 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
         ViaShadowFBInit(pScrn, pScreen);
 
     if (!miCreateDefColormap(pScreen))
-        return FALSE;
+        goto out_err5;
     DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "- Def Color map set up\n"));
 
     if (!xf86HandleColormaps(pScreen, 256, 8, VIALoadPalette, NULL,
                              CMAP_RELOAD_ON_MODE_SWITCH
                              | CMAP_PALETTED_TRUECOLOR))
-        return FALSE;
+        goto out_err5;
 
     DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "- Palette loaded\n"));
 
@@ -2698,9 +2724,70 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
     }
 #endif
 
-
     DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "- Done\n"));
+
+    pVia->haveScreen = TRUE;
+
     return TRUE;
+  out_err5:    
+    if (pVia->DGAModes)
+        xfree(pVia->DGAModes);
+    pVia->DGAModes = NULL;
+    if (!pVia->NoAccel) 
+	viaExitAccel(pScreen);
+  out_err4:
+    if (pVia->ShadowPtr) 
+	xfree(pVia->ShadowPtr);
+    pVia->ShadowPtr = NULL;
+  out_err3:
+    driBOUnReference(pVia->front.buf);
+    pVia->front.buf = NULL;
+    driDeleteBuffers(VIA_SCANOUT_NUM, pVia->scanout.bufs);
+  out_err2:
+    if (!pVia->IsSecondary) {
+	pVia->mainPool->takeDown(pVia->mainPool);
+	pVia->mainPool = NULL;
+    }
+  out_err1:
+#ifdef XF86DRI
+    if (pVia->directRenderingEnabled) {
+	if (pScrn->vtSema) {
+	    struct drm_via_vt vt;
+
+	    vt.enter = 0;
+
+	    if (drmCommandWrite(pVia->drmFD, DRM_VIA_VT,
+				&vt, sizeof(vt)) < 0)
+		ErrorF("Failed DRM VT leave.\n");
+	    else
+		pVia->vtNotified = FALSE;
+	}
+	VIADRICloseScreen(pScreen);
+    }
+    pVia->directRenderingEnabled = FALSE;
+#endif
+  out_err0:
+
+    if (pScrn->vtSema) {
+        if (pVia->Chipset != VIA_K8M890 && pVia->Chipset != VIA_P4M900)
+            hwp->writeSeq(hwp, 0x1A, pVia->SavedReg.SR1A | 0x40);
+
+	VIASETREG(VIA_REG_TRANSET, 0x00000000);
+	VIASETREG(VIA_REG_TRANSPACE, 0xCCCCCCCC);
+	(void )VIAGETREG(VIA_REG_TRANSET);
+
+	if (pVia->pVbe && pVia->vbeSR)
+	    ViaVbeSaveRestore(pScrn, MODE_RESTORE);
+	else
+	    VIARestore(pScrn);
+    }
+
+    pScrn->vtSema = FALSE;
+    pVia->haveScreen = FALSE;
+    vgaHWLock(hwp);
+    VIAUnmapMem(pScrn);
+
+    return FALSE;
 }
 
 
@@ -2727,6 +2814,8 @@ VIAInternalScreenInit(int scrnIndex, ScreenPtr pScreen)
     if (pVia->shadowFB) {
         pVia->ShadowPitch = BitmapBytePad(pScrn->bitsPerPixel * width);
         pVia->ShadowPtr = xalloc(pVia->ShadowPitch * height);
+	if (!pVia->ShadowPtr)
+	    return FALSE;
         displayWidth = pVia->ShadowPitch / (pScrn->bitsPerPixel >> 3);
         FBStart = pVia->ShadowPtr;
     } else {
@@ -2766,8 +2855,6 @@ VIAWriteMode(ScrnInfoPtr pScrn, DisplayModePtr mode)
 
     pVia->OverlaySupported = FALSE;
 
-    pScrn->vtSema = TRUE;
-
     if (!pVia->pVbe) {
 
         if (!vgaHWInit(pScrn, mode))
@@ -2778,10 +2865,14 @@ VIAWriteMode(ScrnInfoPtr pScrn, DisplayModePtr mode)
         else
             ViaModeSecondary(pScrn, mode);
 
+	pScrn->vtSema = TRUE;
+
     } else {
 
-      if (!ViaVbeSetMode(pScrn, mode))
+	if (!ViaVbeSetMode(pScrn, mode))
             return FALSE;
+	
+	pScrn->vtSema = TRUE;
 
         /*
          * FIXME: pVia->IsSecondary is not working here.  We should be able
@@ -2820,6 +2911,11 @@ VIACloseScreen(int scrnIndex, ScreenPtr pScreen)
 
     DEBUG(xf86DrvMsg(scrnIndex, X_INFO, "VIACloseScreen\n"));
 
+    /*
+     * Always make sure this function mimics the 
+     * error takedown in viaScreenInit.
+     */ 
+
     /* Is the display currently visible? */
     if (pScrn->vtSema) {
 	vgaHWBlankScreen(pScrn, FALSE);
@@ -2828,27 +2924,41 @@ VIACloseScreen(int scrnIndex, ScreenPtr pScreen)
         if (pVia->directRenderingEnabled)
             DRILock(screenInfo.screens[scrnIndex], 0);
 #endif
-        /* Wait for hardware engine to idle before exiting graphical mode. */
-        viaAccelSync(pScrn);
-
-        if (!pVia->IsSecondary) {
-            /* Turn off all video activities. */
-            viaExitVideo(pScrn);
-
-            VIAHideCursor(pScrn);
-        }
-
+    }
+    
+    if (!pVia->IsSecondary) {
+	/* Turn off all video activities. */
+	viaExitVideo(pScrn);
+	VIAHideCursor(pScrn);
     }
 
+    if (pVia->DGAModes)
+	xfree(pVia->DGAModes);
+    pVia->DGAModes = NULL;
+
+    if (!pVia->NoAccel) {
+        viaAccelSync(pScrn);
+	viaExitAccel(pScreen);
+    }
+
+    if (pVia->CursorInfoRec) {
+        xf86DestroyCursorInfoRec(pVia->CursorInfoRec);
+        pVia->CursorInfoRec = NULL;
+    }
+
+    if (pVia->ShadowPtr) 
+	xfree(pVia->ShadowPtr);
+    pVia->ShadowPtr = NULL;
+    
     driBOUnReference(pVia->front.buf);
-    viaExitAccel(pScreen);
+    pVia->front.buf = NULL;
     driDeleteBuffers(VIA_SCANOUT_NUM, pVia->scanout.bufs);
+
     if (pVia->mainPool && !pVia->IsSecondary) {
 	pVia->mainPool->takeDown(pVia->mainPool);
 	pVia->mainPool = NULL;
     }
-
-
+    
 #ifdef XF86DRI
     if (pVia->directRenderingEnabled) {
 	if (pScrn->vtSema) {
@@ -2863,21 +2973,9 @@ VIACloseScreen(int scrnIndex, ScreenPtr pScreen)
 		pVia->vtNotified = FALSE;
 	}
         VIADRICloseScreen(pScreen);
+	pVia->directRenderingEnabled = FALSE;
     }
 #endif
-
-    if (pVia->CursorInfoRec) {
-        xf86DestroyCursorInfoRec(pVia->CursorInfoRec);
-        pVia->CursorInfoRec = NULL;
-    }
-    if (pVia->ShadowPtr) {
-        xfree(pVia->ShadowPtr);
-        pVia->ShadowPtr = NULL;
-    }
-    if (pVia->DGAModes) {
-        xfree(pVia->DGAModes);
-        pVia->DGAModes = NULL;
-    }
 
     if (pScrn->vtSema) {
         /* A soft reset avoids a 3D hang after X restart. */
@@ -2898,6 +2996,7 @@ VIACloseScreen(int scrnIndex, ScreenPtr pScreen)
         VIAUnmapMem(pScrn);
     }
     pScrn->vtSema = FALSE;
+    pVia->haveScreen = FALSE;
     pScreen->CloseScreen = pVia->CloseScreen;
 
     return (*pScreen->CloseScreen) (scrnIndex, pScreen);
