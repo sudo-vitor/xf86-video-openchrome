@@ -143,7 +143,6 @@ viaFlushDRIEnabled(ViaCommandBuffer * cb)
     drm_via_cmdbuffer_t b;
 
     /* Align end of command buffer for AGP DMA. */
-    OUT_RING_H1(0x2f8, 0x67676767);
     if (pVia->agpDMA && cb->mode == 2 && cb->rindex != HC_ParaType_CmdVdata
         && (cb->pos & 1)) {
         OUT_RING(HC_DUMMY);
@@ -1903,6 +1902,10 @@ viaExaCheckComposite(int op, PicturePtr pSrcPicture,
         pMaskPicture->pDrawable->width *
         pMaskPicture->pDrawable->height < VIA_MIN_COMPOSITE)
         return FALSE;
+
+    if (pSrcPicture->transform ||
+	(pMaskPicture && pMaskPicture->transform))
+	return FALSE;
 
     if (pMaskPicture && pMaskPicture->componentAlpha) {
 #ifdef VIA_DEBUG_COMPOSITE

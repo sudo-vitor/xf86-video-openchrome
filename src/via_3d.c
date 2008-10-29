@@ -50,6 +50,9 @@ static Via3DFormat via3DFormats[256];
 #define VIA_NUM_3D_FORMATS 15
 #define VIA_FMT_HASH(arg) (((((arg) >> 1) + (arg)) >> 8) & 0xFF)
 
+/*
+ * Operator, 
+ */
 static const CARD32 viaOpCodes[VIA_NUM_3D_OPCODES][5] = {
     {PictOpClear, 0x05, 0x45, 0x40, 0x80},
     {PictOpSrc, 0x15, 0x45, 0x50, 0x80},
@@ -192,8 +195,10 @@ viaSet3DTexture(Via3DState * v3d, int tex, CARD32 offset,
 
     switch (blendingMode) {
         case via_src:
-            vTex->texCsat = (0x01 << 23) | (0x10 << 14) | (0x03 << 7) | 0x00;
-            vTex->texAsat = ((0x0B << 14)
+            vTex->texCsat = (0x01 << 23) | 
+		(((PICT_FORMAT_TYPE(format) == PICT_TYPE_A) ? 0x00 : 0x10) << 14) | 
+		(0x03 << 7) | 0x00;
+	    vTex->texAsat = ((0x0B << 14)
                              | ((PICT_FORMAT_A(format) ? 0x04 : 0x02) << 7)
                              | 0x03);
             vTex->texRCa = 0x00000000;
@@ -201,13 +206,17 @@ viaSet3DTexture(Via3DState * v3d, int tex, CARD32 offset,
             vTex->texBColDirty = TRUE;
             break;
         case via_src_onepix_mask:
-            vTex->texCsat = (0x01 << 23) | (0x09 << 14) | (0x03 << 7) | 0x00;
+            vTex->texCsat = (0x01 << 23) | 
+		(((PICT_FORMAT_TYPE(format) == PICT_TYPE_A) ? 0x00 : 0x09) << 14) | 
+		(0x03 << 7) | 0x00;
             vTex->texAsat = ((0x03 << 14)
                              | ((PICT_FORMAT_A(format) ? 0x04 : 0x02) << 7)
                              | 0x03);
             break;
         case via_src_onepix_comp_mask:
-            vTex->texCsat = (0x01 << 23) | (0x09 << 14) | (0x03 << 7) | 0x00;
+            vTex->texCsat = (0x01 << 23) | 
+		(((PICT_FORMAT_TYPE(format) == PICT_TYPE_A) ? 0x00 : 0x09) << 14) | 
+		(0x03 << 7) | 0x00;
             vTex->texAsat = ((0x03 << 14)
                              | ((PICT_FORMAT_A(format) ? 0x04 : 0x02) << 7)
                              | 0x03);
@@ -259,7 +268,7 @@ viaSet3DCompositeOperator(Via3DState * v3d, CARD8 op)
 
     v3d->blendDirty = TRUE;
     if (v3d && vOp->supported) {
-        v3d->blendCol0 = vOp->col0 << 4;
+        v3d->blendCol0 = (vOp->col0 << 4) | HC_HABLAsat_MASK;
         v3d->blendCol1 = vOp->col1 << 2;
         v3d->blendAl0 = vOp->al0 << 4;
         v3d->blendAl1 = vOp->al1 << 2;
@@ -315,7 +324,11 @@ via3DEmitQuad(Via3DState * v3d, ViaCommandBuffer * cb, int dstX, int dstY,
      * a w value after the x and y coordinates.
      */
 
-    BEGIN_H2(HC_ParaType_CmdVdata, 22 + numTex * 6);
+    BEGIN_H2(HC_ParaType_NotTex, 2);
+    OUT_RING( 0xCCCCCCCC );
+    OUT_RING( 0xDDDDDDDD );
+
+    BEGIN_H2(HC_ParaType_CmdVdata, 22 + numTex * 12);
     acmd = ((1 << 14) | (1 << 13) | (1 << 11));
     if (numTex)
         acmd |= ((1 << 7) | (1 << 8));
@@ -373,9 +386,11 @@ via3DEmitQuad(Via3DState * v3d, ViaCommandBuffer * cb, int dstX, int dstY,
     }
     OUT_RING_SubA(0xEE,
                   acmd | HC_HPLEND_MASK | HC_HPMValidN_MASK | HC_HE3Fire_MASK);
-    OUT_RING_SubA(0xEE,
-                  acmd | HC_HPLEND_MASK | HC_HPMValidN_MASK | HC_HE3Fire_MASK);
-
+    if (cb->pos & 1) {
+	OUT_RING_SubA(0xEE,
+		      acmd | HC_HPLEND_MASK | HC_HPMValidN_MASK | 
+		      HC_HE3Fire_MASK);
+    }
     ADVANCE_RING;
 }
 
