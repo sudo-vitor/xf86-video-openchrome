@@ -2860,6 +2860,7 @@ VIACloseScreen(int scrnIndex, ScreenPtr pScreen)
 
         /* A soft reset avoids a 3D hang after X restart. */
 #if 1
+    ErrorF("Seq reg is 0x%02x\n", pVia->SavedReg.SR1A);
         if (pVia->Chipset != VIA_K8M890 && pVia->Chipset != VIA_P4M900)
             hwp->writeSeq(hwp, 0x1A, pVia->SavedReg.SR1A | 0x40);
 #endif
