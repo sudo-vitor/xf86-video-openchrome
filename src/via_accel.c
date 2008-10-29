@@ -531,6 +531,56 @@ viaOrder(CARD32 val, CARD32 * shift)
 /*
  * Exa functions. It is assumed that EXA does not exceed the blitter limits.
  */
+
+static struct _ViaOffscreenBuffer *
+viaInBuffer(struct _WSDriListHead *head, void *ptr)
+{
+    struct _ViaOffscreenBuffer *entry;
+    struct _DriBufferObject *buf;
+    struct _WSDriListHead *list;
+    unsigned long offset;
+
+    WSDRILISTFOREACH(list, head) {
+	entry = WSDRILISTENTRY(list, struct _ViaOffscreenBuffer, head);
+	offset = (unsigned long)ptr - (unsigned long)entry->virtual;
+	if (offset < entry->size)
+	    return entry;
+    }
+    return NULL;
+}
+
+static Bool
+viaExaPixmapIsOffscreen(PixmapPtr p)
+{
+    ScreenPtr pScreen = p->drawable.pScreen;
+    ScrnInfoPtr pScrn = xf86Screens[pScreen->myNum];
+    VIAPtr pVia = VIAPTR(pScrn);
+
+    return (viaInBuffer(&pVia->offscreen, p->devPrivate.ptr) != NULL);
+}
+
+static unsigned long
+viaExaPixmapOffset(PixmapPtr p)
+{
+    ScreenPtr pScreen = p->drawable.pScreen;
+    ScrnInfoPtr pScrn = xf86Screens[pScreen->myNum];
+    VIAPtr pVia = VIAPTR(pScrn);
+    void *ptr;
+    struct _ViaOffscreenBuffer *buf;
+
+    ptr = (void *) exaGetPixmapOffset(p) + 
+	(unsigned long) pVia->exaMem.virtual;
+    
+    buf = viaInBuffer(&pVia->offscreen, ptr);
+
+    if (!buf) 
+	FatalError("Offscreen pixmap is not offscreen.\n");
+
+    return (unsigned long)ptr - (unsigned long) buf->virtual +
+	driBOOffset(buf->buf);
+}
+
+
 static Bool
 viaExaPrepareSolid(PixmapPtr pPixmap, int alu, Pixel planeMask, Pixel fg)
 {
@@ -568,7 +618,7 @@ viaExaSolid(PixmapPtr pPixmap, int x1, int y1, int x2, int y2)
     RING_VARS;
 
     dstPitch = exaGetPixmapPitch(pPixmap);
-    dstOffset = exaGetPixmapOffset(pPixmap);
+    dstOffset = viaExaPixmapOffset(pPixmap);
 
     viaAccelSolidHelper(cb, x1, y1, w, h, dstOffset,
                         tdc->mode, dstPitch, tdc->fgColor, tdc->cmd);
@@ -603,7 +653,7 @@ viaExaPrepareCopy(PixmapPtr pSrcPixmap, PixmapPtr pDstPixmap, int xdir,
     if (exaGetPixmapPitch(pDstPixmap) & 7)
         return FALSE;
 
-    tdc->srcOffset = exaGetPixmapOffset(pSrcPixmap);
+    tdc->srcOffset = viaExaPixmapOffset(pSrcPixmap);
 
     tdc->cmd = VIA_GEC_BLT | VIAACCELCOPYROP(alu);
     if (xdir < 0)
@@ -629,7 +679,7 @@ viaExaCopy(PixmapPtr pDstPixmap, int srcX, int srcY, int dstX, int dstY,
     VIAPtr pVia = VIAPTR(pScrn);
     ViaTwodContext *tdc = &pVia->td;
     CARD32 srcOffset = tdc->srcOffset;
-    CARD32 dstOffset = exaGetPixmapOffset(pDstPixmap);
+    CARD32 dstOffset = viaExaPixmapOffset(pDstPixmap);
     RING_VARS;
 
     if (!width || !height)
@@ -910,7 +960,7 @@ viaExaDownloadFromScreen(PixmapPtr pSrc, int x, int y, int w, int h,
     srcOffset = x * pSrc->drawable.bitsPerPixel;
     if (srcOffset & 3)
         return FALSE;
-    srcOffset = exaGetPixmapOffset(pSrc) + y * srcPitch + (srcOffset >> 3);
+    srcOffset = viaExaPixmapOffset(pSrc) + y * srcPitch + (srcOffset >> 3);
 
     totSize = wBytes * h;
 
@@ -1119,7 +1169,7 @@ viaExaPrepareComposite(int op, PicturePtr pSrcPicture,
     unsigned long offset;
     CARD32 col;
 
-    v3d->setDestination(v3d, exaGetPixmapOffset(pDst),
+    v3d->setDestination(v3d, viaExaPixmapOffset(pDst),
                         exaGetPixmapPitch(pDst), pDstPicture->format);
     v3d->setCompositeOperator(v3d, op);
     v3d->setDrawing(v3d, 0x0c, 0xFFFFFFFF, 0x000000FF, 0xFF);
@@ -1169,7 +1219,7 @@ viaExaPrepareComposite(int op, PicturePtr pSrcPicture,
     }
 
     if (!pVia->srcP) {
-        offset = exaGetPixmapOffset(pSrc);
+        offset = viaExaPixmapOffset(pSrc);
         isAGP = viaIsAGP(pVia, pSrc, &offset);
         if (!isAGP && !viaIsOffscreen(pVia, pSrc))
             return FALSE;
@@ -1187,7 +1237,7 @@ viaExaPrepareComposite(int op, PicturePtr pSrcPicture,
     }
 
     if (pMaskPicture && !pVia->maskP) {
-        offset = exaGetPixmapOffset(pMask);
+        offset = viaExaPixmapOffset(pMask);
         isAGP = viaIsAGP(pVia, pMask, &offset);
         if (!isAGP && !viaIsOffscreen(pVia, pMask))
             return FALSE;
@@ -1266,9 +1316,9 @@ viaInitExa(ScreenPtr pScreen)
 
     pExa->exa_major = EXA_VERSION_MAJOR;
     pExa->exa_minor = EXA_VERSION_MINOR;
-    pExa->memoryBase = pVia->FBBase;
-    pExa->memorySize = pVia->FBFreeEnd;
-    pExa->offScreenBase = pScrn->virtualY * pVia->Bpl;
+    pExa->memoryBase = pVia->exaMem.virtual;
+    pExa->memorySize = pVia->exaMem.size;
+    pExa->offScreenBase = 0;
     pExa->pixmapOffsetAlign = 32;
     pExa->pixmapPitchAlign = 16;
     pExa->flags = EXA_OFFSCREEN_PIXMAPS |
@@ -1285,6 +1335,7 @@ viaInitExa(ScreenPtr pScreen)
     pExa->DoneCopy = viaExaDoneSolidCopy;
     pExa->PrepareAccess = viaExaPrepareAccess;
     pExa->DownloadFromScreen = NULL;
+    pExa->PixmapIsOffscreen = viaExaPixmapIsOffscreen;
 
 #ifdef XF86DRI
     if (pVia->directRenderingEnabled) 
@@ -1351,6 +1402,15 @@ viaInitAccel(ScreenPtr pScreen)
 	       "[Accel] Failed allocating offscreen pixmap space.\n");	
 	goto out_err0;
     }
+
+    pVia->exaMem.virtual = driBOMap(pVia->exaMem.buf, WS_DRI_MAP_READ | WS_DRI_MAP_WRITE);
+    if (pVia->exaMem.virtual == NULL) {
+	xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
+	       "[Accel] Failed mapping offscreen pixmap space.\n");	
+	goto out_err0;
+    }	
+    driBOUnmap(pVia->exaMem.buf);
+    pVia->exaMem.size = driBOSize(pVia->exaMem.buf);
 
     WSDRIINITLISTHEAD(&pVia->offscreen);
     WSDRILISTADDTAIL(&pVia->front.head, &pVia->offscreen);
@@ -1484,8 +1544,8 @@ viaAccelBlitRect(ScrnInfoPtr pScrn, int srcx, int srcy, int w, int h,
 {
     VIAPtr pVia = VIAPTR(pScrn);
     ViaTwodContext *tdc = &pVia->td;
-    unsigned dstOffset = pScrn->fbOffset + dsty * pVia->Bpl;
-    unsigned srcOffset = pScrn->fbOffset + srcy * pVia->Bpl;
+    unsigned dstOffset = pVia->displayOffset + dsty * pVia->Bpl;
+    unsigned srcOffset = pVia->displayOffset + srcy * pVia->Bpl;
 
     RING_VARS;
 
@@ -1517,7 +1577,7 @@ viaAccelFillRect(ScrnInfoPtr pScrn, int x, int y, int w, int h,
                  unsigned long color)
 {
     VIAPtr pVia = VIAPTR(pScrn);
-    unsigned dstBase = pScrn->fbOffset + y * pVia->Bpl;
+    unsigned dstBase = pVia->displayOffset + y * pVia->Bpl;
     ViaTwodContext *tdc = &pVia->td;
     CARD32 cmd = VIA_GEC_BLT | VIA_GEC_FIXCOLOR_PAT |
             VIAACCELPATTERNROP(GXcopy);

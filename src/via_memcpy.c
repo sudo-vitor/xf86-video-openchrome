@@ -579,6 +579,8 @@ viaVidCopyInit(char *copyType, ScreenPtr pScreen)
      * player buffer (buf2) and a pool of uninitialized "video" data (buf3). 
      */
 
+    return libc_YUV42X;
+
     if (VIAAllocLinear(&tmpFbBuffer, pScrn, alignSize + 31))
         return libc_YUV42X;
     if (NULL == (buf2 = (unsigned char *)xalloc(testSize))) {

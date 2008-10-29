@@ -543,6 +543,7 @@ VIADRIFinishScreenInit(ScreenPtr pScreen)
 
     pVia->IsPCI = TRUE;;
 
+#if 0
     if (!(VIADRIFBInit(pScreen, pVia))) {
         VIADRICloseScreen(pScreen);
         xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
@@ -551,6 +552,7 @@ VIADRIFinishScreenInit(ScreenPtr pScreen)
     }
 
     xf86DrvMsg(pScrn->scrnIndex, X_INFO, "[dri] Frame buffer initialized.\n");
+#endif
 
     DRIFinishScreenInit(pScreen);
 

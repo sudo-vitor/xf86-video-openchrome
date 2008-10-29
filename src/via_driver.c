@@ -2910,7 +2910,7 @@ VIAInternalScreenInit(int scrnIndex, ScreenPtr pScreen)
         FBStart = pVia->ShadowPtr;
     } else {
         pVia->ShadowPtr = NULL;
-        FBStart = pVia->FBBase;
+        FBStart = pVia->displayMap;
     }
 
 #ifdef USE_FB
@@ -3103,7 +3103,7 @@ VIAAdjustFrame(int scrnIndex, int x, int y, int flags)
     ErrorF("Adjustframe\n");
     DEBUG(xf86DrvMsg(scrnIndex, X_INFO, "VIAAdjustFrame\n"));
 
-    offset =  0 /* pVia->displayOffset*/;
+    offset =  pVia->displayOffset;
 
     if (pVia->pVbe) {
 	int y0 = offset / pVia->Bpl;
