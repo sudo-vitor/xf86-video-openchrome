@@ -24,7 +24,9 @@
 #ifndef VIA_DMABUFFER_H
 #define VIA_DMABUFFER_H
 
+#include "xf86.h"
 #include "via_3d_reg.h"
+
 
 typedef struct _ViaCommandBuffer
 {
@@ -39,6 +41,8 @@ typedef struct _ViaCommandBuffer
     int rindex;
     Bool has3dState;
     void (*flushFunc) (struct _ViaCommandBuffer * cb);
+    struct via_reloc_bufinfo *reloc_info;
+    struct _DriBufferList *validate_list;
 } ViaCommandBuffer;
 
 #define VIA_DMASIZE 16384

@@ -44,6 +44,7 @@
 #include "via_regs.h"
 #include "via_id.h"
 #include "via_dmabuffer.h"
+#include "ochr_ioctl.h"
 
 #ifdef X_HAVE_XAAGETROP
 #define VIAACCELPATTERNROP(vRop) (XAAGetPatternROP(vRop) << 24)
@@ -83,6 +84,7 @@ viaFlushPCI(ViaCommandBuffer * buf)
     register CARD32 offset = 0;
     register CARD32 value;
     VIAPtr pVia = VIAPTR(buf->pScrn);
+    int ret;
 
     while (bp < endp) {
         if (*bp == HALCYON_HEADER2) {
@@ -128,6 +130,11 @@ viaFlushPCI(ViaCommandBuffer * buf)
     buf->pos = 0;
     buf->mode = 0;
     buf->has3dState = FALSE;
+    ret = ochr_reset_cmdlists(buf);
+    if (ret) {
+	FatalError("Failed trying to reset command buffer: \"%s\".\n",
+		   strerror(-ret));
+    }
 }
 
 #ifdef XF86DRI
@@ -144,6 +151,7 @@ viaFlushDRIEnabled(ViaCommandBuffer * cb)
     char *tmp = (char *)cb->buf;
     int tmpSize;
     struct drm_via_cmdbuffer b;
+    int ret;
 
     /* Align end of command buffer for AGP DMA. */
     if (pVia->agpDMA && cb->mode == 2 && cb->rindex != HC_ParaType_CmdVdata
@@ -171,6 +179,11 @@ viaFlushDRIEnabled(ViaCommandBuffer * cb)
         cb->pos = 0;
     } else {
         viaFlushPCI(cb);
+    }
+    ret = ochr_reset_cmdlists(cb);
+    if (ret) {
+	FatalError("Failed trying to reset command buffer: \"%s\".\n",
+		   strerror(-ret));
     }
 }
 #endif
@@ -203,7 +216,20 @@ viaSetupCBuffer(ScrnInfoPtr pScrn, ViaCommandBuffer * buf, unsigned size)
         buf->flushFunc = viaFlushDRIEnabled;
     }
 #endif
+    buf->reloc_info = ochr_create_reloc_buffer();
+    if (!buf->reloc_info)
+	goto out_err0;
+    
+    buf->validate_list = driBOCreateList(30);
+    if (!buf->validate_list)
+	goto out_err1;
+
     return Success;
+ out_err1:
+    ochr_free_reloc_buffer(buf->reloc_info);
+ out_err0:
+    xfree(buf->buf);
+    return BadAlloc;
 }
 
 /*
@@ -212,6 +238,15 @@ viaSetupCBuffer(ScrnInfoPtr pScrn, ViaCommandBuffer * buf, unsigned size)
 void
 viaTearDownCBuffer(ViaCommandBuffer * buf)
 {
+    if (buf->validate_list) {
+	driBOResetList(buf->validate_list);
+	driBOFreeList(buf->validate_list);
+	buf->validate_list = NULL;
+    }
+    if (buf->reloc_info) {
+	ochr_free_reloc_buffer(buf->reloc_info);
+	buf->reloc_info = NULL;
+    }    
     if (buf && buf->buf)
         xfree(buf->buf);
     buf->buf = NULL;
