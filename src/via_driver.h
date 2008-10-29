@@ -84,7 +84,7 @@
  * Pixmap sizes below which we don't try to do hw accel.
  */
 
-#define VIA_MIN_COMPOSITE   800
+#define VIA_MIN_COMPOSITE  0
 #define VIA_MIN_UPLOAD 4000
 #define VIA_MIN_TEX_UPLOAD 200
 #define VIA_MIN_DOWNLOAD 200
