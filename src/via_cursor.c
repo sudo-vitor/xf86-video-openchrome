@@ -79,7 +79,8 @@ VIAHWCursorInit(ScreenPtr pScreen)
     pVia->cursorOffset = wsbmBOOffset(pVia->scanout.bufs[VIA_SCANOUT_CURSOR]);
     memset(pVia->cursorMap, 0x00, VIA_CURSOR_SIZE);
 
-    if (pVia->Chipset == VIA_CX700) {
+    if (pVia->Chipset == VIA_CX700 ||
+	pVia->Chipset == VIA_P4M890) {
 	if (!pVia->pBIOSInfo->PanelActive) {
 	    pVia->CursorRegControl  = VIA_REG_HI_CONTROL0;
 	    pVia->CursorRegBase     = VIA_REG_HI_BASE0;
@@ -138,7 +139,8 @@ VIAHWCursorInit(ScreenPtr pScreen)
     VIASETREG(pVia->CursorRegBase, pVia->cursorOffset);
     VIASETREG(pVia->CursorRegTransKey, 0);
 
-    if (pVia->Chipset == VIA_CX700) {
+    if (pVia->Chipset == VIA_CX700 ||
+	pVia->Chipset == VIA_P4M890) {
 	if (!pVia->pBIOSInfo->PanelActive) {
 	    VIASETREG(VIA_REG_PRIM_HI_INVTCOLOR, 0x00FFFFFF);
 	    VIASETREG(VIA_REG_V327_HI_INVTCOLOR, 0x00FFFFFF);
@@ -175,7 +177,8 @@ ViaCursorStore(ScrnInfoPtr pScrn)
 
     pVia->CursorTransparentKey = VIAGETREG(pVia->CursorRegTransKey);
 
-    if (pVia->Chipset == VIA_CX700) {
+    if (pVia->Chipset == VIA_CX700 ||
+	pVia->Chipset == VIA_P4M890) {
 	if (!pVia->pBIOSInfo->PanelActive) {
 	    pVia->CursorPrimHiInvtColor = VIAGETREG(VIA_REG_PRIM_HI_INVTCOLOR);
 	    pVia->CursorV327HiInvtColor = VIAGETREG(VIA_REG_V327_HI_INVTCOLOR);
@@ -205,7 +208,8 @@ ViaCursorRestore(ScrnInfoPtr pScrn)
 
     VIASETREG(pVia->CursorRegTransKey, pVia->CursorTransparentKey);
 
-    if (pVia->Chipset == VIA_CX700) {
+    if (pVia->Chipset == VIA_CX700 ||
+	pVia->Chipset == VIA_P4M890) {
 	if (!pVia->pBIOSInfo->PanelActive) {
 	    VIASETREG(VIA_REG_PRIM_HI_INVTCOLOR, pVia->CursorPrimHiInvtColor);
 	    VIASETREG(VIA_REG_V327_HI_INVTCOLOR, pVia->CursorV327HiInvtColor);

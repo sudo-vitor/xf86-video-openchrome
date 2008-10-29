@@ -622,14 +622,7 @@ ochr_execbuf(int fd, struct _ViaCommandBuffer *cBuf)
     exec_req->cmd_buffer = (uint64_t) (unsigned long)
 	cBuf->buf;
     exec_req->cmd_buffer_size = cBuf->pos << 2;
-
-    /*
-     * FIXME: Use AGP when we've resolved the locks that happen
-     * when we run 3D DRI clients and X server AGP command submission.
-     */
-
-    /*    exec_req->mechanism = (cBuf->needsPCI) ? 
-	  _VIA_MECHANISM_PCI : _VIA_MECHANISM_AGP; */
+    exec_req->context = DRIGetContext(cBuf->pScrn->pScreen);
     exec_req->mechanism = (cBuf->needsPCI) ? _VIA_MECHANISM_PCI : 
       _VIA_MECHANISM_AGP;
     exec_req->exec_flags = DRM_VIA_FENCE_NO_USER | cBuf->execFlags;

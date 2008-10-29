@@ -169,7 +169,7 @@ viaSetupCBuffer(ScrnInfoPtr pScrn, ViaCommandBuffer * buf, unsigned size)
     if (!buf->reloc_info)
 	goto out_err0;
     
-    buf->validate_list = wsbmBOCreateList(30);
+    buf->validate_list = wsbmBOCreateList(30, 1);
     if (!buf->validate_list)
 	goto out_err1;
 
@@ -1374,6 +1374,9 @@ viaExaPrepareAccess(PixmapPtr pPix, int index)
 	flags = (index == EXA_PREPARE_DEST) ?
 	    WSBM_SYNCCPU_WRITE : WSBM_SYNCCPU_READ;
 	ret = wsbmBOSyncForCpu(buf->buf, flags);
+	if (ret) {
+	  ErrorF("Ret is %d: \"%s\".\n", ret, strerror(-ret));
+	}
     }
     return (ret == 0);
 }
