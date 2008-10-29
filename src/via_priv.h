@@ -50,13 +50,22 @@
 /*
  * Structures for create surface
  */
+
+struct _HQVBuffer {
+    struct _DriBufferObject *buf;
+    unsigned char *virtual;
+    unsigned long pinnedOffset;
+    unsigned long deltaY;
+    unsigned long deltaU;
+    unsigned long deltaV;
+};
+
+
 typedef struct _SWDEVICE
 {
- unsigned char * lpSWOverlaySurface[2];   /* Max 2 Pointers to SW Overlay Surface*/
- unsigned long  dwSWPhysicalAddr[2];     /*Max 2 Physical address to SW Overlay Surface */
- unsigned long  dwSWCbPhysicalAddr[2];  /* Physical address to SW Cb Overlay Surface, for YV12 format use */
- unsigned long  dwSWCrPhysicalAddr[2];  /* Physical address to SW Cr Overlay Surface, for YV12 format use */
- unsigned long  dwHQVAddr[3];             /* Physical address to HQV surface -- CLE_C0   */
+    struct _HQVBuffer hqvBuf[2];
+
+    unsigned long  dwHQVAddr[3];             /* Physical address to HQV surface -- CLE_C0   */
  /*unsigned long  dwHQVAddr[2];*/			  /*Max 2 Physical address to SW HQV Overlay Surface*/
  unsigned long  dwWidth;                  /*SW Source Width, not changed*/
  unsigned long  dwHeight;                 /*SW Source Height, not changed*/
@@ -93,10 +102,9 @@ typedef DDUPDATEOVERLAY * LPDDUPDATEOVERLAY;
 #define DDOVER_INTERLEAVED 2
 #define DDOVER_BOB         4
 
-#define FOURCC_HQVSW   0x34565148  /*HQV4*/
-
 typedef struct
 {
+
     CARD32         dwWidth;
     CARD32         dwHeight;
     CARD32         dwOffset;
@@ -136,7 +144,6 @@ typedef struct
     CARD32         dwMpegDecoded;
 } OVERLAYRECORD;
 
-
 typedef struct  {
     unsigned long   gdwVideoFlagSW;
     unsigned long   gdwVideoFlagMPEG;
@@ -145,6 +152,7 @@ typedef struct  {
     CARD32 SrcFourCC;
     DDUPDATEOVERLAY UpdateOverlayBackup;    /* For HQVcontrol func use
 					    // To save MPEG updateoverlay info.*/
+
 
 /* device struct */
     SWDEVICE   SWDevice;
@@ -169,6 +177,8 @@ typedef struct  {
 /* Maximum resolution with interpolation */
     unsigned long maxWInterp;
     unsigned long maxHInterp;
+
+    CARD32 hqvCtl;
 
 } swovRec, *swovPtr;
 

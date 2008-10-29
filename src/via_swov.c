@@ -289,16 +289,6 @@ VIAVidHWDiffInit(ScrnInfoPtr pScrn)
     }
 }
 
-/*
- * Old via_overlay code.
- */
-typedef struct _YCBCRREC
-{
-    CARD32 dwY;
-    CARD32 dwCB;
-    CARD32 dwCR;
-} YCBCRREC;
-
 /* 
  * Verify that using V1 bit definitions on V3
  * is not broken in OverlayGetV1V3Format().
@@ -357,34 +347,7 @@ viaOverlayGetV1V3Format(VIAPtr pVia, int vport, /* 1 or 3, as in V1 or V3 */
         }
         *pVidCtl |= V1_SWAP_HW_HQV;
         *pHQVCtl |= HQV_SRC_SW | HQV_ENABLE | HQV_SW_FLIP;
-    } else {
-        switch (pVia->swov.SrcFourCC) {
-            case FOURCC_YV12:
-            case FOURCC_XVMC:
-                if (vport == 1) {
-                    *pVidCtl |= V1_YCbCr420;
-                } else {
-                    DBG_DD(ErrorF("viaOverlayGetV1V3Format: "
-                                  "V3 does not support planar YUV.\n"));
-                    return FALSE;
-                }
-                break;
-            case FOURCC_YUY2:
-                *pVidCtl |= V1_YUV422;
-                break;
-            case FOURCC_RV32:
-            case FOURCC_RV15:
-            case FOURCC_RV16:
-                ErrorF("viaOverlayGetV1V3Format: "
-                       "Can't display RGB video in this configuration.\n");
-                return FALSE;
-            default:
-                DBG_DD(ErrorF("viaOverlayGetV1V3Format: "
-                              "Invalid FOURCC format (0x%lx).\n",
-                              pVia->swov.SrcFourCC));
-                return FALSE;
-        }
-    }
+    } 
     *pVidCtl |= V1_COLORSPACE_SIGN;
     return TRUE;
 }
@@ -436,9 +399,7 @@ viaOverlayGetSrcStartAddress(VIAPtr pVia,
                     else
                         srcLeftOffset = (pUpdate->SrcLeft << n) & ~31;
                     *pHQVoffset = srcTopOffset + srcLeftOffset;
-                } else
-                    offset = ((pUpdate->SrcTop * srcPitch)
-                              + ((pUpdate->SrcLeft << n) & ~15));
+                } 
                 break;
 
             case FOURCC_YV12:
@@ -447,16 +408,6 @@ viaOverlayGetSrcStartAddress(VIAPtr pVia,
                 if (videoFlag & VIDEO_HQV_INUSE)
                     offset = (((pUpdate->SrcTop & ~3) * (srcPitch << 1))
                               + ((pUpdate->SrcLeft << 1) & ~31));
-                else {
-                    offset = ((((pUpdate->SrcTop & ~3) * srcPitch)
-                               + pUpdate->SrcLeft) & ~31);
-                    if (pUpdate->SrcTop > 0)
-                        pVia->swov.overlayRecordV1.dwUVoffset
-                                = (((((pUpdate->SrcTop & ~3) >> 1) * srcPitch)
-                                    + pUpdate->SrcLeft) & ~31) >> 1;
-                    else
-                        pVia->swov.overlayRecordV1.dwUVoffset = offset >> 1;
-                }
                 break;
 
             default:
@@ -470,28 +421,6 @@ viaOverlayGetSrcStartAddress(VIAPtr pVia,
     }
 
     return offset;
-}
-
-static YCBCRREC
-viaOverlayGetYCbCrStartAddress(unsigned long videoFlag,
-                               unsigned long startAddr, unsigned long offset,
-                               unsigned long UVoffset, unsigned long srcPitch,
-                               unsigned long srcHeight)
-{
-    YCBCRREC YCbCr;
-
-    if (videoFlag & VIDEO_HQV_INUSE) {
-        YCbCr.dwY = startAddr;
-        YCbCr.dwCB = startAddr + srcPitch * srcHeight;
-        YCbCr.dwCR = (startAddr + srcPitch * srcHeight
-                      + srcPitch * (srcHeight >> 2));
-    } else {
-        YCbCr.dwY = startAddr + offset;
-        YCbCr.dwCB = startAddr + srcPitch * srcHeight + UVoffset;
-        YCbCr.dwCR = (startAddr + srcPitch * srcHeight + UVoffset
-                      + srcPitch * (srcHeight >> 2));
-    }
-    return YCbCr;
 }
 
 static unsigned long
@@ -689,13 +618,7 @@ viaOverlayGetFetch(VIAPtr pVia, unsigned long videoFlag,
             fetch = (ALIGN_TO(srcWidth << n, 16) >> 4) + 1;
         else
             fetch = (ALIGN_TO(dstWidth << n, 16) >> 4) + 1;
-    } else {
-        if (n == 0)
-            fetch = (ALIGN_TO(srcWidth, 32) >> 4);
-        else
-            fetch = (ALIGN_TO(srcWidth << n, 16) >> 4) + 1;
-    }
-
+    } 
     /* Fix planar mode problem. */
     if (fetch < 4)
         fetch = 4;
@@ -1012,9 +935,12 @@ ViaYUVFillBlack(VIAPtr pVia, void *addr, int num)
 }
 
 /*
- * Add an HQV surface to an existing FOURCC surface.
+ * Add an HQV destination surface to an existing FOURCC surface.
  * numbuf: number of buffers, 1, 2 or 3
- * fourcc: FOURCC code of the current (already existing) surface
+ * fourcc: FOURCC code of the current (already existing) 
+ * HQV source surface.
+ * This is the HQV destination surface and similarly the
+ * V1 / V3 input surface.
  */
 static long
 AddHQVSurface(ScrnInfoPtr pScrn, unsigned int numbuf, CARD32 fourcc)
@@ -1038,21 +964,28 @@ AddHQVSurface(ScrnInfoPtr pScrn, unsigned int numbuf, CARD32 fourcc)
     width = pVia->swov.SWDevice.gdwSWSrcWidth;
     height = pVia->swov.SWDevice.gdwSWSrcHeight;
     pitch = pVia->swov.SWDevice.dwPitch;
+
+    /*
+     * This surface is always in YUV422 format if the source HQV surface
+     * is planar YUV. So we must multiply the Y pitch of the
+     * source surface by 2 in that case.
+     */
+
     fbsize = pitch * height * (isplanar ? 2 : 1);
 
-    retCode = driBOData(pVia->scanout.bufs[VIA_SCANOUT_HQV], fbsize * numbuf, 
+    retCode = driBOData(pVia->scanout.bufs[VIA_SCANOUT_OVERLAY], fbsize * numbuf, 
 			NULL, NULL, 0);
     if (retCode)
 	return BadAlloc;
 
-    hqvMap = driBOMap(pVia->scanout.bufs[VIA_SCANOUT_HQV], WS_DRI_MAP_WRITE);
+    hqvMap = driBOMap(pVia->scanout.bufs[VIA_SCANOUT_OVERLAY], WS_DRI_MAP_WRITE);
     if (hqvMap == NULL)
 	return BadAlloc;
 
-    driBOUnmap(pVia->scanout.bufs[VIA_SCANOUT_HQV]);
     ViaYUVFillBlack(pVia, hqvMap, fbsize);
+    driBOUnmap(pVia->scanout.bufs[VIA_SCANOUT_OVERLAY]);
 
-    addr = driBOOffset(pVia->scanout.bufs[VIA_SCANOUT_HQV]);
+    addr = driBOOffset(pVia->scanout.bufs[VIA_SCANOUT_OVERLAY]);
 
     for (i = 0; i < numbuf; i++) {
         pVia->swov.overlayRecordV1.dwHQVAddr[i] = addr;
@@ -1072,9 +1005,10 @@ CreateSurface(ScrnInfoPtr pScrn, CARD32 FourCC, CARD16 Width,
               CARD16 Height, BOOL doalloc)
 {
     VIAPtr pVia = VIAPTR(pScrn);
-    unsigned long pitch, fbsize, addr;
+    unsigned long pitch, fbsize;
     unsigned long retCode;
     BOOL isplanar;
+    int i;
 
     pVia->swov.SrcFourCC = FourCC;
     pVia->swov.gdwVideoFlagSW = ViaInitVideoStatusFlag(pVia);
@@ -1098,41 +1032,48 @@ CreateSurface(ScrnInfoPtr pScrn, CARD32 FourCC, CARD16 Width,
     }
 
     if (doalloc) {
-	void *virtual;
-	retCode = driBOData(pVia->scanout.bufs[VIA_SCANOUT_OVERLAY], 
-			    fbsize * 2, NULL, NULL, 0);
-        if (retCode)
-            return BadAlloc;
-	addr = driBOOffset(pVia->scanout.bufs[VIA_SCANOUT_OVERLAY]);
-	virtual = driBOMap(pVia->scanout.bufs[VIA_SCANOUT_OVERLAY],
-			   WS_DRI_MAP_READ | WS_DRI_MAP_WRITE);
-	if (!virtual)
-	    return BadAlloc;
+	uint64_t hqvFlag = VIA_BO_FLAG_HQV0;
 
-	driBOUnmap(pVia->scanout.bufs[VIA_SCANOUT_OVERLAY]);
-        ViaYUVFillBlack(pVia, virtual, fbsize);
+	if (pVia->ChipId == PCI_CHIP_VT3259
+	    && !(pVia->swov.gdwVideoFlagSW & VIDEO_1_INUSE))
+	    hqvFlag = VIA_BO_FLAG_HQV1;
 
-        pVia->swov.SWDevice.dwSWPhysicalAddr[0] = addr;
-        pVia->swov.SWDevice.dwSWPhysicalAddr[1] = addr + fbsize;
-        pVia->swov.SWDevice.lpSWOverlaySurface[0] = virtual;
-	    
-        pVia->swov.SWDevice.lpSWOverlaySurface[1] =
-                pVia->swov.SWDevice.lpSWOverlaySurface[0] + fbsize;
 
-        if (isplanar) {
-            pVia->swov.SWDevice.dwSWCrPhysicalAddr[0] =
-                    pVia->swov.SWDevice.dwSWPhysicalAddr[0] +
-                    (pitch * Height);
-            pVia->swov.SWDevice.dwSWCrPhysicalAddr[1] =
-                    pVia->swov.SWDevice.dwSWPhysicalAddr[1] +
-                    (pitch * Height);
-            pVia->swov.SWDevice.dwSWCbPhysicalAddr[0] =
-                    pVia->swov.SWDevice.dwSWCrPhysicalAddr[0] +
-                    ((pitch >> 1) * (Height >> 1));
-            pVia->swov.SWDevice.dwSWCbPhysicalAddr[1] =
-                    pVia->swov.SWDevice.dwSWCrPhysicalAddr[1] +
-                    ((pitch >> 1) * (Height >> 1));
-        }
+	for (i=0; i<2; ++i) {
+	    struct _HQVBuffer *hqvBuf = &pVia->swov.SWDevice.hqvBuf[i];
+
+	    if (!hqvBuf->buf) {
+		retCode = driGenBuffers(pVia->mainPool, "HQV source", 1, 
+					&hqvBuf->buf, 0, 
+					DRM_BO_FLAG_MEM_VRAM |
+					DRM_BO_FLAG_READ |
+					DRM_BO_FLAG_NO_EVICT |
+					hqvFlag, 0);
+		if (retCode) {
+		    hqvBuf->buf = NULL;
+		    goto out_err;
+		}
+	    }
+
+	    retCode = driBOData(hqvBuf->buf, fbsize, NULL, NULL, 0);
+	    if (retCode)
+		goto out_err;
+
+	    hqvBuf->virtual = driBOMap(hqvBuf->buf, WS_DRI_MAP_WRITE);
+	    if (hqvBuf->virtual == NULL)
+		goto out_err;
+	 
+
+	    hqvBuf->pinnedOffset = driBOOffset(hqvBuf->buf);
+	    hqvBuf->deltaY = 0;
+	    if (isplanar) {
+		hqvBuf->deltaU = hqvBuf->deltaY + pitch*Height;
+		hqvBuf->deltaV = hqvBuf->deltaU + (pitch >> 1) * (Height >> 1);
+	    }
+
+	    memset(hqvBuf->virtual, 0xff, pitch*Height);
+	    driBOUnmap(hqvBuf->buf);
+	}
     }
 
     pVia->swov.SWDevice.gdwSWSrcWidth = Width;
@@ -1144,6 +1085,14 @@ CreateSurface(ScrnInfoPtr pScrn, CARD32 FourCC, CARD16 Width,
     pVia->swov.overlayRecordV1.dwV1OriPitch = pitch;
 
     return Success;
+ out_err:
+    for (i=0; i<2; ++i) {
+	struct _HQVBuffer *hqvBuf = &pVia->swov.SWDevice.hqvBuf[i];
+
+	if (hqvBuf->buf)
+	    (void) driBOData(hqvBuf->buf, 0, NULL, NULL, 0);
+    }
+    return BadAlloc;
 }
 
 /*
@@ -1176,10 +1125,6 @@ ViaSwovSurfaceCreate(ScrnInfoPtr pScrn, viaPortPrivPtr pPriv,
                 retCode = AddHQVSurface(pScrn, numbuf, FourCC);
             break;
 
-        case FOURCC_HQVSW:
-            retCode = AddHQVSurface(pScrn, numbuf, FOURCC_YUY2);
-            break;
-
         case FOURCC_YV12:
             retCode = CreateSurface(pScrn, FourCC, Width, Height, TRUE);
             if (retCode == Success)
@@ -1197,12 +1142,6 @@ ViaSwovSurfaceCreate(ScrnInfoPtr pScrn, viaPortPrivPtr pPriv,
     }
 
     if (retCode == Success) {
-#if 0
-        pVia->swov.SWDevice.lpSWOverlaySurface[0] = pVia->FBBase
-                + pVia->swov.SWDevice.dwSWPhysicalAddr[0];
-        pVia->swov.SWDevice.lpSWOverlaySurface[1] = pVia->FBBase
-                + pVia->swov.SWDevice.dwSWPhysicalAddr[1];
-#endif
         DBG_DD(ErrorF(" lpSWOverlaySurface[0]: %p\n",
                       pVia->swov.SWDevice.lpSWOverlaySurface[0]));
         DBG_DD(ErrorF(" lpSWOverlaySurface[1]: %p\n",
@@ -1220,6 +1159,7 @@ void
 ViaSwovSurfaceDestroy(ScrnInfoPtr pScrn, viaPortPrivPtr pPriv)
 {
     VIAPtr pVia = VIAPTR(pScrn);
+    int i;
 
     DBG_DD(ErrorF("ViaSwovSurfaceDestroy: FourCC =0x%08lx\n", pPriv->FourCC));
 
@@ -1235,27 +1175,28 @@ ViaSwovSurfaceDestroy(ScrnInfoPtr pScrn, viaPortPrivPtr pPriv)
                 pVia->swov.SrcFourCC = 0;
 		
 		if ((pVia->swov.gdwVideoFlagSW & SW_USE_HQV))
-		    (void) driBOData(pVia->scanout.bufs[VIA_SCANOUT_HQV], 0, 
+		    (void) driBOData(pVia->scanout.bufs[VIA_SCANOUT_OVERLAY], 0, 
 				     NULL, NULL, 0);
                 pVia->swov.gdwVideoFlagSW = 0;
                 break;
 
-            case FOURCC_HQVSW:
-		(void) driBOData(pVia->scanout.bufs[VIA_SCANOUT_HQV], 0, 
-				 NULL, NULL, 0);
-                pVia->swov.gdwVideoFlagSW = 0;
-                break;
-
             case FOURCC_YV12:
-		(void) driBOData(pVia->scanout.bufs[VIA_SCANOUT_OVERLAY], 0, 
-				 NULL, NULL, 0);
             case FOURCC_XVMC:
                 pVia->swov.SrcFourCC = 0;
-		(void) driBOData(pVia->scanout.bufs[VIA_SCANOUT_HQV], 0, 
+		(void) driBOData(pVia->scanout.bufs[VIA_SCANOUT_OVERLAY], 0, 
 				 NULL, NULL, 0);
                 pVia->swov.gdwVideoFlagSW = 0;
                 break;
         }
+
+	for (i=0; i<2; ++i) {
+	    struct _HQVBuffer *hqvBuf = &pVia->swov.SWDevice.hqvBuf[i];
+
+	    if (hqvBuf->buf) {
+		driDeleteBuffers(1, &hqvBuf->buf);
+		hqvBuf->buf = 0;
+	    }
+	}
 
         pPriv->FourCC = 0;
         pVia->VideoStatus &= ~VIDEO_SWOV_SURFACE_CREATED;
@@ -1305,17 +1246,6 @@ SetFIFO_64or32(VIAPtr pVia)
         SetFIFO_V1(pVia, 64, 56, 56);
     else
         SetFIFO_V1(pVia, 32, 29, 16);
-}
-
-static void
-SetFIFO_64or16(VIAPtr pVia)
-{
-    /*=* Modify for C1 FIFO *=*/
-    /* WARNING: not checking Chipset! */
-    if (CLE266_REV_IS_CX(pVia->ChipRev))
-        SetFIFO_V1(pVia, 64, 56, 56);
-    else
-        SetFIFO_V1(pVia, 16, 12, 8);
 }
 
 static void
@@ -1409,20 +1339,7 @@ SetupFIFOs(VIAPtr pVia, unsigned long videoFlag,
                     SetFIFO_64or32(pVia);
                 else
                     SetFIFO_V3_64or32or16(pVia);
-            } else {
-                /* Minified video will be skewed without this workaround. */
-                if (srcWidth <= 80) { /* Fetch count <= 5 */
-                    if (videoFlag & VIDEO_1_INUSE)
-                        SetFIFO_V1(pVia, 16, 0, 0);
-                    else
-                        SetFIFO_V3(pVia, 16, 16, 0);
-                } else {
-                    if (videoFlag & VIDEO_1_INUSE)
-                        SetFIFO_64or16(pVia);
-                    else
-                        SetFIFO_V3_64or32or16(pVia);
-                }
-            }
+            } 
         } else {
             if (videoFlag & VIDEO_1_INUSE)
                 SetFIFO_64or48or32(pVia);
@@ -1442,20 +1359,7 @@ SetupFIFOs(VIAPtr pVia, unsigned long videoFlag,
                     SetFIFO_64or32(pVia);
                 else
                     SetFIFO_V3_64or32or16(pVia);
-            } else {
-                /* Minified video will be skewed without this workaround. */
-                if (srcWidth <= 80) { /* Fetch count <= 5 */
-                    if (videoFlag & VIDEO_1_INUSE)
-                        SetFIFO_V1(pVia, 16, 0, 0);
-                    else
-                        SetFIFO_V3(pVia, 16, 16, 0);
-                } else {
-                    if (videoFlag & VIDEO_1_INUSE)
-                        SetFIFO_64or16(pVia);
-                    else
-                        SetFIFO_V3_64or32or16(pVia);
-                }
-            }
+            } 
         } else {
             if (videoFlag & VIDEO_1_INUSE)
                 SetFIFO_64or48or32(pVia);
@@ -1578,10 +1482,7 @@ SetDisplayCount(VIAPtr pVia, unsigned long videoFlag,
      * seem to use the same count. /A
      */
 
-    if (videoFlag & VIDEO_HQV_INUSE)
-        DisplayCount = srcWidth - 1;
-    else
-        DisplayCount = srcWidth - pVia->swov.overlayRecordV1.dwminifyH;
+    DisplayCount = srcWidth - 1;
 
     if (videoFlag & VIDEO_1_INUSE)
         SaveVideoRegister(pVia, V1_SOURCE_HEIGHT,
@@ -1773,48 +1674,44 @@ Upd_Video(ScrnInfoPtr pScrn, unsigned long videoFlag,
 
     pVia->swov.overlayRecordV1.dwOffset = dwOffset;
 
+    /*
+     * FIXME: Note that the HQV source is initialized to its own destination
+     * surfaces here. Should be investigated in case of strange
+     * behaviour during video startup.
+     */
+
     if (pVia->swov.SrcFourCC == FOURCC_YV12
         || pVia->swov.SrcFourCC == FOURCC_XVMC) {
 
-        YCBCRREC YCbCr;
-
         if (videoFlag & VIDEO_HQV_INUSE) {
+	    int bufNum = 1 - (pVia->dwFrameNum & 1);
+	    struct _HQVBuffer *hqvBuf = &pVia->swov.SWDevice.hqvBuf[bufNum];
+
             SetVideoStart(pVia, videoFlag, hwDiff->dwThreeHQVBuffer ? 3 : 2,
                           pVia->swov.overlayRecordV1.dwHQVAddr[0] + dwOffset,
                           pVia->swov.overlayRecordV1.dwHQVAddr[1] + dwOffset,
                           pVia->swov.overlayRecordV1.dwHQVAddr[2] + dwOffset);
 
             if (pVia->swov.SrcFourCC != FOURCC_XVMC) {
-                YCbCr = viaOverlayGetYCbCrStartAddress(videoFlag, startAddr,
-                                pVia->swov.overlayRecordV1.dwOffset,
-                                pVia->swov.overlayRecordV1.dwUVoffset,
-                                srcPitch, oriSrcHeight);
                 if (pVia->VideoEngine == VIDEO_ENGINE_CME) {
                     SaveVideoRegister(pVia, HQV_SRC_STARTADDR_Y + proReg,
-                                      YCbCr.dwY);
+                                      hqvBuf->pinnedOffset + hqvBuf->deltaY);
                     SaveVideoRegister(pVia, HQV_SRC_STARTADDR_U + proReg,
-                                      YCbCr.dwCB);
+                                      hqvBuf->pinnedOffset + hqvBuf->deltaU);
                 } else {
-                    SaveVideoRegister(pVia, HQV_SRC_STARTADDR_Y, YCbCr.dwY);
-                    SaveVideoRegister(pVia, HQV_SRC_STARTADDR_U, YCbCr.dwCR);
-                    SaveVideoRegister(pVia, HQV_SRC_STARTADDR_V, YCbCr.dwCB);
+                    SaveVideoRegister(pVia, HQV_SRC_STARTADDR_Y,
+				      hqvBuf->pinnedOffset + hqvBuf->deltaY);
+                    SaveVideoRegister(pVia, HQV_SRC_STARTADDR_U,
+				      hqvBuf->pinnedOffset + hqvBuf->deltaV);
+                    SaveVideoRegister(pVia, HQV_SRC_STARTADDR_V, 
+				      hqvBuf->pinnedOffset + hqvBuf->deltaU);
                 }
             }
-        } else {
-            YCbCr = viaOverlayGetYCbCrStartAddress(videoFlag, startAddr,
-                            pVia->swov.overlayRecordV1.dwOffset,
-                            pVia->swov.overlayRecordV1.dwUVoffset,
-                            srcPitch, oriSrcHeight);
-
-            if (videoFlag & VIDEO_1_INUSE) {
-                SaveVideoRegister(pVia, V1_STARTADDR_0, YCbCr.dwY);
-                SaveVideoRegister(pVia, V1_STARTADDR_CB0, YCbCr.dwCR);
-                SaveVideoRegister(pVia, V1_STARTADDR_CR0, YCbCr.dwCB);
-            } else
-                DBG_DD(ErrorF("Upd_Video(): "
-                              "We do not support YV12 with V3!\n"));
-        }
+        } 
     } else {
+	int bufNum = 1 - (pVia->dwFrameNum & 1);
+	struct _HQVBuffer *hqvBuf = &pVia->swov.SWDevice.hqvBuf[bufNum];
+
         if (videoFlag & VIDEO_HQV_INUSE) {
             hqvSrcWidth = (unsigned long)pUpdate->SrcRight - pUpdate->SrcLeft;
             hqvDstWidth = (unsigned long)pUpdate->DstRight - pUpdate->DstLeft;
@@ -1830,11 +1727,10 @@ Upd_Video(ScrnInfoPtr pScrn, unsigned long videoFlag,
             if (pVia->VideoEngine == VIDEO_ENGINE_CME)
                 SaveVideoRegister(pVia, 0x1cc + proReg, dwOffset);
 
-            SaveVideoRegister(pVia, HQV_SRC_STARTADDR_Y + proReg, startAddr);
-        } else {
-            startAddr += dwOffset;
-            SetVideoStart(pVia, videoFlag, 1, startAddr, 0, 0);
-        }
+            SaveVideoRegister(pVia, HQV_SRC_STARTADDR_Y + proReg, 
+			      hqvBuf->pinnedOffset + hqvBuf->deltaY);
+
+        } 
     }
 
     fetch = viaOverlayGetFetch(pVia, videoFlag,
@@ -1847,14 +1743,10 @@ Upd_Video(ScrnInfoPtr pScrn, unsigned long videoFlag,
         && (deinterlaceMode & DDOVER_BOB)) {
         if (videoFlag & VIDEO_HQV_INUSE)
             hqvCtl |= HQV_FIELD_2_FRAME | HQV_FRAME_2_FIELD | HQV_DEINTERLACE;
-        else
-            vidCtl |= V1_BOB_ENABLE | V1_FRAME_BASE;
     } else if (deinterlaceMode & DDOVER_BOB) {
         if (videoFlag & VIDEO_HQV_INUSE)
             /* The HQV source data line count should be two times of the original line count */
             hqvCtl |= HQV_FIELD_2_FRAME | HQV_DEINTERLACE;
-        else
-            vidCtl |= V1_BOB_ENABLE;
     }
 #endif
 
@@ -1891,12 +1783,7 @@ Upd_Video(ScrnInfoPtr pScrn, unsigned long videoFlag,
             SaveVideoRegister(pVia, HQV_DST_STRIDE + proReg, srcPitch);
         }
 
-    } else {
-        if (videoFlag & VIDEO_1_INUSE)
-            SaveVideoRegister(pVia, V1_STRIDE, srcPitch | (srcPitch << 15));
-        else
-            SaveVideoRegister(pVia, V3_STRIDE, srcPitch | (srcPitch << 15));
-    }
+    } 
 
     /* Set destination window */
     SetVideoWindow(pScrn, videoFlag, pUpdate);
@@ -1930,18 +1817,12 @@ Upd_Video(ScrnInfoPtr pScrn, unsigned long videoFlag,
                 vidCtl |= V1_BOB_ENABLE | V1_FRAME_BASE;
             else
                 vidCtl |= V3_BOB_ENABLE | V3_FRAME_BASE;
-        } else
-            hqvCtl |= HQV_FIELD_2_FRAME | HQV_FRAME_2_FIELD | HQV_DEINTERLACE;
+        } 
     } else if (deinterlaceMode & DDOVER_BOB) {
         if (videoFlag & VIDEO_HQV_INUSE) {
             srcHeight <<= 1;
             hqvCtl |= HQV_FIELD_2_FRAME | HQV_DEINTERLACE;
-        } else {
-            if (videoFlag & VIDEO_1_INUSE)
-                vidCtl |= V1_BOB_ENABLE;
-            else
-                vidCtl |= V3_BOB_ENABLE;
-        }
+        } 
     }
 
     SetDisplayCount(pVia, videoFlag, srcWidth, srcHeight);
@@ -1994,8 +1875,7 @@ Upd_Video(ScrnInfoPtr pScrn, unsigned long videoFlag,
         }
         SaveVideoRegister(pVia, HQV_MINIFY_CONTROL + proReg, hqvMiniCtl);
         SaveVideoRegister(pVia, HQV_FILTER_CONTROL + proReg, hqvFilterCtl);
-    } else
-        SetMiniAndZoom(pVia, videoFlag, miniCtl, zoomCtl);
+    } 
 
     if (haveColorKey)
         compose = SetColorKey(pVia, videoFlag, colorKeyLow, colorKeyHigh,
@@ -2088,11 +1968,6 @@ Upd_Video(ScrnInfoPtr pScrn, unsigned long videoFlag,
             viaWaitHQVDone(pVia);
             FlushVidRegBuffer(pVia);
         }
-    } else {
-        SetVideoControl(pVia, videoFlag, vidCtl);
-        FireVideoCommand(pVia, videoFlag, compose);
-        viaWaitHQVDone(pVia);
-        FlushVidRegBuffer(pVia);
     }
     pVia->swov.SWVideo_ON = TRUE;
 

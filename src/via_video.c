@@ -619,6 +619,8 @@ viaInitVideo(ScreenPtr pScreen)
         pVia->swov.panning_y = 0;
         pVia->swov.oldPanningX = 0;
         pVia->swov.oldPanningY = 0;
+	pVia->swov.SWDevice.hqvBuf[0].buf = NULL;
+	pVia->swov.SWDevice.hqvBuf[1].buf = NULL;
     }
 }
 
@@ -1062,6 +1064,7 @@ Flip(VIAPtr pVia, viaPortPrivPtr pPriv, int fourcc,
         unsigned long DisplayBufferIndex)
 {
     unsigned long proReg = 0;
+    struct _HQVBuffer *hqvBuf = &pVia->swov.SWDevice.hqvBuf[DisplayBufferIndex];
 
     if (pVia->ChipId == PCI_CHIP_VT3259
         && !(pVia->swov.gdwVideoFlagSW & VIDEO_1_INUSE))
@@ -1075,7 +1078,7 @@ Flip(VIAPtr pVia, viaPortPrivPtr pPriv, int fourcc,
         case FOURCC_RV32:
             while ((VIDInD(HQV_CONTROL + proReg) & HQV_SW_FLIP));
             VIDOutD(HQV_SRC_STARTADDR_Y + proReg,
-                pVia->swov.SWDevice.dwSWPhysicalAddr[DisplayBufferIndex]);
+		    hqvBuf->pinnedOffset + hqvBuf->deltaY);
             VIDOutD(HQV_CONTROL + proReg,
                 (VIDInD(HQV_CONTROL +
                 proReg) & ~HQV_FLIP_ODD) | HQV_SW_FLIP | HQV_FLIP_STATUS);
@@ -1084,15 +1087,15 @@ Flip(VIAPtr pVia, viaPortPrivPtr pPriv, int fourcc,
         default:
             while ((VIDInD(HQV_CONTROL + proReg) & HQV_SW_FLIP));
             VIDOutD(HQV_SRC_STARTADDR_Y + proReg,
-                pVia->swov.SWDevice.dwSWPhysicalAddr[DisplayBufferIndex]);
+		    hqvBuf->pinnedOffset + hqvBuf->deltaY);
             if (pVia->VideoEngine == VIDEO_ENGINE_CME) {
                 VIDOutD(HQV_SRC_STARTADDR_U + proReg,
-                pVia->swov.SWDevice.dwSWCrPhysicalAddr[DisplayBufferIndex]);
+			hqvBuf->pinnedOffset + hqvBuf->deltaU);
             } else {
                 VIDOutD(HQV_SRC_STARTADDR_U,
-                    pVia->swov.SWDevice.dwSWCbPhysicalAddr[DisplayBufferIndex]);
+			hqvBuf->pinnedOffset + hqvBuf->deltaV);
                 VIDOutD(HQV_SRC_STARTADDR_V,
-                    pVia->swov.SWDevice.dwSWCrPhysicalAddr[DisplayBufferIndex]);
+			hqvBuf->pinnedOffset + hqvBuf->deltaU);
             }
             VIDOutD(HQV_CONTROL + proReg,
             (VIDInD(HQV_CONTROL +
@@ -1293,9 +1296,16 @@ viaPutImage(ScrnInfoPtr pScrn,
         {
             DDUPDATEOVERLAY UpdateOverlay_Video;
             LPDDUPDATEOVERLAY lpUpdateOverlay = &UpdateOverlay_Video;
-
             int dstPitch;
             unsigned long dwUseExtendedFIFO = 0;
+	    struct _HQVBuffer *hqvBuf;
+	    void *virtual;
+
+
+	    if (virtual == NULL) {
+		viaXvError(pScrn, pPriv, xve_mem);
+		return BadAlloc;
+	    }
 
             DBG_DD(ErrorF(" via_video.c :              : S/W Overlay! \n"));
             /*  Allocate video memory(CreateSurface),
@@ -1313,6 +1323,9 @@ viaPutImage(ScrnInfoPtr pScrn,
                 return retCode;
             }
 
+	    hqvBuf = &pVia->swov.SWDevice.hqvBuf[pVia->dwFrameNum & 1];
+	    virtual = driBOMap(hqvBuf->buf, WS_DRI_MAP_WRITE);
+
             /*  Copy image data from system memory to video memory
              *  TODO: use DRM's DMA feature to accelerate data copy
              */
@@ -1324,10 +1337,9 @@ viaPutImage(ScrnInfoPtr pScrn,
 #if 0
 		    //
                     if (viaDmaBlitImage(pVia, pPriv, buf,
-                        (unsigned char *)pVia->swov.SWDevice.
-                        lpSWOverlaySurface[pVia->dwFrameNum & 1] -
-                        (unsigned char *)pVia->FBBase, width, height,
-                        dstPitch, id)) {
+					hqvBuf->pinnedOffset, 
+					width, height,
+					dstPitch, id)) {
                             viaXvError(pScrn, pPriv, xve_dmablit);
                         return BadAccess;
                     }
@@ -1337,33 +1349,30 @@ viaPutImage(ScrnInfoPtr pScrn,
                     switch (id) {
                         case FOURCC_YV12:
                             if (pVia->VideoEngine == VIDEO_ENGINE_CME) {
-                                nv12cp(pVia->swov.SWDevice.
-                                    lpSWOverlaySurface[pVia->dwFrameNum & 1],
-                                    buf, dstPitch, width, height, 0);
+                                nv12cp(virtual,
+				       buf, dstPitch, width, height, 0);
                             } else {
-                                (*viaFastVidCpy)(pVia->swov.SWDevice.
-                                    lpSWOverlaySurface[pVia->dwFrameNum & 1],
-                                    buf, dstPitch, width, height, 0);
+                                (*viaFastVidCpy)(hqvBuf->virtual,
+						 buf, dstPitch, width, height, 0);
                             }
                             break;
                         case FOURCC_RV32:
-                            (*viaFastVidCpy) (pVia->swov.SWDevice.
-                                lpSWOverlaySurface[pVia->dwFrameNum & 1],
-                                buf, dstPitch, width << 1, height, 1);
+                            (*viaFastVidCpy) (virtual,
+					      buf, dstPitch, width << 1, height, 1);
                             break;
                         case FOURCC_UYVY:
                         case FOURCC_YUY2:
                         case FOURCC_RV15:
                         case FOURCC_RV16:
-                        default:
-                            (*viaFastVidCpy) (pVia->swov.SWDevice.
-                                lpSWOverlaySurface[pVia->dwFrameNum & 1],
-                                buf, dstPitch, width, height, 1);
+		        default:
+                            (*viaFastVidCpy) (virtual,
+					      buf, dstPitch, width, height, 1);
                             break;
                     }
                 }
             }
 
+	    driBOUnmap(hqvBuf->buf);
             /* If there is bandwidth issue, block the H/W overlay */
 
             if (!pVia->OverlaySupported &&
