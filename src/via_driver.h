@@ -224,6 +224,17 @@ typedef struct
 } VIAEntRec, *VIAEntPtr;
 
 
+enum _ViaScanoutTypes {
+    VIA_SCANOUT_DISPLAY,
+    VIA_SCANOUT_CURSOR,
+    VIA_SCANOUT_OVERLAY,
+    VIA_SCANOUT_NUM
+};
+
+struct _ViaScanouts {
+    struct _DriBufferObject *bufs[VIA_SCANOUT_NUM];
+};
+
 typedef struct _VIA {
     VIARegRec           SavedReg;
     xf86CursorInfoPtr   CursorInfoRec;
@@ -236,7 +247,6 @@ typedef struct _VIA {
     int                 FBFreeEnd;
     int                 driSize;
     int                 maxDriSize;
-    int                 CursorStart;
     int                 VQStart;
     int                 VQEnd;
 
@@ -419,7 +429,15 @@ typedef struct _VIA {
     
     ViaSharedPtr	sharedData;
     Bool                useDmaBlit;
+
     struct _DriBufferPool *mainPool;
+    struct _ViaScanouts scanout;
+
+    void                *displayMap;
+    CARD32              displayOffset;
+    void                *cursorMap;
+    CARD32              cursorOffset;
+    
 
 #ifdef HAVE_DEBUG
     Bool                disableXvBWCheck;

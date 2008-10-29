@@ -1881,7 +1881,7 @@ VIAEnterVT(int scrnIndex, int flags)
 #endif
 
     if (pVia->NoAccel) {
-        memset(pVia->FBBase, 0x00, pVia->Bpl * pScrn->virtualY);
+	memset(pVia->displayMap, 0x00, pVia->Bpl * pScrn->virtualY);
     } else {
         viaAccelFillRect(pScrn, 0, 0, pScrn->displayWidth, pScrn->virtualY,
                          0x00000000);
@@ -2551,6 +2551,8 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
     ScrnInfoPtr pScrn = xf86Screens[pScreen->myNum];
     vgaHWPtr hwp = VGAHWPTR(pScrn);
     VIAPtr pVia = VIAPTR(pScrn);
+    int ret;
+    unsigned int displaySize;
 
     pScrn->pScreen = pScreen;
     DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "VIAScreenInit\n"));
@@ -2566,6 +2568,78 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
     } else {
         VIASave(pScrn);
     }
+
+    /*
+     * FIXME: This should really be done at device (pViaEnt) init, but
+     * at that time we haven't opened drm, so we can't decide which pool
+     * to use. That is fixable with Xserver 1.4 with new DRI initalization
+     * functions.
+     */
+
+    if (pVia->mainPool && !pVia->IsSecondary)
+	pVia->mainPool->takeDown(pVia->mainPool);
+
+#ifdef XF86DRI
+    pVia->directRenderingEnabled = VIADRIScreenInit(pScreen);
+    pVia->vtNotified = FALSE;
+    if (pVia->directRenderingEnabled && !pVia->IsSecondary) {
+	pVia->mainPool = driDRMPoolInit(pVia->drmFD);
+    }
+#else
+    /*
+     * FIXME: DRM-less operation. 
+     */
+    pVia->mainPool = NULL;
+#endif
+
+    if (pVia->mainPool == NULL) 
+	FatalError("This driver currently reqires DRM to operate.\n");
+
+    ret = driGenBuffers(pVia->mainPool, "Scanouts", VIA_SCANOUT_NUM,
+			pVia->scanout.bufs, 0,
+			DRM_BO_FLAG_MEM_VRAM |
+			DRM_BO_FLAG_READ |
+			DRM_BO_FLAG_NO_EVICT , 0);
+    if (ret) {
+	xf86DrvMsg(pScrn->scrnIndex, X_ERROR, 
+		   "Failed allocating scanout buffers.\n");
+	return FALSE;
+    }
+
+    if (pVia->IsSecondary) {
+	VIAPtr   pVia1;
+        DevUnion* pPriv;
+        VIAEntPtr pVIAEnt;
+
+        pPriv = xf86GetEntityPrivate(pScrn->entityList[0],
+				     gVIAEntityIndex);
+        pVIAEnt = pPriv->ptr;
+        pVia1 = VIAPTR(pVIAEnt->pPrimaryScrn);
+	pVia->mainPool = pVia1->mainPool;
+    }
+
+    displaySize = pScrn->displayWidth * pVia->Bpl, pScrn->virtualY;
+    ret = driBOData(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY], 
+		    displaySize, NULL, NULL, 0);
+    if (ret) {
+	xf86DrvMsg(pScrn->scrnIndex, X_ERROR, 
+		   "Failed allocating display video RAM: \"%s\".\n",
+		   strerror(-ret));
+	return FALSE;
+    }
+
+    pVia->displayMap = NULL;
+    pVia->displayMap = driBOMap(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY], 
+				WS_DRI_MAP_READ | WS_DRI_MAP_WRITE);
+    if (!pVia->displayMap) {
+	xf86DrvMsg(pScrn->scrnIndex, X_ERROR, 
+		   "Failed mapping display video RAM: \"%s\".\n",
+		   strerror(-ret));
+	return FALSE;
+    }
+    
+    driBOUnmap(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY]);
+    pVia->displayOffset = driBOOffset(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY]);
 
     vgaHWUnlock(hwp);
 
@@ -2606,47 +2680,6 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
             return FALSE;
         if (!miSetPixmapDepths())
             return FALSE;
-    }
-
-    /*
-     * FIXME: This should really be done at device (pViaEnt) init, but
-     * at that time we haven't opened drm, so we can't decide which pool
-     * to use. That is fixable with Xserver 1.4 with new DRI initalization
-     * functions.
-     */
-
-    ErrorF("Takedown old pool.\n");
-
-    if (pVia->mainPool && !pVia->IsSecondary)
-	pVia->mainPool->takeDown(pVia->mainPool);
-
-#ifdef XF86DRI
-    pVia->directRenderingEnabled = VIADRIScreenInit(pScreen);
-    pVia->vtNotified = FALSE;
-    if (pVia->directRenderingEnabled && !pVia->IsSecondary) {
-	ErrorF("Init new pool.\n");
-	pVia->mainPool = driDRMPoolInit(pVia->drmFD);
-    }
-#else
-    /*
-     * FIXME: DRM-less operation. 
-     */
-    pVia->mainPool = NULL;
-#endif
-
-    if (pVia->mainPool == NULL) 
-	FatalError("This driver currently reqires DRM to operate.\n");
-
-    if (pVia->IsSecondary) {
-	VIAPtr   pVia1;
-        DevUnion* pPriv;
-        VIAEntPtr pVIAEnt;
-
-        pPriv = xf86GetEntityPrivate(pScrn->entityList[0],
-				     gVIAEntityIndex);
-        pVIAEnt = pPriv->ptr;
-        pVia1 = VIAPTR(pVIAEnt->pPrimaryScrn);
-	pVia->mainPool = pVia1->mainPool;
     }
 
     DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "- Visuals set up\n"));
@@ -2742,7 +2775,7 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
         viaFinishInitAccel(pScreen);
 
     if (pVia->NoAccel) {
-        memset(pVia->FBBase, 0x00, pVia->videoRambytes);
+	memset(pVia->displayMap, 0x00, pVia->Bpl * pScrn->virtualY);
     } else {
 #ifdef XF86DRI
         if (pVia->directRenderingEnabled)
@@ -2972,7 +3005,8 @@ VIACloseScreen(int scrnIndex, ScreenPtr pScreen)
     pScrn->vtSema = FALSE;
     pScreen->CloseScreen = pVia->CloseScreen;
 
-    ErrorF("Takedown main pool\n");
+    driDeleteBuffers(VIA_SCANOUT_NUM, pVia->scanout.bufs);
+
     if (pVia->mainPool && !pVia->IsSecondary)
 	pVia->mainPool->takeDown(pVia->mainPool);
 
@@ -3007,23 +3041,29 @@ VIAAdjustFrame(int scrnIndex, int x, int y, int flags)
     vgaHWPtr hwp = VGAHWPTR(pScrn);
     VIAPtr pVia = VIAPTR(pScrn);
     CARD32 Base;
+    CARD32 offset;
 
+    ErrorF("Adjustframe\n");
     DEBUG(xf86DrvMsg(scrnIndex, X_INFO, "VIAAdjustFrame\n"));
 
+    offset =  0 /* pVia->displayOffset*/;
+
     if (pVia->pVbe) {
-        ViaVbeAdjustFrame(scrnIndex, x, y, flags);
+	int y0 = offset / pVia->Bpl;
+	int x0 = (offset - y0*pVia->Bpl) / pVia->Bpp;
+        ViaVbeAdjustFrame(scrnIndex, x + x0, y + y0, flags);
     } else {
 
         Base = (y * pScrn->displayWidth + x) * (pScrn->bitsPerPixel / 8);
 
         /* Now program the start address registers. */
         if (pVia->IsSecondary) {
-            Base = (Base + pScrn->fbOffset) >> 3;
+            Base = (Base + offset) >> 3;
             ViaCrtcMask(hwp, 0x62, (Base & 0x7F) << 1, 0xFE);
             hwp->writeCrtc(hwp, 0x63, (Base & 0x7F80) >> 7);
             hwp->writeCrtc(hwp, 0x64, (Base & 0x7F8000) >> 15);
         } else {
-            Base = Base >> 1;
+            Base = (Base + offset)>> 1;
             hwp->writeCrtc(hwp, 0x0C, (Base & 0xFF00) >> 8);
             hwp->writeCrtc(hwp, 0x0D, Base & 0xFF);
             hwp->writeCrtc(hwp, 0x34, (Base & 0xFF0000) >> 16);

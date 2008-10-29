@@ -2183,11 +2183,6 @@ viaInitAccel(ScreenPtr pScreen)
         pVia->FBFreeEnd -= VIA_VQ_SIZE;
     }
 
-    if (pVia->hwcursor) {
-        pVia->FBFreeEnd -= VIA_CURSOR_SIZE;
-        pVia->CursorStart = pVia->FBFreeEnd;
-    }
-
     viaInitialize2DEngine(pScrn);
 
     /* Sync marker space. */

@@ -75,6 +75,7 @@ sdkdir=$(pkg-config --variable=sdkdir xorg-server)
 PKG_CHECK_MODULES(libwsdri, libwsdri >= 0.0.1)
 AC_SUBST(libwsdri_CFLAGS)
 AC_SUBST(libwsdri_LIBS)
+AC_SYS_LARGEFILE
 
 # Checks for libraries.
 
