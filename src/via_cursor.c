@@ -35,6 +35,7 @@
 
 #include "via.h"
 #include "via_driver.h"
+#include "via_id.h"
 #include "cursorstr.h"
 
 void VIAShowCursor(ScrnInfoPtr pScrn);
@@ -62,6 +63,9 @@ VIAHWCursorInit(ScreenPtr pScreen)
     VIAPtr pVia = VIAPTR(pScrn);
     xf86CursorInfoPtr infoPtr;
     CARD32 temp;
+
+    if (pVia->Chipset != VIA_CX700)
+	return FALSE;
 
     DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "VIAHWCursorInit\n"));
     infoPtr = xf86CreateCursorInfoRec();

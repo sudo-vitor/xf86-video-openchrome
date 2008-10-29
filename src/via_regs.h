@@ -77,10 +77,18 @@
 #define VIA_REG_HI_POS0         0x2F8
 #define VIA_REG_HI_OFFSET0      0x2FC
 
+/* These regs move about on diffrent hw */
+#if 1
 #define VIA_REG_HI_CONTROL1     0x260
 #define VIA_REG_HI_BASE1        0x220
 #define VIA_REG_HI_POS1         0x0 // TODO
 #define VIA_REG_HI_OFFSET1      0x0 // TODO
+#else
+#define VIA_REG_HI_CONTROL1     0x260
+#define VIA_REG_HI_BASE1	0x224
+#define VIA_REG_HI_POS1		0x290
+#define VIA_REG_HI_OFFSET1	0x20C
+#endif
 
 /* defines for VIA video registers */
 #define VIA_REG_INTERRUPT       0x200
