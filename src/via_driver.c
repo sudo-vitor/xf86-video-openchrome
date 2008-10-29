@@ -1805,15 +1805,14 @@ VIAEnterVT(int scrnIndex, int flags)
 		   "Failed reallocating the display buffer.");
 	return FALSE;
     }
-    pVia->displayMap = wsbmBOMap(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY], 1,
-				WSBM_SYNCCPU_READ | WSBM_SYNCCPU_WRITE);
+    pVia->displayMap = wsbmBOMap(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY],
+				WSBM_ACCESS_READ | WSBM_ACCESS_WRITE);
     if (!pVia->displayMap) {
 	xf86DrvMsg(pScrn->scrnIndex, X_ERROR, 
 		   "Failed mapping display video RAM: \"%s\".\n",
 		   strerror(-ret));
 	return FALSE;
     }
-    wsbmBOUnmap(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY]);
 
     pVia->front.virtual = pVia->displayMap;
     pVia->front.size = wsbmBOSize(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY]);
@@ -1829,8 +1828,8 @@ VIAEnterVT(int scrnIndex, int flags)
     }
 
     pVia->displayOffset = wsbmBOOffset(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY]);
-    pScrn->AdjustFrame(scrnIndex, pScrn->frameX0, pScrn->frameY0, 0);
 
+    pScrn->AdjustFrame(scrnIndex, pScrn->frameX0, pScrn->frameY0, 0);
     retVal = wsbmBOSetStatus(pVia->scanout.bufs[VIA_SCANOUT_CURSOR],
 			 WSBM_PL_FLAG_VRAM | WSBM_PL_FLAG_NO_EVICT,
 			 WSBM_PL_FLAG_SYSTEM);
@@ -1840,6 +1839,11 @@ VIAEnterVT(int scrnIndex, int flags)
 		   "Failed moving in the cursor buffer.");
 	return FALSE;
     }
+
+    pVia->cursorMap = wsbmBOMap(pVia->scanout.bufs[VIA_SCANOUT_CURSOR],
+				WSBM_ACCESS_WRITE);
+    if (!pVia->cursorMap)
+	return FALSE;
 
     pVia->cursorOffset = wsbmBOOffset(pVia->scanout.bufs[VIA_SCANOUT_CURSOR]);
 
@@ -1851,7 +1855,7 @@ VIAEnterVT(int scrnIndex, int flags)
     if (!pVia->IsSecondary)
         viaRestoreVideo(pScrn);
 
-    if (pVia->NoAccel) {
+    if (1) {
 	memset(pVia->displayMap, 0x00, pVia->Bpl * pScrn->virtualY);
     } else {
         viaAccelFillRect(pScrn, 0, 0, pScrn->displayWidth, pScrn->virtualY,
@@ -1876,9 +1880,9 @@ VIALeaveVT(int scrnIndex, int flags)
     ScrnInfoPtr pScrn = xf86Screens[scrnIndex];
     vgaHWPtr hwp = VGAHWPTR(pScrn);
     VIAPtr pVia = VIAPTR(pScrn);
+    int ret;
 
     DEBUG(xf86DrvMsg(scrnIndex, X_INFO, "VIALeaveVT\n"));
-    ErrorF("Leavevt\n");
 
     vgaHWBlankScreen(pScrn, FALSE);
 
@@ -1913,20 +1917,21 @@ VIALeaveVT(int scrnIndex, int flags)
      * Release the scanouts.
      */
 
-    pVia->displayMap = 0;
+    pVia->displayMap = NULL;
 
     /*
      * First move out all buffers so any DRI references won't keep them
      * in VRAM.
      */
-    (void) wsbmBOSetStatus(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY],
+
+    wsbmBOUnmap(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY]);
+    ret= wsbmBOSetStatus(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY],
+			 0,
+			 WSBM_PL_FLAG_NO_EVICT);
+    wsbmBOUnmap(pVia->scanout.bufs[VIA_SCANOUT_CURSOR]);
+    ret = wsbmBOSetStatus(pVia->scanout.bufs[VIA_SCANOUT_CURSOR],
 			  0,
 			  WSBM_PL_FLAG_NO_EVICT);
-
-    (void) wsbmBOSetStatus(pVia->scanout.bufs[VIA_SCANOUT_CURSOR],
-			  0,
-			  WSBM_PL_FLAG_NO_EVICT);
-
     (void) wsbmBOData(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY],
 		     0, NULL, NULL, 0);
 
@@ -2555,7 +2560,7 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
 
     pVia->front.buf = wsbmBOReference(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY]);
     pVia->displayMap = NULL;
-    pVia->displayMap = wsbmBOMap(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY], 1,
+    pVia->displayMap = wsbmBOMap(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY],
 				WSBM_SYNCCPU_READ | WSBM_SYNCCPU_WRITE);
     if (!pVia->displayMap) {
 	xf86DrvMsg(pScrn->scrnIndex, X_ERROR, 
@@ -2564,7 +2569,6 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
 	goto out_err3;
     }
     
-    wsbmBOUnmap(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY]);
     pVia->front.virtual = pVia->displayMap;
     pVia->front.size = wsbmBOSize(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY]);
 
@@ -2946,6 +2950,11 @@ VIACloseScreen(int scrnIndex, ScreenPtr pScreen)
     
     wsbmBOUnReference(pVia->front.buf);
     pVia->front.buf = NULL;
+
+    wsbmBOUnmap(pVia->scanout.bufs[VIA_SCANOUT_CURSOR]);
+    pVia->displayMap = NULL;
+    wsbmBOUnmap(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY]);
+    pVia->cursorMap = NULL;
     wsbmDeleteBuffers(VIA_SCANOUT_NUM, pVia->scanout.bufs);
 
     if (pVia->mainPool && !pVia->IsSecondary) {

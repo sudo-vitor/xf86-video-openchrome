@@ -527,7 +527,7 @@ viaDRIUpdateFront(ScreenPtr pScreen)
     struct _WsbmKernelBuf *buf = wsbmKBuf(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY]);
 
     ++front->stamp;
-    front->handle = wsbmKbufHandle(buf);
+    front->handle = wsbmKBufHandle(buf);
     front->width = pScrn->virtualX;
     front->height = pScrn->virtualY;
     front->stride = pVia->Bpl;

@@ -599,8 +599,8 @@ ochr_execbuf(int fd, struct _ViaCommandBuffer *cBuf)
 	    *prevNext = (uint64_t) (unsigned long)val_arg;
 	prevNext = &req->next;
 
-	req->buffer_handle = wsbmKbufHandle((struct _WsbmKernelBuf *)
-					     node->buf);
+	req->buffer_handle = wsbmKBufHandle((struct _WsbmKernelBuf *)
+					    node->buf);
 	req->group = 0;
 	req->set_flags = node->set_flags;
 	req->clear_flags = node->clr_flags;
@@ -667,8 +667,8 @@ ochr_execbuf(int fd, struct _ViaCommandBuffer *cBuf)
 	}
 
 	rep = &val_arg->d.rep;
-	wsbmUpdateKbuf((struct _WsbmKernelBuf *)node->buf,
-			rep->gpu_offset, rep->placement, rep->fence_type_mask);
+	wsbmUpdateKBuf((struct _WsbmKernelBuf *)node->buf,
+		       rep->gpu_offset, rep->placement, rep->fence_type_mask);
 
 	iterator = validateListNext(valList, iterator);
     }

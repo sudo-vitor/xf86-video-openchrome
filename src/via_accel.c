@@ -1079,7 +1079,7 @@ viaExaUploadToScratch(PixmapPtr pSrc, PixmapPtr pDst)
     if (ret)
 	goto out_err1;
 
-    dst = wsbmBOMap(entry->buf, 1, WSBM_SYNCCPU_WRITE);
+    dst = wsbmBOMap(entry->buf, WSBM_ACCESS_WRITE);
     if (dst == NULL)
 	goto out_err1;
 
@@ -1343,7 +1343,7 @@ viaExaPrepareAccess(PixmapPtr pPix, int index)
     struct _ViaOffscreenBuffer *buf;
     uint32_t flags;
     void *ptr;
-    void *virtual;
+    int ret = 0;
 
     ptr = (void *) (exaGetPixmapOffset(pPix) + 
 		    (unsigned long) pVia->exaMem.virtual);
@@ -1352,9 +1352,9 @@ viaExaPrepareAccess(PixmapPtr pPix, int index)
     if (buf) {
 	flags = (index == EXA_PREPARE_DEST) ?
 	    WSBM_SYNCCPU_WRITE : WSBM_SYNCCPU_READ;
-	virtual = wsbmBOMap(buf->buf, 1, flags);
+	ret = wsbmBOSyncForCpu(buf->buf, flags);
     }
-    return TRUE;
+    return (ret == 0);
 }
 
 static void
@@ -1364,6 +1364,7 @@ viaExaFinishAccess(PixmapPtr pPix, int index)
     VIAPtr pVia = VIAPTR(pScrn);
     struct _ViaOffscreenBuffer *buf;
     void *ptr;
+    uint32_t flags;
     
     ptr = (void *) (exaGetPixmapOffset(pPix) + 
 		    (unsigned long) pVia->exaMem.virtual);
@@ -1371,7 +1372,9 @@ viaExaFinishAccess(PixmapPtr pPix, int index)
     buf = viaInBuffer(&pVia->offscreen, ptr);
 
     if (buf) {
-	(void) wsbmBOUnmap(buf->buf);
+	flags = (index == EXA_PREPARE_DEST) ?
+	    WSBM_SYNCCPU_WRITE : WSBM_SYNCCPU_READ;
+	(void) wsbmBOReleaseFromCpu(buf->buf, flags);      
     }
 }
 
@@ -1494,14 +1497,13 @@ viaInitAccel(ScreenPtr pScreen)
 	goto out_err0;
     }
 
-    pVia->exaMem.virtual = wsbmBOMap(pVia->exaMem.buf, 1, 
-				    WSBM_SYNCCPU_READ | WSBM_SYNCCPU_WRITE);
+    pVia->exaMem.virtual = wsbmBOMap(pVia->exaMem.buf, 
+				     WSBM_SYNCCPU_READ | WSBM_SYNCCPU_WRITE);
     if (pVia->exaMem.virtual == NULL) {
 	xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
 	       "[Accel] Failed mapping offscreen pixmap space.\n");	
 	goto out_err0;
     }	
-    wsbmBOUnmap(pVia->exaMem.buf);
     pVia->exaMem.size = wsbmBOSize(pVia->exaMem.buf);
     pVia->exaMem.scratch = FALSE;
     pVia->front.scratch = FALSE;
@@ -1576,6 +1578,7 @@ viaExitAccel(ScreenPtr pScreen)
     viaFreeScratchBuffers(pVia);
     WSBMLISTDELINIT(&pVia->front.head);
     WSBMLISTDELINIT(&pVia->exaMem.head);
+    (void) wsbmBOUnmap(pVia->exaMem.buf);
     wsbmDeleteBuffers(1, &pVia->exaMem.buf);
     return;
 }

@@ -71,13 +71,11 @@ VIAHWCursorInit(ScreenPtr pScreen)
     if (ret)
 	return FALSE;
 
-    pVia->cursorMap = wsbmBOMap(pVia->scanout.bufs[VIA_SCANOUT_CURSOR], 1,
-			       WSBM_SYNCCPU_READ |
-			       WSBM_SYNCCPU_WRITE);
-
+    pVia->cursorMap = wsbmBOMap(pVia->scanout.bufs[VIA_SCANOUT_CURSOR],
+				WSBM_ACCESS_WRITE);
     if (pVia->cursorMap == NULL)
 	return FALSE;
-    wsbmBOUnmap(pVia->scanout.bufs[VIA_SCANOUT_CURSOR]);
+
     pVia->cursorOffset = wsbmBOOffset(pVia->scanout.bufs[VIA_SCANOUT_CURSOR]);
     memset(pVia->cursorMap, 0x00, VIA_CURSOR_SIZE);
 

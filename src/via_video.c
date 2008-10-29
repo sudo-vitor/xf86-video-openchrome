@@ -1352,13 +1352,18 @@ viaPutImage(ScrnInfoPtr pScrn,
             }
 
 	    hqvBuf = &pVia->swov.SWDevice.hqvBuf[pVia->dwFrameNum & 1];
-	    virtual = wsbmBOMap(hqvBuf->buf, 1, WSBM_SYNCCPU_WRITE);
+	    virtual = wsbmBOMap(hqvBuf->buf, WSBM_ACCESS_WRITE);
 
 	    if (virtual == NULL) {
 		viaXvError(pScrn, pPriv, xve_mem);
 		return BadAlloc;
 	    }
 
+	    if (wsbmBOSyncForCpu(hqvBuf->buf, WSBM_SYNCCPU_WRITE)) {
+		wsbmBOUnmap(hqvBuf->buf);
+		viaXvError(pScrn, pPriv, xve_mem);
+		return BadAlloc;
+	    }
 
             /*  Copy image data from system memory to video memory
              *  TODO: use DRM's DMA feature to accelerate data copy
@@ -1375,7 +1380,7 @@ viaPutImage(ScrnInfoPtr pScrn,
 					width, height,
 					dstPitch, id)) {
                             viaXvError(pScrn, pPriv, xve_dmablit);
-                        return BadAccess;
+			    return BadAccess;
                     }
 #endif
 #endif
@@ -1386,7 +1391,7 @@ viaPutImage(ScrnInfoPtr pScrn,
                                 nv12cp(virtual,
 				       buf, dstPitch, width, height, 0);
                             } else {
-                                (*viaFastVidCpy)(hqvBuf->virtual,
+                                (*viaFastVidCpy)(virtual,
 						 buf, dstPitch, width, height, 0);
                             }
                             break;
@@ -1406,7 +1411,9 @@ viaPutImage(ScrnInfoPtr pScrn,
                 }
             }
 
+	    wsbmBOReleaseFromCpu(hqvBuf->buf, WSBM_SYNCCPU_WRITE);
 	    wsbmBOUnmap(hqvBuf->buf);
+
             /* If there is bandwidth issue, block the H/W overlay */
 
             if (!pVia->OverlaySupported &&

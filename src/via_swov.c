@@ -956,7 +956,8 @@ AddHQVSurface(ScrnInfoPtr pScrn, unsigned int numbuf, CARD32 fourcc)
     if (retCode)
 	return BadAlloc;
 
-    hqvMap = wsbmBOMap(pVia->scanout.bufs[VIA_SCANOUT_OVERLAY], 1, WSBM_SYNCCPU_WRITE);
+    hqvMap = wsbmBOMap(pVia->scanout.bufs[VIA_SCANOUT_OVERLAY], WSBM_ACCESS_WRITE);
+
     if (hqvMap == NULL)
 	return BadAlloc;
 
@@ -1035,10 +1036,9 @@ CreateSurface(ScrnInfoPtr pScrn, CARD32 FourCC, CARD16 Width,
 	    if (retCode)
 		goto out_err;
 
-	    hqvBuf->virtual = wsbmBOMap(hqvBuf->buf, 1, WSBM_SYNCCPU_WRITE);
+	    hqvBuf->virtual = wsbmBOMap(hqvBuf->buf, WSBM_ACCESS_WRITE);
 	    if (hqvBuf->virtual == NULL)
 		goto out_err;
-	 
 
 	    hqvBuf->pinnedOffset = wsbmBOOffset(hqvBuf->buf);
 	    hqvBuf->deltaY = 0;
@@ -1049,6 +1049,7 @@ CreateSurface(ScrnInfoPtr pScrn, CARD32 FourCC, CARD16 Width,
 
 	    memset(hqvBuf->virtual, 0xff, pitch*Height);
 	    wsbmBOUnmap(hqvBuf->buf);
+	    hqvBuf->virtual = NULL;
 	}
     }
 

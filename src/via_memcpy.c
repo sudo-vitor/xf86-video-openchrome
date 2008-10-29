@@ -594,7 +594,7 @@ viaVidCopyInit(char *copyType, ScreenPtr pScreen)
 	return libc_YUV42X;
     }
     
-    buf1 = wsbmBOMap(tmpFbBuffer, 1, WSBM_SYNCCPU_WRITE);
+    buf1 = wsbmBOMap(tmpFbBuffer, WSBM_SYNCCPU_WRITE);
 
     if (!buf1) {
 	wsbmDeleteBuffers(1, &tmpFbBuffer);
