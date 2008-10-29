@@ -638,7 +638,7 @@ ochr_execbuf(int fd, struct _ViaCommandBuffer *cBuf)
 
     do {
 	ret = drmCommandWriteRead(fd, DRM_VIA_TTM_EXECBUF, &arg, sizeof(arg));
-    } while (ret == -EAGAIN || ret == -EINTR);
+    } while (ret == -EAGAIN || ret == -EINTR || ret == -ERESTART);
 
 
     if (ret)
