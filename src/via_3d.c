@@ -94,6 +94,22 @@ static const CARD32 viaFormats[VIA_NUM_3D_FORMATS][5] = {
     {PICT_a1, 0x00, HC_HTXnFM_A1, 0, 1}
 };
 
+/*
+ * Load the binary representation of a float into a CARD32.
+ */
+
+static inline CARD32 viafc32(register float x)
+{
+    register union {
+	CARD32 c;
+	float f;
+    } ufc;
+
+    ufc.f = x;
+
+    return ufc.c;
+}
+
 static CARD32
 via3DDstFormat(int format)
 {
@@ -291,10 +307,11 @@ via3DEmitQuad(Via3DState * v3d, ViaCommandBuffer * cb, int dstX, int dstY,
 {
     CARD32 acmd;
     CARD32 bcmd;
-    float dx1, dx2, dy1, dy2, sx1[2], sx2[2], sy1[2], sy2[2], wf;
+    float dx1, dx2, dy1, dy2, sx1[2], sx2[2], sy1[2], sy2[2];
     double scalex, scaley;
     int i, numTex;
     ViaTextureUnit *vTex;
+    CARD32 wc32;
 
     numTex = v3d->numTextures;
     dx1 = dstX;
@@ -320,7 +337,7 @@ via3DEmitQuad(Via3DState * v3d, ViaCommandBuffer * cb, int dstX, int dstY,
         }
     }
 
-    wf = 1.;
+    wc32 = viafc32(1.f);
 
     /*
      * Vertex buffer. Emit two 3-point triangles. The W or Z coordinate
@@ -352,36 +369,36 @@ via3DEmitQuad(Via3DState * v3d, ViaCommandBuffer * cb, int dstX, int dstY,
     OUT_RING_SubA(0xEC, bcmd);
     OUT_RING_SubA(0xEE, acmd);
 
-    OUT_RING(*((CARD32 *) (&dx1)));
-    OUT_RING(*((CARD32 *) (&dy1)));
-    OUT_RING(*((CARD32 *) (&wf)));
+    OUT_RING(viafc32(dx1));
+    OUT_RING(viafc32(dy1));
+    OUT_RING(wc32);
     for (i = 0; i < numTex; ++i) {
-        OUT_RING(*((CARD32 *) (sx1 + i)));
-        OUT_RING(*((CARD32 *) (sy1 + i)));
+        OUT_RING(viafc32(sx1[i]));
+        OUT_RING(viafc32(sy1[i]));
     }
 
-    OUT_RING(*((CARD32 *) (&dx1)));
-    OUT_RING(*((CARD32 *) (&dy2)));
-    OUT_RING(*((CARD32 *) (&wf)));
+    OUT_RING(viafc32(dx1));
+    OUT_RING(viafc32(dy2));
+    OUT_RING(wc32);
     for (i = 0; i < numTex; ++i) {
-        OUT_RING(*((CARD32 *) (sx1 + i)));
-        OUT_RING(*((CARD32 *) (sy2 + i)));
+        OUT_RING(viafc32(sx1[i]));
+        OUT_RING(viafc32(sy2[i]));
     }
 
-    OUT_RING(*((CARD32 *) (&dx2)));
-    OUT_RING(*((CARD32 *) (&dy1)));
-    OUT_RING(*((CARD32 *) (&wf)));
+    OUT_RING(viafc32(dx2));
+    OUT_RING(viafc32(dy1));
+    OUT_RING(wc32);
     for (i = 0; i < numTex; ++i) {
-        OUT_RING(*((CARD32 *) (sx2 + i)));
-        OUT_RING(*((CARD32 *) (sy1 + i)));
+        OUT_RING(viafc32(sx2[i]));
+        OUT_RING(viafc32(sy1[i]));
     }
 
-    OUT_RING(*((CARD32 *) (&dx2)));
-    OUT_RING(*((CARD32 *) (&dy2)));
-    OUT_RING(*((CARD32 *) (&wf)));
+    OUT_RING(viafc32(dx2));
+    OUT_RING(viafc32(dy2));
+    OUT_RING(wc32);
     for (i = 0; i < numTex; ++i) {
-        OUT_RING(*((CARD32 *) (sx2 + i)));
-        OUT_RING(*((CARD32 *) (sy2 + i)));
+        OUT_RING(viafc32(sx2[i]));
+        OUT_RING(viafc32(sy2[i]));
     }
 
     OUT_RING_SubA(0xEE,
