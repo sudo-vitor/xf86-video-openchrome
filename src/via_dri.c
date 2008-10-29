@@ -280,7 +280,7 @@ VIADRIScreenInit(ScreenPtr pScreen)
     pDRIInfo->frameBufferPhysicalAddress = 
 	pVia->PciInfo->memBase[0];
 #endif
-    pDRIInfo->frameBufferSize = pVia->videoRambytes;
+    pDRIInfo->frameBufferSize = 4096;
 
     pDRIInfo->frameBufferStride = (pScrn->displayWidth *
                                    pScrn->bitsPerPixel / 8);

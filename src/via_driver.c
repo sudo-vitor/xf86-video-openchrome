@@ -1829,6 +1829,8 @@ VIAEnterVT(int scrnIndex, int flags)
     }
 
     pVia->displayOffset = driBOOffset(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY]);
+    ErrorF("Frontoffset is 0x%08x\n", pVia->displayOffset);
+    pScrn->AdjustFrame(scrnIndex, pScrn->frameX0, pScrn->frameY0, 0);
 
     retVal = driBOSetStatus(pVia->scanout.bufs[VIA_SCANOUT_CURSOR],
 			 DRM_BO_FLAG_MEM_VRAM | DRM_BO_FLAG_NO_EVICT,
@@ -2555,6 +2557,7 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
     pVia->front.size = driBOSize(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY]);
 
     pVia->displayOffset = driBOOffset(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY]);
+    ErrorF("Frontoffset is 0x%08x\n", pVia->displayOffset);
 
     pScrn->AdjustFrame(scrnIndex, pScrn->frameX0, pScrn->frameY0, 0);
 

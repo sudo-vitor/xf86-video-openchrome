@@ -87,6 +87,7 @@ viaFlushDRIEnabled(ViaCommandBuffer * cb)
     VIAPtr pVia = VIAPTR(pScrn);
     int tmpSize;
     int ret;
+    Via3DState *v3d = &pVia->v3d;
 
     /* Align end of command buffer for AGP DMA. */
     if (pVia->agpDMA && cb->mode == 2 && cb->rindex != HC_ParaType_CmdVdata
@@ -98,20 +99,34 @@ viaFlushDRIEnabled(ViaCommandBuffer * cb)
     cb->mode = 0;
     cb->has3dState = FALSE;
     ret = ochr_execbuf(pVia->drmFD, cb);
+
     if (ret) {
 	xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
 		   "Command buffer submission failed: \"%s\".\n",
 		   strerror(-ret));	    
 	viaDumpDMA(cb);
     }    
+
     cb->pos = 0;
-    cb->srcPixmap = NULL;
-    cb->dstPixmap = NULL;
     ret = ochr_reset_cmdlists(cb);
+
     if (ret) {
 	FatalError("Failed trying to reset command buffer: \"%s\".\n",
 		   strerror(-ret));
     }
+    
+    /*
+     * Force re-emission of volatile 2D- and 3D state:
+     */
+
+    if (cb->inComposite) {
+	v3d->emitState(v3d, &pVia->cb, GL_TRUE);
+	v3d->emitClipRect(v3d, &pVia->cb, 0, 0, cb->compWidth,
+			  cb->compHeight);
+    }
+
+    cb->srcPixmap = NULL;
+    cb->dstPixmap = NULL;
 }
 #endif
 
@@ -138,6 +153,7 @@ viaSetupCBuffer(ScrnInfoPtr pScrn, ViaCommandBuffer * buf, unsigned size)
     buf->rindex = 0;
     buf->has3dState = FALSE;
     buf->flushFunc = NULL;
+    buf->inComposite = FALSE;
 #ifdef XF86DRI
     if (pVia->directRenderingEnabled) {
         buf->flushFunc = viaFlushDRIEnabled;
@@ -654,6 +670,18 @@ viaExaDoneSolidCopy(PixmapPtr pPixmap)
 
     FLUSH_RING;
 }
+
+static void
+viaExaDoneComposite(PixmapPtr pPixmap)
+{
+    ScrnInfoPtr pScrn = xf86Screens[pPixmap->drawable.pScreen->myNum];
+    VIAPtr pVia = VIAPTR(pScrn);
+    RING_VARS;
+
+    cb->inComposite = FALSE;
+    FLUSH_RING;
+}
+
 
 static Bool
 viaExaPrepareCopy(PixmapPtr pSrcPixmap, PixmapPtr pDstPixmap, int xdir,
@@ -1266,6 +1294,10 @@ viaExaPrepareComposite(int op, PicturePtr pSrcPicture,
     v3d->emitState(v3d, &pVia->cb, viaCheckUpload(pScrn, v3d));
     v3d->emitClipRect(v3d, &pVia->cb, 0, 0, pDst->drawable.width,
                       pDst->drawable.height);
+    
+    pVia->cb.inComposite = TRUE;
+    pVia->cb.compWidth =  pDst->drawable.width;
+    pVia->cb.compHeight = pDst->drawable.height;
 
     return TRUE;
 }
@@ -1378,7 +1410,7 @@ viaInitExa(ScreenPtr pScreen)
         pExa->CheckComposite = viaExaCheckComposite;
         pExa->PrepareComposite = viaExaPrepareComposite;
         pExa->Composite = viaExaComposite;
-        pExa->DoneComposite = viaExaDoneSolidCopy;
+        pExa->DoneComposite = viaExaDoneComposite;
     } else {
         xf86DrvMsg(pScrn->scrnIndex, X_INFO,
                    "[EXA] Disabling EXA accelerated composite.\n");

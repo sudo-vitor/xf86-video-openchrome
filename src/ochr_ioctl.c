@@ -515,6 +515,8 @@ int ochr_execbuf(int fd, struct _ViaCommandBuffer *cBuf)
 	req->buffer_handle = wsDriKbufHandle((struct _DriKernelBuf *)
 					     node->buf);
 	req->group = 0;
+	req->set_flags = node->set_flags;
+	req->clear_flags = node->clr_flags;
 
 	iterator = validateListNext(valList, iterator);
 	++count;
@@ -532,7 +534,7 @@ int ochr_execbuf(int fd, struct _ViaCommandBuffer *cBuf)
 	cBuf->buf;
     exec_req->cmd_buffer_size = cBuf->pos << 2;
     exec_req->engine = 0;
-    exec_req->exec_flags = 0x00000000;
+    exec_req->exec_flags = DRM_VIA_FENCE_NO_USER;
     exec_req->cliprect_offset = 0;
     exec_req->num_cliprects = 0;
 

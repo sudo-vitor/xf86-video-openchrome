@@ -46,6 +46,10 @@ typedef struct _ViaCommandBuffer
 
     PixmapPtr srcPixmap;
     PixmapPtr dstPixmap;
+
+    Bool inComposite;
+    unsigned int compWidth;
+    unsigned int compHeight;
 } ViaCommandBuffer;
 
 #define VIA_DMASIZE 16384
