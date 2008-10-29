@@ -2677,7 +2677,7 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
     if (!pVia->NoAccel)
         viaFinishInitAccel(pScreen);
 
-    if (pVia->NoAccel) {
+    if (1) {
 	memset(pVia->displayMap, 0x00, pVia->Bpl * pScrn->virtualY);
     } else {
 #ifdef XF86DRI

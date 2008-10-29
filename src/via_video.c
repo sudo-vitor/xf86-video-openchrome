@@ -715,8 +715,6 @@ viaPaintColorkey(ScrnInfoPtr pScrn, viaPortPrivPtr pPriv, RegionPtr clipBoxes,
         VIAPtr pVia = VIAPTR(pScrn);
         PixmapPtr pPix = (pScrn->pScreen->GetWindowPixmap)((WindowPtr) pDraw);
         unsigned long pitch = pPix->devKind;
-	//        long offset = (long) pPix->devPrivate.ptr - (long) pVia->FBBase;
-	long offset;
         BoxPtr pBox;
         int nBox;
 
@@ -727,14 +725,14 @@ viaPaintColorkey(ScrnInfoPtr pScrn, viaPortPrivPtr pPriv, RegionPtr clipBoxes,
         pBox = REGION_RECTS(clipBoxes);
 
         while(nBox--) {
-            if (pVia->NoAccel || offset < 0 ||
-                offset > pScrn->videoRam*1024) {
+            if (pVia->NoAccel || 
+		NULL == viaInBuffer(&pVia->offscreen, pPix->devPrivate.ptr)) {
                 viaVideoFillPixmap(pScrn, pPix->devPrivate.ptr, pitch,
                     pDraw->bitsPerPixel, pBox->x1, pBox->y1,
                     pBox->x2 - pBox->x1, pBox->y2 - pBox->y1,
                     pPriv->colorKey);
             } else {
-                viaAccelFillPixmap(pScrn, offset, pitch,
+                viaAccelFillPixmap(pScrn, pPix, pitch,
                     pDraw->bitsPerPixel, pBox->x1, pBox->y1,
                     pBox->x2 - pBox->x1, pBox->y2 - pBox->y1,
                     pPriv->colorKey);

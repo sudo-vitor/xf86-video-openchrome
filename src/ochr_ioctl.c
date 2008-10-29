@@ -188,10 +188,10 @@ struct via_validate_buffer
 };
 
 static int
-och_apply_2d_reloc(uint32_t *cmdbuf,
-		   uint32_t num_buffers,
-		   const struct via_validate_buffer *buffers,
-		   const struct via_2d_reloc *reloc)
+ochr_apply_2d_reloc(uint32_t *cmdbuf,
+		    uint32_t num_buffers,
+		    const struct via_validate_buffer *buffers,
+		    const struct via_2d_reloc *reloc)
 {
     uint32_t *buf = cmdbuf + reloc->offset;
     const struct via_reloc_bufaddr *baddr = &reloc->addr;
@@ -234,7 +234,7 @@ ochr_2d_relocation(struct _ViaCommandBuffer *cBuf,
     struct via_validate_req *val_req;
     int ret;
     uint32_t tmp;
-    uint32_t *cmdbuf = (uint32_t *) cBuf->buf + (cBuf->pos - 2);
+    uint32_t *cmdbuf = (uint32_t *) cBuf->buf + (cBuf->pos - 4);
 
     ret = driBOAddListItem(cBuf->validate_list, buffer,
 			   flags, mask, &itemLoc, &node);

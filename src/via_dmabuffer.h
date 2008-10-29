@@ -43,6 +43,9 @@ typedef struct _ViaCommandBuffer
     void (*flushFunc) (struct _ViaCommandBuffer * cb);
     struct via_reloc_bufinfo *reloc_info;
     struct _DriBufferList *validate_list;
+
+    PixmapPtr srcPixmap;
+    PixmapPtr dstPixmap;
 } ViaCommandBuffer;
 
 #define VIA_DMASIZE 16384

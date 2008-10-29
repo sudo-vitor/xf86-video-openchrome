@@ -158,6 +158,7 @@ typedef struct {
     drm_context_t drmCtx;
 } ViaXvMCContextPriv;
 
+
 typedef struct {
     XID contexts[VIA_XVMC_MAX_CONTEXTS];
     XID surfaces[VIA_XVMC_MAX_SURFACES];
@@ -183,14 +184,9 @@ typedef struct _twodContext {
     CARD32 keyControl;
     unsigned srcOffset;
     unsigned srcPitch;
-    unsigned Bpp;
+    unsigned bpp;
     unsigned bytesPPShift;
-    Bool clipping;
-    Bool dashed;
-    int clipX1;
-    int clipX2;
-    int clipY1;
-    int clipY2;
+    PixmapPtr pSrcPixmap;
 } ViaTwodContext;
 
 typedef struct{
@@ -459,12 +455,15 @@ void viaAccelSyncMarker(ScrnInfoPtr);
 void viaFinishInitAccel(ScreenPtr);
 void viaAccelWaitMarker(ScreenPtr, int);
 int viaAccelMarkSync(ScreenPtr);
-void viaAccelFillPixmap(ScrnInfoPtr, unsigned long, unsigned long, 
+void viaAccelFillPixmap(ScrnInfoPtr, PixmapPtr,
+			unsigned long, 
 			int, int, int, int, int, unsigned long);
 void viaAccelTextureBlit(ScrnInfoPtr, unsigned long, unsigned, unsigned, 
 			 unsigned, unsigned, unsigned, unsigned,
 			 unsigned long, unsigned, unsigned,
 			 unsigned, unsigned, int);
+struct _ViaOffscreenBuffer *
+viaInBuffer(struct _WSDriListHead *head, void *ptr);
 
 
 

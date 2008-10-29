@@ -130,6 +130,8 @@ viaFlushPCI(ViaCommandBuffer * buf)
     buf->pos = 0;
     buf->mode = 0;
     buf->has3dState = FALSE;
+    buf->srcPixmap = NULL;
+    buf->dstPixmap = NULL;
     ret = ochr_reset_cmdlists(buf);
     if (ret) {
 	FatalError("Failed trying to reset command buffer: \"%s\".\n",
@@ -180,6 +182,8 @@ viaFlushDRIEnabled(ViaCommandBuffer * cb)
     } else {
         viaFlushPCI(cb);
     }
+    cb->srcPixmap = NULL;
+    cb->dstPixmap = NULL;
     ret = ochr_reset_cmdlists(cb);
     if (ret) {
 	FatalError("Failed trying to reset command buffer: \"%s\".\n",
@@ -258,6 +262,7 @@ viaTearDownCBuffer(ViaCommandBuffer * buf)
 static Bool
 viaAccelSetMode(int bpp, ViaTwodContext * tdc)
 {
+    tdc->bpp = bpp;
     switch (bpp) {
         case 16:
             tdc->mode = VIA_GEM_16bpp;
@@ -320,23 +325,112 @@ viaAccelSync(ScrnInfoPtr pScrn)
     }
 }
 
+static unsigned long
+viaExaSuperPixmapOffset(PixmapPtr p, 
+			struct _DriBufferObject **driBuf)
+{
+    ScreenPtr pScreen = p->drawable.pScreen;
+    ScrnInfoPtr pScrn = xf86Screens[pScreen->myNum];
+    VIAPtr pVia = VIAPTR(pScrn);
+    void *ptr;
+    struct _ViaOffscreenBuffer *buf;
+
+    ptr = (void *) exaGetPixmapOffset(p) + 
+	(unsigned long) pVia->exaMem.virtual;
+    
+    buf = viaInBuffer(&pVia->offscreen, ptr);
+
+    if (!buf) 
+	FatalError("Offscreen pixmap is not offscreen.\n");
+
+    *driBuf = buf->buf;
+    return (unsigned long)ptr - (unsigned long) buf->virtual + 
+	driBOPoolOffset(buf->buf);
+}
+
+
+static Bool
+viaEmitPixmap(ViaCommandBuffer *cb, 
+	      PixmapPtr pDstPix,
+	      PixmapPtr pSrcPix)
+{
+    struct _DriBufferObject *buf;
+    unsigned long delta;
+    int ret;
+
+    if (pDstPix != NULL && cb->dstPixmap != pDstPix) {
+	delta = viaExaSuperPixmapOffset(pDstPix, &buf);
+	OUT_RING_H1(VIA_REG_DSTBASE, 0);
+	OUT_RING_H1(VIA_REG_DSTPOS, 0);
+	ret = ochr_2d_relocation(cb, buf, delta, 32, 0,
+				 DRM_BO_FLAG_MEM_VRAM, DRM_BO_MASK_MEM);
+	if (ret)
+	    goto out_err;
+	cb->dstPixmap = pDstPix;
+    }
+
+    if (pSrcPix != NULL && cb->srcPixmap != pSrcPix) {
+	delta = viaExaSuperPixmapOffset(pSrcPix, &buf); 
+	OUT_RING_H1(VIA_REG_SRCBASE, 0);
+	OUT_RING_H1(VIA_REG_SRCPOS, 0);
+	ret = ochr_2d_relocation(cb, buf, delta, 32, 0,
+				 DRM_BO_FLAG_MEM_VRAM, DRM_BO_MASK_MEM);
+	if (ret)
+	    goto out_err;
+	cb->srcPixmap = pSrcPix;
+    } else if (pSrcPix != NULL) {
+	ErrorF("Saved src reloc.\n");
+    }
+    return TRUE;
+ out_err:
+    return FALSE;
+}
+
 /*
  * Emit a solid blit operation to the command buffer. 
  */
 static void
 viaAccelSolidHelper(ViaCommandBuffer * cb, int x, int y, int w, int h,
-                    unsigned fbBase, CARD32 mode, unsigned pitch,
+                    struct _DriBufferObject *buf, 
+		    unsigned delta, unsigned bpp, 
+		    CARD32 mode, unsigned pitch,
                     CARD32 fg, CARD32 cmd)
 {
+    CARD32 pos = (y << 16) | (x & 0xFFFF);
+    int ret;
+
     BEGIN_RING(14);
     OUT_RING_H1(VIA_REG_GEMODE, mode);
-    OUT_RING_H1(VIA_REG_DSTBASE, fbBase >> 3);
     OUT_RING_H1(VIA_REG_PITCH, VIA_PITCH_ENABLE | (pitch >> 3) << 16);
-    OUT_RING_H1(VIA_REG_DSTPOS, (y << 16) | (x & 0xFFFF));
+    OUT_RING_H1(VIA_REG_DSTBASE, 0);
+    OUT_RING_H1(VIA_REG_DSTPOS, 0);
+    ret = ochr_2d_relocation(cb, buf, delta, bpp, pos,
+			     DRM_BO_FLAG_MEM_VRAM, DRM_BO_MASK_MEM);
     OUT_RING_H1(VIA_REG_DIMENSION, ((h - 1) << 16) | (w - 1));
     OUT_RING_H1(VIA_REG_FGCOLOR, fg);
     OUT_RING_H1(VIA_REG_GECMD, cmd);
     ADVANCE_RING;
+    cb->dstPixmap = NULL;
+}
+
+static void
+viaAccelSolidPixmapHelper(ViaCommandBuffer * cb, int x, int y, int w, int h,
+			  PixmapPtr pPix, 
+			  CARD32 mode, unsigned pitch,
+			  CARD32 fg, CARD32 cmd)
+{
+    CARD32 pos = (y << 16) | (x & 0xFFFF);
+    Bool ret;
+    
+    BEGIN_RING(16);
+    OUT_RING_H1(VIA_REG_GEMODE, mode);
+    OUT_RING_H1(VIA_REG_PITCH, VIA_PITCH_ENABLE | (pitch >> 3) << 16);
+    ret = viaEmitPixmap(cb, pPix, NULL);
+    OUT_RING_H1(VIA_REG_DSTPOS, pos);
+    OUT_RING_H1(VIA_REG_DIMENSION, ((h - 1) << 16) | (w - 1));
+    OUT_RING_H1(VIA_REG_FGCOLOR, fg);
+    OUT_RING_H1(VIA_REG_GECMD, cmd);
+    ADVANCE_RING_VARIABLE;
 }
 
 /*
@@ -400,11 +494,15 @@ viaAccelTransparentHelper(ViaTwodContext * tdc, ViaCommandBuffer * cb,
  * Emit a copy blit operation to the command buffer.
  */
 static void
-viaAccelCopyHelper(ViaCommandBuffer * cb, int xs, int ys, int xd, int yd,
-                   int w, int h, unsigned srcFbBase, unsigned dstFbBase,
-                   CARD32 mode, unsigned srcPitch, unsigned dstPitch,
-                   CARD32 cmd)
+viaAccelCopyPixmapHelper(ViaCommandBuffer * cb, int xs, int ys, int xd, int yd,
+			 int w, int h, 
+			 PixmapPtr pSrcPixmap,
+			 PixmapPtr pDstPixmap,
+			 CARD32 mode, unsigned srcPitch, unsigned dstPitch,
+			 CARD32 cmd)
 {
+    int ret;
+
     if (cmd & VIA_GEC_DECY) {
         ys += h - 1;
         yd += h - 1;
@@ -415,17 +513,63 @@ viaAccelCopyHelper(ViaCommandBuffer * cb, int xs, int ys, int xd, int yd,
         xd += w - 1;
     }
 
-    BEGIN_RING(16);
+    BEGIN_RING(20);
     OUT_RING_H1(VIA_REG_GEMODE, mode);
-    OUT_RING_H1(VIA_REG_SRCBASE, srcFbBase >> 3);
-    OUT_RING_H1(VIA_REG_DSTBASE, dstFbBase >> 3);
-    OUT_RING_H1(VIA_REG_PITCH, VIA_PITCH_ENABLE |
-                ((dstPitch >> 3) << 16) | (srcPitch >> 3));
+    ret = viaEmitPixmap(cb, pDstPixmap, pSrcPixmap);
     OUT_RING_H1(VIA_REG_SRCPOS, (ys << 16) | (xs & 0xFFFF));
     OUT_RING_H1(VIA_REG_DSTPOS, (yd << 16) | (xd & 0xFFFF));
+    OUT_RING_H1(VIA_REG_PITCH, VIA_PITCH_ENABLE |
+                ((dstPitch >> 3) << 16) | (srcPitch >> 3));
     OUT_RING_H1(VIA_REG_DIMENSION, ((h - 1) << 16) | (w - 1));
     OUT_RING_H1(VIA_REG_GECMD, cmd);
-    ADVANCE_RING;
+    ADVANCE_RING_VARIABLE;
+}
+
+/*
+ * Emit a copy blit operation to the command buffer.
+ */
+static void
+viaAccelCopyHelper(ViaCommandBuffer * cb, int xs, int ys, int xd, int yd,
+		   int w, int h, 
+		   struct _DriBufferObject *buf,
+		   unsigned long delta,
+		   unsigned int bpp,
+		   CARD32 mode, unsigned srcPitch, unsigned dstPitch,
+		   CARD32 cmd)
+{
+    int ret;
+    CARD32 srcPos;
+    CARD32 dstPos;
+
+    if (cmd & VIA_GEC_DECY) {
+        ys += h - 1;
+        yd += h - 1;
+    }
+
+    if (cmd & VIA_GEC_DECX) {
+        xs += w - 1;
+        xd += w - 1;
+    }
+    srcPos = (ys << 16) | (xs & 0xFFFF);
+    dstPos = (yd << 16) | (xd & 0xFFFF);
+
+    BEGIN_RING(20);
+    OUT_RING_H1(VIA_REG_GEMODE, mode);
+    OUT_RING_H1(VIA_REG_SRCBASE, 0);
+    OUT_RING_H1(VIA_REG_SRCPOS, 0);
+    ret = ochr_2d_relocation(cb, buf, delta, bpp, srcPos,
+			     DRM_BO_FLAG_MEM_VRAM, DRM_BO_MASK_MEM);
+    OUT_RING_H1(VIA_REG_DSTBASE, 0);
+    OUT_RING_H1(VIA_REG_DSTPOS, 0);
+    ret = ochr_2d_relocation(cb, buf, delta, bpp, dstPos,
+			     DRM_BO_FLAG_MEM_VRAM, DRM_BO_MASK_MEM);
+    OUT_RING_H1(VIA_REG_PITCH, VIA_PITCH_ENABLE |
+                ((dstPitch >> 3) << 16) | (srcPitch >> 3));
+    OUT_RING_H1(VIA_REG_DIMENSION, ((h - 1) << 16) | (w - 1));
+    OUT_RING_H1(VIA_REG_GECMD, cmd);
+    ADVANCE_RING_VARIABLE;
+    cb->srcPixmap = NULL;
+    cb->dstPixmap = NULL;
 }
 
 /*
@@ -451,7 +595,8 @@ viaAccelMarkSync(ScreenPtr pScreen)
         BEGIN_RING(2);
         OUT_RING_H1(VIA_REG_KEYCONTROL, 0x00);
         ADVANCE_RING;
-        viaAccelSolidHelper(cb, 0, 0, 1, 1, pVia->markerOffset,
+        viaAccelSolidHelper(cb, 0, 0, 1, 1, 
+			    pVia->scanout.bufs[VIA_SCANOUT_SYNC], 0, 32,
                             VIA_GEM_32bpp, 4, pVia->curMarker,
                             (0xF0 << 24) | VIA_GEC_BLT | VIA_GEC_FIXCOLOR_PAT);
 	FLUSH_RING;
@@ -519,7 +664,7 @@ viaOrder(CARD32 val, CARD32 * shift)
  * Exa functions. It is assumed that EXA does not exceed the blitter limits.
  */
 
-static struct _ViaOffscreenBuffer *
+struct _ViaOffscreenBuffer *
 viaInBuffer(struct _WSDriListHead *head, void *ptr)
 {
     struct _ViaOffscreenBuffer *entry;
@@ -567,6 +712,7 @@ viaExaPixmapOffset(PixmapPtr p)
 }
 
 
+
 static Bool
 viaExaPrepareSolid(PixmapPtr pPixmap, int alu, Pixel planeMask, Pixel fg)
 {
@@ -601,14 +747,18 @@ viaExaSolid(PixmapPtr pPixmap, int x1, int y1, int x2, int y2)
     ViaTwodContext *tdc = &pVia->td;
     CARD32 dstPitch, dstOffset;
     int w = x2 - x1, h = y2 - y1;
+    struct _DriBufferObject *buf;
     RING_VARS;
 
     dstPitch = exaGetPixmapPitch(pPixmap);
-    dstOffset = viaExaPixmapOffset(pPixmap);
+    dstOffset = viaExaSuperPixmapOffset(pPixmap, &buf);
 
-    viaAccelSolidHelper(cb, x1, y1, w, h, dstOffset,
-                        tdc->mode, dstPitch, tdc->fgColor, tdc->cmd);
+    viaAccelSolidPixmapHelper(cb, x1, y1, w, h, pPixmap,
+			      tdc->mode, dstPitch, tdc->fgColor, tdc->cmd);
 }
+
+
+
 
 static void
 viaExaDoneSolidCopy(PixmapPtr pPixmap)
@@ -653,6 +803,7 @@ viaExaPrepareCopy(PixmapPtr pSrcPixmap, PixmapPtr pDstPixmap, int xdir,
     if (!viaAccelPlaneMaskHelper(tdc, planeMask))
         return FALSE;
     viaAccelTransparentHelper(tdc, cb, 0x0, 0x0, TRUE);
+    tdc->pSrcPixmap = pSrcPixmap;
 
     return TRUE;
 }
@@ -664,16 +815,14 @@ viaExaCopy(PixmapPtr pDstPixmap, int srcX, int srcY, int dstX, int dstY,
     ScrnInfoPtr pScrn = xf86Screens[pDstPixmap->drawable.pScreen->myNum];
     VIAPtr pVia = VIAPTR(pScrn);
     ViaTwodContext *tdc = &pVia->td;
-    CARD32 srcOffset = tdc->srcOffset;
-    CARD32 dstOffset = viaExaPixmapOffset(pDstPixmap);
     RING_VARS;
 
     if (!width || !height)
         return;
 
-    viaAccelCopyHelper(cb, srcX, srcY, dstX, dstY, width, height,
-                       srcOffset, dstOffset, tdc->mode, tdc->srcPitch,
-                       exaGetPixmapPitch(pDstPixmap), tdc->cmd);
+    viaAccelCopyPixmapHelper(cb, srcX, srcY, dstX, dstY, width, height,
+			     tdc->pSrcPixmap, pDstPixmap, tdc->mode, tdc->srcPitch,
+			     exaGetPixmapPitch(pDstPixmap), tdc->cmd);
 }
 
 #ifdef VIA_DEBUG_COMPOSITE
@@ -1524,13 +1673,16 @@ viaAccelBlitRect(ScrnInfoPtr pScrn, int srcx, int srcy, int w, int h,
 {
     VIAPtr pVia = VIAPTR(pScrn);
     ViaTwodContext *tdc = &pVia->td;
-    unsigned dstOffset = pVia->displayOffset + dsty * pVia->Bpl;
-    unsigned srcOffset = pVia->displayOffset + srcy * pVia->Bpl;
+    struct _DriBufferObject *buf;
+    unsigned long delta;
 
     RING_VARS;
 
     if (!w || !h)
         return;
+
+    buf = pVia->scanout.bufs[VIA_SCANOUT_DISPLAY];
+    delta = driBOPoolOffset(buf);
 
     if (!pVia->NoAccel) {
 
@@ -1545,8 +1697,9 @@ viaAccelBlitRect(ScrnInfoPtr pScrn, int srcx, int srcy, int w, int h,
 
         viaAccelSetMode(pScrn->bitsPerPixel, tdc);
         viaAccelTransparentHelper(tdc, cb, 0x0, 0x0, FALSE);
-        viaAccelCopyHelper(cb, srcx, 0, dstx, 0, w, h, srcOffset, dstOffset,
-                           tdc->mode, pVia->Bpl, pVia->Bpl, cmd);
+        viaAccelCopyHelper(cb, srcx, srcy, dstx, dsty, w, h,
+			   buf, delta, tdc->bpp,
+			   tdc->mode, pVia->Bpl, pVia->Bpl, cmd);
         pVia->accelMarker = viaAccelMarkSync(pScrn->pScreen);
 	FLUSH_RING;
     }
@@ -1557,20 +1710,28 @@ viaAccelFillRect(ScrnInfoPtr pScrn, int x, int y, int w, int h,
                  unsigned long color)
 {
     VIAPtr pVia = VIAPTR(pScrn);
-    unsigned dstBase = pVia->displayOffset + y * pVia->Bpl;
     ViaTwodContext *tdc = &pVia->td;
     CARD32 cmd = VIA_GEC_BLT | VIA_GEC_FIXCOLOR_PAT |
             VIAACCELPATTERNROP(GXcopy);
+    struct _DriBufferObject *buf;
+    unsigned long delta;
+    
     RING_VARS;
 
     if (!w || !h)
         return;
 
+    buf = pVia->scanout.bufs[VIA_SCANOUT_DISPLAY];
+    delta = driBOPoolOffset(buf);
+    
     if (!pVia->NoAccel) {
         viaAccelSetMode(pScrn->bitsPerPixel, tdc);
         viaAccelTransparentHelper(tdc, cb, 0x0, 0x0, FALSE);
-        viaAccelSolidHelper(cb, x, 0, w, h, dstBase, tdc->mode,
-                            pVia->Bpl, color, cmd);
+        viaAccelSolidHelper(cb, x, y, w, h,
+			    buf, delta, tdc->bpp,
+			    tdc->mode,
+			    pVia->Bpl, 
+			    color, cmd);
         pVia->accelMarker = viaAccelMarkSync(pScrn->pScreen);
 	FLUSH_RING;
     }
@@ -1578,13 +1739,13 @@ viaAccelFillRect(ScrnInfoPtr pScrn, int x, int y, int w, int h,
 
 void
 viaAccelFillPixmap(ScrnInfoPtr pScrn,
-                   unsigned long offset,
+		   PixmapPtr pPix, 
                    unsigned long pitch,
                    int depth, int x, int y, int w, int h, unsigned long color)
 {
     VIAPtr pVia = VIAPTR(pScrn);
-    unsigned dstBase = offset + y * pitch;
     ViaTwodContext *tdc = &pVia->td;
+	
     CARD32 cmd = VIA_GEC_BLT | VIA_GEC_FIXCOLOR_PAT |
             VIAACCELPATTERNROP(GXcopy);
     RING_VARS;
@@ -1595,8 +1756,8 @@ viaAccelFillPixmap(ScrnInfoPtr pScrn,
     if (!pVia->NoAccel) {
         viaAccelSetMode(depth, tdc);
         viaAccelTransparentHelper(tdc, cb, 0x0, 0x0, FALSE);
-        viaAccelSolidHelper(cb, x, 0, w, h, dstBase, tdc->mode,
-                            pitch, color, cmd);
+	viaAccelSolidPixmapHelper(cb, x, y, w, h, pPix, tdc->mode,
+				  pitch, color, cmd);
         pVia->accelMarker = viaAccelMarkSync(pScrn->pScreen);
         ADVANCE_RING;
 	FLUSH_RING;
