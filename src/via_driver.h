@@ -348,6 +348,7 @@ typedef struct _VIA {
     CARD32		CursorFG;
     CARD32		CursorBG;
     CARD32		CursorMC;
+    Bool		CursorARGB;
 
     /* Video */
     int                 VideoEngine;
