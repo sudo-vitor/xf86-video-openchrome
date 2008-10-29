@@ -1460,15 +1460,16 @@ viaInitAccel(ScreenPtr pScreen)
 
 #ifdef XF86DRI
     if (pVia->directRenderingEnabled) {
-	struct drm_via_memsize_arg arg;
+	struct drm_via_getparam_arg arg;
 
-	ret = drmCommandRead(pVia->drmFD, DRM_VIA_MEM_SIZE, &arg, 
+	arg.param = VIA_PARAM_VRAM_SIZE;
+	ret = drmCommandWriteRead(pVia->drmFD, DRM_VIA_GET_PARAM, &arg, 
 			     sizeof(arg));
 	if (ret == 0) {
 	    xf86DrvMsg(pScrn->scrnIndex, X_INFO,
 		       "[Accel] Largest free vram region is %lu bytes.\n",
-		       (unsigned long) arg.vram_size);
-	    exaMemSize = (unsigned long) arg.vram_size / 2;
+		       (unsigned long) arg.value);
+	    exaMemSize = (unsigned long) arg.value / 2;
 	}
     }
 #endif

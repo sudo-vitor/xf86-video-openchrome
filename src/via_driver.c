@@ -2509,7 +2509,19 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
     pVia->directRenderingEnabled = VIADRIScreenInit(pScreen);
     pVia->vtNotified = FALSE;
     if (pVia->directRenderingEnabled && !pVia->IsSecondary) {
-	pVia->mainPool = wsbmTTMPoolInit(pVia->drmFD, DRM_VIA_PLACEMENT_OFFSET);
+	const char drm_ext[] = "via_ttm_placement_drop_080912";
+	union drm_via_extension_arg arg;
+	strncpy(arg.extension, drm_ext, sizeof(arg.extension));
+	ret = drmCommandWriteRead(pVia->drmFD, DRM_VIA_EXTENSION, &arg,
+				  sizeof(arg));
+	if (ret != 0 || !arg.rep.exists) {
+	    xf86DrvMsg(pScrn->scrnIndex, X_ERROR, 
+		       "Failed to detect DRM extension \"%s\".\n", 
+		       drm_ext);
+	    pVia->mainPool = NULL;
+	} else
+	    pVia->mainPool = wsbmTTMPoolInit(pVia->drmFD, 
+					     arg.rep.driver_ioctl_offset);
     }
 #else
     /*
@@ -2520,7 +2532,8 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
 
     if (pVia->mainPool == NULL) {
 	xf86DrvMsg(pScrn->scrnIndex, X_ERROR, 
-		   "This driver currently requires DRM to operate.\n");
+		   "This driver currently requires a TTM-enabled "
+		   "DRM to operate.\n");
 	goto out_err1;
     }	
     ret = wsbmGenBuffers(pVia->mainPool, VIA_SCANOUT_NUM,
