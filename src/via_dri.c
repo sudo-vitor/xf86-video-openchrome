@@ -70,7 +70,6 @@ static const ViaDRMVersion drmExpected = { 4, 0, 0 };
 static const ViaDRMVersion drmCompat = { 4, 0, 0 };
 
 static Bool VIAInitVisualConfigs(ScreenPtr pScreen);
-static Bool VIADRIKernelInit(ScreenPtr pScreen, VIAPtr pVia);
 static Bool VIADRIMapInit(ScreenPtr pScreen, VIAPtr pVia);
 
 static Bool VIACreateContext(ScreenPtr pScreen, VisualPtr visual,
@@ -275,9 +274,11 @@ VIADRIScreenInit(ScreenPtr pScreen)
     pDRIInfo->ddxDriverMinorVersion = VIA_DRIDDX_VERSION_MINOR;
     pDRIInfo->ddxDriverPatchVersion = VIA_DRIDDX_VERSION_PATCH;
 #if (DRIINFO_MAJOR_VERSION == 5)
-    pDRIInfo->frameBufferPhysicalAddress = (pointer) pVia->FrameBufferBase;
+    pDRIInfo->frameBufferPhysicalAddress = (pointer) 
+	pVia->PciInfo->memBase[0];
 #else
-    pDRIInfo->frameBufferPhysicalAddress = pVia->FrameBufferBase;
+    pDRIInfo->frameBufferPhysicalAddress = 
+	pVia->PciInfo->memBase[0];
 #endif
     pDRIInfo->frameBufferSize = pVia->videoRambytes;
 
@@ -455,12 +456,6 @@ VIADRIFinishScreenInit(ScreenPtr pScreen)
 
     DRIFinishScreenInit(pScreen);
 
-    if (!VIADRIKernelInit(pScreen, pVia)) {
-        VIADRICloseScreen(pScreen);
-        return FALSE;
-    }
-    xf86DrvMsg(pScreen->myNum, X_INFO, "[dri] Kernel data initialized.\n");
-
     /* Set SAREA value. */
     {
         struct drm_via_sarea *saPriv;
@@ -519,45 +514,16 @@ VIADRIMoveBuffers(WindowPtr pParent, DDXPointRec ptOldOrg,
     return;
 }
 
-/* Initialize the kernel data structures. */
-static Bool
-VIADRIKernelInit(ScreenPtr pScreen, VIAPtr pVia)
-{
-    struct drm_via_init drmInfo;
-
-    memset(&drmInfo, 0, sizeof(drmInfo));
-    drmInfo.op= VIA_INIT_MAP;
-    drmInfo.sarea_priv_offset = sizeof(XF86DRISAREARec);
-    drmInfo.fb_offset = pVia->frameBufferHandle;
-    drmInfo.mmio_offset = pVia->registerHandle;
-    drmInfo.agpAddr = (CARD32) NULL;
-
-    if ((drmCommandWrite(pVia->drmFD, DRM_VIA_MAP_INIT, &drmInfo,
-                         sizeof(drmInfo))) < 0)
-        return FALSE;
-
-    return TRUE;
-}
-
 /* Add a map for the MMIO registers. */
 static Bool
 VIADRIMapInit(ScreenPtr pScreen, VIAPtr pVia)
 {
-    int flags = DRM_READ_ONLY;
-
     if (drmAddMap(pVia->drmFD, pVia->MmioBase, VIA_MMIO_REGSIZE,
-                  DRM_REGISTERS, flags, &pVia->registerHandle) < 0) {
+                  DRM_REGISTERS, DRM_READ_ONLY, &pVia->registerHandle) < 0) {
         return FALSE;
     }
     xf86DrvMsg(pScreen->myNum, X_INFO, "[drm] register handle = 0x%08lx\n",
                (unsigned long)pVia->registerHandle);
-    if (drmAddMap(pVia->drmFD, pVia->FrameBufferBase, pVia->videoRambytes,
-                  DRM_FRAME_BUFFER, 0, &pVia->frameBufferHandle) < 0) {
-        return FALSE;
-    }
-    xf86DrvMsg(pScreen->myNum, X_INFO, "[drm] framebuffer handle = 0x%08lx\n",
-               (unsigned long)pVia->frameBufferHandle);
-
     return TRUE;
 }
 

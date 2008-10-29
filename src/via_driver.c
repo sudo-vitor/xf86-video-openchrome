@@ -109,7 +109,6 @@ static void VIADPMS(ScrnInfoPtr pScrn, int mode, int flags);
 static const OptionInfoRec *VIAAvailableOptions(int chipid, int busid);
 
 static Bool VIAMapMMIO(ScrnInfoPtr pScrn);
-static Bool VIAMapFB(ScrnInfoPtr pScrn);
 static void VIAUnmapMem(ScrnInfoPtr pScrn);
 
 static void VIALoadRgbLut(ScrnInfoPtr pScrn, int numColors, int *indices,
@@ -766,8 +765,6 @@ VIASetupDefaultOptions(ScrnInfoPtr pScrn)
 #ifdef HAVE_DEBUG
     pVia->disableXvBWCheck = FALSE;
 #endif
-    pVia->maxDriSize = 0;
-    pVia->agpMem = AGP_SIZE / 1024;
     pVia->ActiveDevice = 0x00;
     pVia->VideoEngine = VIDEO_ENGINE_CLE;
 #ifdef HAVE_DEBUG
@@ -1271,24 +1268,6 @@ VIAPreInit(ScrnInfoPtr pScrn, int flags)
     }
 #endif
 
-    //pVia->maxDriSize = 0;
-    from = xf86GetOptValInteger(VIAOptions, OPTION_MAX_DRIMEM,
-                                &pVia->maxDriSize)
-            ? X_CONFIG : X_DEFAULT;
-    if (pVia->maxDriSize > 0)
-        xf86DrvMsg(pScrn->scrnIndex, from,
-                   "Will impose a %d kB limit on video RAM reserved for DRI.\n",
-                   pVia->maxDriSize);
-    else
-        xf86DrvMsg(pScrn->scrnIndex, from,
-                   "Will not impose a limit on video RAM reserved for DRI.\n");
-
-    //pVia->agpMem = AGP_SIZE / 1024;
-    from = xf86GetOptValInteger(VIAOptions, OPTION_AGPMEM, &pVia->agpMem)
-            ? X_CONFIG : X_DEFAULT;
-    xf86DrvMsg(pScrn->scrnIndex, from,
-               "Will try to allocate %d kB of AGP memory.\n", pVia->agpMem);
-
     /* ActiveDevice Option for device selection */
     //pVia->ActiveDevice = 0x00;
     if ((s = xf86GetOptValString(VIAOptions, OPTION_ACTIVEDEVICE))) {
@@ -1522,7 +1501,6 @@ VIAPreInit(ScrnInfoPtr pScrn, int flags)
         pVIAEnt->pPrimaryScrn->videoRam = pScrn->videoRam;
         pVia1 = VIAPTR(pVIAEnt->pPrimaryScrn);
         pVia1->videoRambytes = pScrn->videoRam << 10;
-        pVia->FrameBufferBase += (pScrn->videoRam << 10);
     }
 
     pVia->videoRambytes = pScrn->videoRam << 10;
@@ -2242,10 +2220,8 @@ VIAMapMMIO(ScrnInfoPtr pScrn)
     DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "VIAMapMMIO\n"));
 
 #ifdef XSERVER_LIBPCIACCESS
-    pVia->FrameBufferBase = pVia->PciInfo->regions[0].base_addr;
     pVia->MmioBase = pVia->PciInfo->regions[1].base_addr;
 #else
-    pVia->FrameBufferBase = pVia->PciInfo->memBase[0];
     pVia->MmioBase = pVia->PciInfo->memBase[1];
 #endif
 
@@ -2272,32 +2248,7 @@ VIAMapMMIO(ScrnInfoPtr pScrn)
         return FALSE;
 #endif
 
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED,
-               "mapping BitBlt MMIO @ 0x%lx with size 0x%x\n",
-               pVia->MmioBase + VIA_MMIO_BLTBASE, VIA_MMIO_BLTSIZE);
-
-#ifdef XSERVER_LIBPCIACCESS
-    err = pci_device_map_range(pVia->PciInfo,
-                               pVia->MmioBase + VIA_MMIO_BLTBASE,
-                               VIA_MMIO_BLTSIZE,
-                               (PCI_DEV_MAP_FLAG_WRITABLE
-                                | PCI_DEV_MAP_FLAG_WRITE_COMBINE),
-                               (void **)&pVia->BltBase);
-
-    if (err) {
-        xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
-                   "Unable to map blt BAR. %s (%d)\n", strerror(err), err);
-        return FALSE;
-    }
-#else
-    pVia->BltBase = xf86MapPciMem(pScrn->scrnIndex, VIDMEM_MMIO, pVia->PciTag,
-                                  pVia->MmioBase + VIA_MMIO_BLTBASE,
-                                  VIA_MMIO_BLTSIZE);
-    if (!pVia->BltBase)
-        return FALSE;
-#endif
-
-    if (!pVia->MapBase || !pVia->BltBase) {
+    if (!pVia->MapBase) {
         xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
                    "Internal error: cound not map registers\n");
         return FALSE;
@@ -2336,93 +2287,6 @@ VIAMapMMIO(ScrnInfoPtr pScrn)
     return TRUE;
 }
 
-
-static Bool
-VIAMapFB(ScrnInfoPtr pScrn)
-{
-    VIAPtr pVia = VIAPTR(pScrn);
-#ifdef XSERVER_LIBPCIACCESS
-    int err;
-#endif
-
-    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "VIAMapFB\n"));
-    xf86DrvMsg(pScrn->scrnIndex, X_PROBED,
-               "mapping framebuffer @ 0x%lx with size 0x%lx\n",
-               pVia->FrameBufferBase, pVia->videoRambytes);
-
-    if (pVia->videoRambytes) {
-
-#ifndef XSERVER_LIBPCIACCESS
-        /*
-         * FIXME: This is a hack to get rid of offending wrongly sized
-         * MTRR regions set up by the VIA BIOS. Should be taken care of
-         * in the OS support layer.
-         */
-
-        unsigned char *tmp;
-
-        tmp = xf86MapPciMem(pScrn->scrnIndex, VIDMEM_MMIO, pVia->PciTag,
-                            pVia->FrameBufferBase, pVia->videoRambytes);
-        xf86UnMapVidMem(pScrn->scrnIndex, (pointer) tmp, pVia->videoRambytes);
-
-        /*
-         * And, as if this wasn't enough, 2.6 series kernels don't
-         * remove MTRR regions on the first attempt. So try again.
-         */
-
-        tmp = xf86MapPciMem(pScrn->scrnIndex, VIDMEM_MMIO, pVia->PciTag,
-                            pVia->FrameBufferBase, pVia->videoRambytes);
-        xf86UnMapVidMem(pScrn->scrnIndex, (pointer) tmp, pVia->videoRambytes);
-
-        /*
-         * End of hack.
-         */
-#endif
-
-#ifdef XSERVER_LIBPCIACCESS
-        err = pci_device_map_range(pVia->PciInfo, pVia->FrameBufferBase,
-                                   pVia->videoRambytes,
-                                   PCI_DEV_MAP_FLAG_WRITABLE,
-                                   (void **)&pVia->FBBase);
-        if (err) {
-            xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
-                       "Unable to map mmio BAR. %s (%d)\n", strerror(err), err);
-            return FALSE;
-        }
-#else
-        pVia->FBBase = xf86MapPciMem(pScrn->scrnIndex, VIDMEM_FRAMEBUFFER,
-                                     pVia->PciTag, pVia->FrameBufferBase,
-                                     pVia->videoRambytes);
-
-        if (!pVia->FBBase) {
-            xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
-                       "Internal error: could not map framebuffer\n");
-            return FALSE;
-        }
-#endif
-
-        pVia->FBFreeStart = (pScrn->displayWidth * pScrn->bitsPerPixel >> 3) *
-                pScrn->virtualY;
-        pVia->FBFreeEnd = pVia->videoRambytes;
-
-        xf86DrvMsg(pScrn->scrnIndex, X_PROBED,
-                   "Frame buffer start: %p, free start: 0x%x end: 0x%x\n",
-                   pVia->FBBase, pVia->FBFreeStart, pVia->FBFreeEnd);
-    }
-
-#ifdef XSERVER_LIBPCIACCESS
-    pScrn->memPhysBase = pVia->PciInfo->regions[0].base_addr;
-#else
-    pScrn->memPhysBase = pVia->PciInfo->memBase[0];
-#endif
-    pScrn->fbOffset = 0;
-    if (pVia->IsSecondary)
-        pScrn->fbOffset = pScrn->videoRam << 10;
-
-    return TRUE;
-}
-
-
 static void
 VIAUnmapMem(ScrnInfoPtr pScrn)
 {
@@ -2438,25 +2302,11 @@ VIAUnmapMem(ScrnInfoPtr pScrn)
         pci_device_unmap_range(pVia->PciInfo, (pointer) pVia->MapBase,
                                VIA_MMIO_REGSIZE);
 
-    if (pVia->BltBase)
-        pci_device_unmap_range(pVia->PciInfo, (pointer) pVia->BltBase,
-                               VIA_MMIO_BLTSIZE);
-
-    if (pVia->FBBase)
-        pci_device_unmap_range(pVia->PciInfo, (pointer) pVia->FBBase,
-                               pVia->videoRambytes);
 #else
     if (pVia->MapBase)
         xf86UnMapVidMem(pScrn->scrnIndex, (pointer) pVia->MapBase,
                         VIA_MMIO_REGSIZE);
 
-    if (pVia->BltBase)
-        xf86UnMapVidMem(pScrn->scrnIndex, (pointer) pVia->BltBase,
-                        VIA_MMIO_BLTSIZE);
-
-    if (pVia->FBBase)
-        xf86UnMapVidMem(pScrn->scrnIndex, (pointer) pVia->FBBase,
-                        pVia->videoRambytes);
 #endif
 }
 
@@ -2606,8 +2456,7 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
     pScrn->pScreen = pScreen;
     DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "VIAScreenInit\n"));
 
-    if (!VIAMapFB(pScrn))
-        return FALSE;
+    pScrn->memPhysBase = 0;
 
     if (!VIAMapMMIO(pScrn))
         return FALSE;
@@ -2662,9 +2511,11 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
     pVia->mainPool = NULL;
 #endif
 
-    if (pVia->mainPool == NULL) 
-	FatalError("This driver currently reqires DRM to operate.\n");
-
+    if (pVia->mainPool == NULL) {
+	xf86DrvMsg(pScrn->scrnIndex, X_ERROR, 
+		   "This driver currently requires DRM to operate.\n");
+	return FALSE;
+    }	
     ret = driGenBuffers(pVia->mainPool, "Scanouts", VIA_SCANOUT_NUM,
 			pVia->scanout.bufs, 0,
 			DRM_BO_FLAG_MEM_VRAM |
@@ -2842,25 +2693,6 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
 #endif
     }
     vgaHWBlankScreen(pScrn, TRUE);
-
-    if (pVia->NoAccel) {
-
-        /*
-         * This is only for Xv in Noaccel path, and since Xv is in some
-         * sense accelerated, it might be a better idea to disable it
-         * altogether.
-         */
-
-        BoxRec AvailFBArea;
-
-        AvailFBArea.x1 = 0;
-        AvailFBArea.y1 = 0;
-        AvailFBArea.x2 = pScrn->displayWidth;
-        AvailFBArea.y2 = pScrn->virtualY + 1;
-        pVia->FBFreeStart = (AvailFBArea.y2 + 1) * pVia->Bpl;
-        xf86InitFBManager(pScreen, &AvailFBArea);
-        pVia->driSize = (pVia->FBFreeEnd - pVia->FBFreeStart - pVia->Bpl);
-    }
 
     viaInitVideo(pScreen);
 

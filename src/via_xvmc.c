@@ -352,15 +352,6 @@ ViaInitXVMC(ScreenPtr pScreen)
 
     vXvMC->mmioBase = pVia->registerHandle;
 
-    if (drmAddMap(pVia->drmFD,
-                  (drm_handle_t) pVia->FrameBufferBase,
-                  pVia->videoRambytes, DRM_FRAME_BUFFER, 0,
-                  &(vXvMC->fbBase)) < 0) {
-        xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
-                   "[XvMC] drmAddMap(FB) failed. Disabling XvMC.\n");
-        return;
-    }
-
     initViaXvMC(vXvMC);
 
     if (!xf86XvMCScreenInit(pScreen, 1, ((pVia->Chipset == VIA_PM800)
@@ -598,9 +589,11 @@ ViaXvMCCreateSurface(ScrnInfoPtr pScrn, XvMCSurfacePtr pSurf,
 
     yBufSize = stride(ctx->width) * ctx->height;
     for (i = 0; i < numBuffers; ++i) {
+#if 0
         memset((CARD8 *) (pVia->FBBase) + sPriv->offsets[i], 0, yBufSize);
         memset((CARD8 *) (pVia->FBBase) + sPriv->offsets[i] + yBufSize, 0x80,
                yBufSize >> 1);
+#endif
     }
 
     vXvMC->sPrivs[srfNo] = sPriv;

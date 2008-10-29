@@ -134,7 +134,7 @@ SECOND_PASS:
         mode->yViewportStep = 1;
         mode->viewportFlags = DGA_FLIP_RETRACE;
         mode->offset = 0;
-        mode->address = pVia->FBBase;
+        mode->address = pVia->displayMap;
 
         xf86ErrorFVerb(DGATRACE,
                        "VIADGAInit vpWid=%d, vpHgt=%d, Bpp=%d, mdbitsPP=%d\n",
@@ -312,7 +312,7 @@ VIADGAOpenFramebuffer(
     VIAPtr pVia = VIAPTR(pScrn);
 
     *name = NULL;    /* no special device */
-    *mem = (unsigned char*)pVia->FrameBufferBase;
+    *mem = (unsigned char*)0;
     *size = pVia->videoRambytes;
     *offset = 0;
     *flags = DGA_NEED_ROOT;

@@ -253,22 +253,15 @@ typedef struct _VIA {
     Bool                FirstInit;
     unsigned long       videoRambytes;
     int                 videoRamKbytes;
-    int                 FBFreeStart;
-    int                 FBFreeEnd;
-    int                 driSize;
-    int                 maxDriSize;
 
     /* These are physical addresses. */
-    unsigned long       FrameBufferBase;
     unsigned long       MmioBase;
 
     /* These are linear addresses. */
     unsigned char*      MapBase;
     unsigned char*      VidMapBase;
     unsigned char*      MpegMapBase;
-    unsigned char*      BltBase;
     unsigned char*      MapBaseDense;
-    unsigned char*      FBBase;
     CARD8               MemClk;
 
     /* Here are all the Options */
@@ -278,7 +271,6 @@ typedef struct _VIA {
     Bool                shadowFB;
     int                 rotate;
     Bool                vbeSR;
-    int                 agpMem;
 
     CloseScreenProcPtr  CloseScreen;
 #ifdef XSERVER_LIBPCIACCESS

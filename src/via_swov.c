@@ -1045,7 +1045,7 @@ AddHQVSurface(ScrnInfoPtr pScrn, unsigned int numbuf, CARD32 fourcc)
         return retCode;
     //    addr = pVia->swov.HQVMem.base;
 
-    ViaYUVFillBlack(pVia, pVia->FBBase + addr, fbsize);
+    //    ViaYUVFillBlack(pVia, pVia->FBBase + addr, fbsize);
 
     for (i = 0; i < numbuf; i++) {
         pVia->swov.overlayRecordV1.dwHQVAddr[i] = addr;
@@ -1190,11 +1190,12 @@ ViaSwovSurfaceCreate(ScrnInfoPtr pScrn, viaPortPrivPtr pPriv,
     }
 
     if (retCode == Success) {
+#if 0
         pVia->swov.SWDevice.lpSWOverlaySurface[0] = pVia->FBBase
                 + pVia->swov.SWDevice.dwSWPhysicalAddr[0];
         pVia->swov.SWDevice.lpSWOverlaySurface[1] = pVia->FBBase
                 + pVia->swov.SWDevice.dwSWPhysicalAddr[1];
-
+#endif
         DBG_DD(ErrorF(" lpSWOverlaySurface[0]: %p\n",
                       pVia->swov.SWDevice.lpSWOverlaySurface[0]));
         DBG_DD(ErrorF(" lpSWOverlaySurface[1]: %p\n",

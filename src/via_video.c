@@ -715,7 +715,8 @@ viaPaintColorkey(ScrnInfoPtr pScrn, viaPortPrivPtr pPriv, RegionPtr clipBoxes,
         VIAPtr pVia = VIAPTR(pScrn);
         PixmapPtr pPix = (pScrn->pScreen->GetWindowPixmap)((WindowPtr) pDraw);
         unsigned long pitch = pPix->devKind;
-        long offset = (long) pPix->devPrivate.ptr - (long) pVia->FBBase;
+	//        long offset = (long) pPix->devPrivate.ptr - (long) pVia->FBBase;
+	long offset;
         BoxPtr pBox;
         int nBox;
 
@@ -1321,6 +1322,8 @@ viaPutImage(ScrnInfoPtr pScrn,
 
                 if (pVia->useDmaBlit) {
 #ifdef XF86DRI
+#if 0
+		    //
                     if (viaDmaBlitImage(pVia, pPriv, buf,
                         (unsigned char *)pVia->swov.SWDevice.
                         lpSWOverlaySurface[pVia->dwFrameNum & 1] -
@@ -1329,6 +1332,7 @@ viaPutImage(ScrnInfoPtr pScrn,
                             viaXvError(pScrn, pPriv, xve_dmablit);
                         return BadAccess;
                     }
+#endif
 #endif
                 } else {
                     switch (id) {

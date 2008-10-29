@@ -1410,15 +1410,6 @@ viaInitAccel(ScreenPtr pScreen)
     xf86DrvMsg(pScrn->scrnIndex, X_INFO,
 	       "[EXA] Trying to enable EXA acceleration.\n");
     
-    pVia->driSize = (pVia->FBFreeEnd - pVia->FBFreeStart) / 2;
-    
-    if ((pVia->driSize > (pVia->maxDriSize * 1024))
-	&& pVia->maxDriSize > 0)
-	pVia->driSize = pVia->maxDriSize * 1024;
-    
-    xf86DrvMsg(pScrn->scrnIndex, X_INFO,
-	       "[EXA] Enabled EXA acceleration.\n");
-
     return TRUE;
  out_err1:
     (void) driBOData(pVia->scanout.bufs[VIA_SCANOUT_SYNC],
