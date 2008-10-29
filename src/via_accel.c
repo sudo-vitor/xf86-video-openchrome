@@ -1358,9 +1358,20 @@ viaInitAccel(ScreenPtr pScreen)
     WSDRILISTADDTAIL(&pVia->exaMem.head, &pVia->offscreen);
 
     /* Sync marker space. */
-    pVia->FBFreeEnd -= 32;
-    pVia->markerOffset = (pVia->FBFreeEnd + 31) & ~31;
-    pVia->markerBuf = (CARD32 *) ((char *)pVia->FBBase + pVia->markerOffset);
+    ret = driBOData(pVia->scanout.bufs[VIA_SCANOUT_SYNC],
+		    64, NULL, NULL, 0);
+    if (ret) {
+	goto out_err0;
+    }
+
+    pVia->markerBuf = (CARD32 *) driBOMap(pVia->scanout.bufs[VIA_SCANOUT_SYNC],
+					  WS_DRI_MAP_READ | WS_DRI_MAP_WRITE);
+    if (!pVia->markerBuf)
+	goto out_err1;
+
+    driBOUnmap(pVia->scanout.bufs[VIA_SCANOUT_SYNC]);
+    pVia->markerOffset = driBOOffset(pVia->scanout.bufs[VIA_SCANOUT_SYNC]);
+
     *pVia->markerBuf = 0;
     pVia->curMarker = 0;
     pVia->lastMarkerRead = 0;
@@ -1409,6 +1420,9 @@ viaInitAccel(ScreenPtr pScreen)
 	       "[EXA] Enabled EXA acceleration.\n");
 
     return TRUE;
+ out_err1:
+    (void) driBOData(pVia->scanout.bufs[VIA_SCANOUT_SYNC],
+		     0, NULL, NULL, 0);
  out_err0:
 
     driDeleteBuffers(1, &pVia->exaMem.buf);
