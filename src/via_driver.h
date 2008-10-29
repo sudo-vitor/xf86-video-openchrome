@@ -104,7 +104,8 @@
 #endif
 #define VIA_VERSION     ((VERSION_MAJOR<<24) | (VERSION_MINOR<<16) | PATCHLEVEL)
 
-#define VIA_CURSOR_SIZE         (4 * 1024)
+#define VIA_CURSOR_MAX		32
+#define VIA_CURSOR_SIZE         (VIA_CURSOR_MAX * VIA_CURSOR_MAX * 4)
 #define VIA_VQ_SIZE             (256 * 1024)
 
 typedef struct {
