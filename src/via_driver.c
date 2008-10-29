@@ -2569,6 +2569,27 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
         VIASave(pScrn);
     }
 
+    vgaHWUnlock(hwp);
+
+    pVia->FirstInit = TRUE;
+    if (0 && pVia->pVbe) {
+        vgaHWBlankScreen(pScrn, FALSE);
+        if (!ViaVbeSetMode(pScrn, pScrn->currentMode)) {
+            vgaHWBlankScreen(pScrn, TRUE);
+            return FALSE;
+        }
+    } else {
+        vgaHWBlankScreen(pScrn, FALSE);
+        if (!VIAWriteMode(pScrn, pScrn->currentMode)) {
+            vgaHWBlankScreen(pScrn, TRUE);
+            return FALSE;
+        }
+    }
+    pVia->FirstInit = FALSE;
+
+    /* Darken the screen for aesthetic reasons and set the viewport. */
+    VIASaveScreen(pScreen, SCREEN_SAVER_ON);
+
     /*
      * FIXME: This should really be done at device (pViaEnt) init, but
      * at that time we haven't opened drm, so we can't decide which pool
@@ -2641,26 +2662,6 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
     driBOUnmap(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY]);
     pVia->displayOffset = driBOOffset(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY]);
 
-    vgaHWUnlock(hwp);
-
-    pVia->FirstInit = TRUE;
-    if (0 && pVia->pVbe) {
-        vgaHWBlankScreen(pScrn, FALSE);
-        if (!ViaVbeSetMode(pScrn, pScrn->currentMode)) {
-            vgaHWBlankScreen(pScrn, TRUE);
-            return FALSE;
-        }
-    } else {
-        vgaHWBlankScreen(pScrn, FALSE);
-        if (!VIAWriteMode(pScrn, pScrn->currentMode)) {
-            vgaHWBlankScreen(pScrn, TRUE);
-            return FALSE;
-        }
-    }
-    pVia->FirstInit = FALSE;
-
-    /* Darken the screen for aesthetic reasons and set the viewport. */
-    VIASaveScreen(pScreen, SCREEN_SAVER_ON);
     pScrn->AdjustFrame(scrnIndex, pScrn->frameX0, pScrn->frameY0, 0);
 
     DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "- Blanked\n"));
