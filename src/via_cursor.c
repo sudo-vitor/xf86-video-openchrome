@@ -48,7 +48,7 @@ static void VIASetCursorPositionARGB(ScrnInfoPtr pScrn, int x, int y);
 static void VIALoadCursorARGB(ScrnInfoPtr pScrn, CursorPtr pCurs);
 static Bool VIAUseHWCursorARGB(ScreenPtr pScreen, CursorPtr pCurs);
 
-#define MAX_CURS 32
+#define MAX_CURS 64
 
 Bool
 VIAHWCursorInit(ScreenPtr pScreen)
@@ -332,8 +332,8 @@ VIALoadCursorARGB(ScrnInfoPtr pScrn, CursorPtr pCurs)
     dst = (CARD32*)(pVia->FBBase + pVia->CursorStart);
     image = pCurs->bits->argb;
 
-    memset(dst, 0xFF, VIA_CURSOR_SIZE);
-    return;
+//    memset(dst, 0xFF, VIA_CURSOR_SIZE);
+//    return;
     w = pCurs->bits->width;
     if (w > MAX_CURS)
 	w = MAX_CURS;
@@ -344,7 +344,7 @@ VIALoadCursorARGB(ScrnInfoPtr pScrn, CursorPtr pCurs)
 
     for (y = 0; y < h; y++) {
 	for (x = 0; x < w; x++)
-	    *dst++ = *image;
+	    *dst++ = *image++;
 	for (; x < MAX_CURS; x++)
 	    *dst++ = 0;
     }
