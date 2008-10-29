@@ -243,7 +243,7 @@ void
 viaTearDownCBuffer(ViaCommandBuffer * buf)
 {
     if (buf->validate_list) {
-	driBOResetList(buf->validate_list);
+	driBOUnrefUserList(buf->validate_list);
 	driBOFreeList(buf->validate_list);
 	buf->validate_list = NULL;
     }
@@ -378,9 +378,7 @@ viaEmitPixmap(ViaCommandBuffer *cb,
 	if (ret)
 	    goto out_err;
 	cb->srcPixmap = pSrcPix;
-    } else if (pSrcPix != NULL) {
-	ErrorF("Saved src reloc.\n");
-    }
+    } 
     return TRUE;
  out_err:
     return FALSE;
@@ -1615,25 +1613,19 @@ viaExitAccel(ScreenPtr pScreen)
     VIAPtr pVia = VIAPTR(pScrn);
 
     viaAccelSync(pScrn);
+
+#ifdef XF86DRI
+    if (pVia->dBounce)
+	xfree(pVia->dBounce);
+#endif /* XF86DRI */
+    if (pVia->exaDriverPtr) {
+	exaDriverFini(pScreen);
+    }
+    xfree(pVia->exaDriverPtr);
+    pVia->exaDriverPtr = NULL;
     viaTearDownCBuffer(&pVia->cb);
     driDeleteBuffers(1, &pVia->exaMem.buf);
-
-    if (pVia->useEXA) {
-#ifdef XF86DRI
-        if (pVia->dBounce)
-            xfree(pVia->dBounce);
-#endif /* XF86DRI */
-        if (pVia->exaDriverPtr) {
-            exaDriverFini(pScreen);
-        }
-        xfree(pVia->exaDriverPtr);
-        pVia->exaDriverPtr = NULL;
-        return;
-    }
-    if (pVia->AccelInfoRec) {
-        XAADestroyInfoRec(pVia->AccelInfoRec);
-        pVia->AccelInfoRec = NULL;
-    }
+    return;
 }
 
 /*

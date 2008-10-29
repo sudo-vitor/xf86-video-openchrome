@@ -173,7 +173,7 @@ ochr_reset_cmdlists(struct _ViaCommandBuffer *cBuf)
     if (ret)
 	return ret;
 
-    ret = driBOResetList(cBuf->validate_list);
+    ret = driBOUnrefUserList(cBuf->validate_list);
     if (ret)
 	return ret;
 
@@ -250,7 +250,9 @@ ochr_2d_relocation(struct _ViaCommandBuffer *cBuf,
 
     fake.po_correct = 0;
     fake.offset = val_req->presumed_gpu_offset;
-
+    if (fake.offset == 0) {
+	ErrorF("Warning! Offset was 0\n");
+    }
     reloc.type = VIA_RELOC_2D;
     reloc.offset = 1;
     reloc.addr.index = 0;

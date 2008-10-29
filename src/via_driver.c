@@ -1928,12 +1928,12 @@ VIALeaveVT(int scrnIndex, int flags)
 			  DRM_BO_FLAG_NO_EVICT);
 
     (void) driBOSetStatus(pVia->scanout.bufs[VIA_SCANOUT_CURSOR],
-			  DRM_BO_FLAG_MEM_LOCAL,
-			  DRM_BO_FLAG_MEM_VRAM | DRM_BO_FLAG_NO_EVICT);
+			  0,
+			  DRM_BO_FLAG_NO_EVICT);
 
     (void) driBOSetStatus(pVia->scanout.bufs[VIA_SCANOUT_SYNC],
-			  DRM_BO_FLAG_MEM_LOCAL,
-			  DRM_BO_FLAG_MEM_VRAM | DRM_BO_FLAG_NO_EVICT);
+			  0,
+			  DRM_BO_FLAG_NO_EVICT);
 
     (void) driBOData(pVia->scanout.bufs[VIA_SCANOUT_OVERLAY],
 		     0, NULL, NULL, 0);
@@ -2495,8 +2495,10 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
      * functions.
      */
 
-    if (pVia->mainPool && !pVia->IsSecondary)
+    if (pVia->mainPool && !pVia->IsSecondary) {
 	pVia->mainPool->takeDown(pVia->mainPool);
+	pVia->mainPool = NULL;
+    }
 
 #ifdef XF86DRI
     pVia->directRenderingEnabled = VIADRIScreenInit(pScreen);
@@ -2857,17 +2859,31 @@ VIACloseScreen(int scrnIndex, ScreenPtr pScreen)
     }
 
     driBOUnReference(pVia->front.buf);
+    viaExitAccel(pScreen);
     driDeleteBuffers(VIA_SCANOUT_NUM, pVia->scanout.bufs);
-
-    if (pVia->mainPool && !pVia->IsSecondary)
+    if (pVia->mainPool && !pVia->IsSecondary) {
 	pVia->mainPool->takeDown(pVia->mainPool);
+	pVia->mainPool = NULL;
+    }
+
 
 #ifdef XF86DRI
-    if (pVia->directRenderingEnabled)
+    if (pVia->directRenderingEnabled) {
+	if (pScrn->vtSema) {
+	    struct drm_via_vt vt;
+
+	    vt.enter = 0;
+
+	    if (drmCommandWrite(pVia->drmFD, DRM_VIA_VT,
+				&vt, sizeof(vt)) < 0)
+		ErrorF("Failed DRM VT leave.\n");
+	    else
+		pVia->vtNotified = GL_FALSE;
+	}
         VIADRICloseScreen(pScreen);
+    }
 #endif
 
-    viaExitAccel(pScreen);
     if (pVia->CursorInfoRec) {
         xf86DestroyCursorInfoRec(pVia->CursorInfoRec);
         pVia->CursorInfoRec = NULL;
