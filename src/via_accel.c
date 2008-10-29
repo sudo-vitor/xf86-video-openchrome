@@ -1296,7 +1296,8 @@ viaExaPrepareComposite(int op, PicturePtr pSrcPicture,
         curTex++;
     }
 
-    v3d->setFlags(v3d, curTex, FALSE, TRUE, TRUE);
+    v3d->setFlags(v3d, curTex, PICT_FORMAT_A(pDstPicture->format) != 0, 
+		  TRUE, TRUE);
     if (pVia->maskP) {
         viaPixelARGB8888(pVia->maskFormat, pVia->maskP, &col);
         v3d->setTexBlendCol(v3d, 0, pVia->componentAlpha, col);

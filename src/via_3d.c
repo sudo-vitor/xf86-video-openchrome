@@ -59,14 +59,26 @@ static const CARD32 viaOpCodes[VIA_NUM_3D_OPCODES][5] = {
     {PictOpSrc, 0x15, 0x45, 0x50, 0x80},
     {PictOpDst, 0x05, 0x55, 0x40, 0x90},
     {PictOpOver, 0x15, 0x52, 0x50, 0x91},
-    {PictOpOverReverse, 0x13, 0x45, 0x52, 0x90},
+    {PictOpOverReverse, 
+     (HC_HABLFCa_InvOPC |
+      HC_HABLCa_Csrc |
+      HC_HABLFCa_Adst) >> 4,
+     (HC_HABLFCb_InvOPC |
+      HC_HABLCb_Cdst |
+      HC_HABLFCb_HABLRCb) >> 2, 0x52, 0x90},
     {PictOpIn, 0x03, 0x45, 0x42, 0x80},
     {PictOpInReverse, 0x05, 0x42, 0x40, 0x81},
     {PictOpOut, 0x13, 0x45, 0x52, 0x80},
     {PictOpOutReverse, 0x05, 0x52, 0x40, 0x91},
     {PictOpAtop, 0x03, 0x52, 0x42, 0x91},
     {PictOpAtopReverse, 0x13, 0x42, 0x52, 0x81},
-    {PictOpXor, 0x15, 0x52, 0x52, 0x91},
+    {PictOpXor, 
+     (HC_HABLFCa_InvOPC |
+      HC_HABLCa_Csrc |
+      HC_HABLFCa_Adst) >> 4,
+     (HC_HABLFCb_InvOPC |
+      HC_HABLCb_Cdst |
+      HC_HABLFCb_Asrc) >> 2, 0x52, 0x91},
     {PictOpAdd, 0x15, 0x55, 0x50, 0x90},
     {PictOpDisjointClear, 0x05, 0x45, 0x40, 0x80},
     {PictOpDisjointSrc, 0x15, 0x45, 0x50, 0x80},
@@ -288,9 +300,9 @@ viaSet3DCompositeOperator(Via3DState * v3d, CARD8 op)
 
     v3d->blendDirty = TRUE;
     if (v3d && vOp->supported) {
-        v3d->blendCol0 = (vOp->col0 << 4) | HC_HABLAsat_MASK;
+        v3d->blendCol0 = (vOp->col0 << 4) | HC_HABLCsat_MASK;
         v3d->blendCol1 = vOp->col1 << 2;
-        v3d->blendAl0 = vOp->al0 << 4;
+        v3d->blendAl0 = (vOp->al0 << 4) |  HC_HABLAsat_MASK;
         v3d->blendAl1 = vOp->al1 << 2;
     }
 }
