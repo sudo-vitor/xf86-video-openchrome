@@ -1820,6 +1820,20 @@ VIAEnterVT(int scrnIndex, int flags)
     /* FIXME: Rebind AGP memory here. */
     DEBUG(xf86DrvMsg(scrnIndex, X_INFO, "VIAEnterVT\n"));
 
+#ifdef XF86DRI
+    if (pVia->directRenderingEnabled) {
+	struct drm_via_vt vt;
+
+	vt.enter = 1;
+	ErrorF("Vt enter\n");
+	if (drmCommandWrite(pVia->drmFD, DRM_VIA_VT,
+			    &vt, sizeof(vt)) < 0)
+	    ErrorF("Failed DRM VT enter.\n");
+	else
+	    pVia->vtNotified = GL_TRUE;
+    }
+#endif 
+
     if (pVia->pVbe) {
 	if (pVia->vbeSR) 
 	    ViaVbeSaveRestore(pScrn, MODE_SAVE);
@@ -1845,7 +1859,6 @@ VIAEnterVT(int scrnIndex, int flags)
 #ifdef XF86DRI
     if (pVia->directRenderingEnabled) {
         kickVblank(pScrn);
-        VIADRIRingBufferInit(pScrn);
         viaDRIOffscreenRestore(pScrn);
     }
 #endif
@@ -1893,22 +1906,27 @@ VIALeaveVT(int scrnIndex, int flags)
     if (pVia->Chipset != VIA_K8M890 && pVia->Chipset != VIA_P4M900)
         hwp->writeSeq(hwp, 0x1A, pVia->SavedReg.SR1A | 0x40);
 
-#ifdef XF86DRI
-    if (pVia->directRenderingEnabled) {
-        VIADRIRingBufferCleanup(pScrn);
-        viaDRIOffscreenSave(pScrn);
-    }
-#endif
-
-    if (pVia->VQEnable)
-        viaDisableVQ(pScrn);
-
     /* Save video status and turn off all video activities. */
     if (!pVia->IsSecondary)
         viaSaveVideo(pScrn);
 
     if (pVia->hwcursor)
         ViaCursorStore(pScrn);
+
+#ifdef XF86DRI
+    if (pVia->directRenderingEnabled) {
+	struct drm_via_vt vt;
+
+	viaDRIOffscreenSave(pScrn);
+	vt.enter = 0;
+	ErrorF("Vt leave\n");
+	if (drmCommandWrite(pVia->drmFD, DRM_VIA_VT,
+			    &vt, sizeof(vt)) < 0)
+	    ErrorF("Failed DRM VT leave.\n");
+	else
+	    pVia->vtNotified = GL_TRUE;
+    }
+#endif
 
     if (pVia->pVbe && pVia->vbeSR)
         ViaVbeSaveRestore(pScrn, MODE_RESTORE);
@@ -2575,6 +2593,7 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
 
 #ifdef XF86DRI
     pVia->directRenderingEnabled = VIADRIScreenInit(pScreen);
+    pVia->vtNotified = FALSE;
 #endif
 
     DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "- Visuals set up\n"));
@@ -2871,8 +2890,6 @@ VIACloseScreen(int scrnIndex, ScreenPtr pScreen)
             VIAHideCursor(pScrn);
         }
 
-        if (pVia->VQEnable)
-            viaDisableVQ(pScrn);
     }
 #ifdef XF86DRI
     if (pVia->directRenderingEnabled)
@@ -2985,9 +3002,6 @@ VIASwitchMode(int scrnIndex, DisplayModePtr mode, int flags)
     if (pVia->directRenderingEnabled)
         VIADRIRingBufferCleanup(pScrn);
 #endif
-
-    if (pVia->VQEnable)
-        viaDisableVQ(pScrn);
 
     ret = VIAWriteMode(pScrn, mode);
 

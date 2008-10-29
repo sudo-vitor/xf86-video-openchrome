@@ -42,7 +42,7 @@
  */
 
 #undef VIDEO_DMA
-#define HQV_USE_IRQ
+#undef HQV_USE_IRQ
 #define UNICHROME_PRO
 
 #include "viaXvMCPriv.h"
