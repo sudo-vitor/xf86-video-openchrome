@@ -917,6 +917,8 @@ viaExaDownloadFromScreen(PixmapPtr pSrc, int x, int y, int w, int h,
 
     exaWaitSync(pScrn->pScreen);
     if (totSize < VIA_MIN_DOWNLOAD) {
+	return FALSE;
+#if 0
         bounceAligned = (char *)pVia->FBBase + srcOffset;
         while (h--) {
             memcpy(dst, bounceAligned, wBytes);
@@ -924,6 +926,7 @@ viaExaDownloadFromScreen(PixmapPtr pSrc, int x, int y, int w, int h,
             bounceAligned += srcPitch;
         }
         return TRUE;
+#endif
     }
 
     if (!pVia->directRenderingEnabled)
@@ -1099,13 +1102,6 @@ viaIsAGP(VIAPtr pVia, PixmapPtr pPix, unsigned long *offset)
 }
 
 static Bool
-viaIsOffscreen(VIAPtr pVia, PixmapPtr pPix)
-{
-    return ((unsigned long)pPix->devPrivate.ptr -
-            (unsigned long)pVia->FBBase) < pVia->videoRambytes;
-}
-
-static Bool
 viaExaPrepareComposite(int op, PicturePtr pSrcPicture,
                        PicturePtr pMaskPicture, PicturePtr pDstPicture,
                        PixmapPtr pSrc, PixmapPtr pMask, PixmapPtr pDst)
@@ -1172,8 +1168,6 @@ viaExaPrepareComposite(int op, PicturePtr pSrcPicture,
     if (!pVia->srcP) {
         offset = viaExaPixmapOffset(pSrc);
         isAGP = viaIsAGP(pVia, pSrc, &offset);
-        if (!isAGP && !viaIsOffscreen(pVia, pSrc))
-            return FALSE;
         if (!v3d->setTexture(v3d, curTex, offset,
                              exaGetPixmapPitch(pSrc), pVia->nPOT[curTex],
                              1 << width, 1 << height, pSrcPicture->format,
@@ -1190,8 +1184,6 @@ viaExaPrepareComposite(int op, PicturePtr pSrcPicture,
     if (pMaskPicture && !pVia->maskP) {
         offset = viaExaPixmapOffset(pMask);
         isAGP = viaIsAGP(pVia, pMask, &offset);
-        if (!isAGP && !viaIsOffscreen(pVia, pMask))
-            return FALSE;
         viaOrder(pMask->drawable.width, &width);
         viaOrder(pMask->drawable.height, &height);
         if (!v3d->setTexture(v3d, curTex, offset,
