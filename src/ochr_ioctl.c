@@ -357,14 +357,19 @@ ochr_tex_relocation(struct _ViaCommandBuffer *cBuf,
 	val_req = ochrValReq(node);
 
 	if (!(val_req->presumed_flags & VIA_USE_PRESUMED)) {
+	    val_req->presumed_flags = VIA_USE_PRESUMED;
 	    val_req->presumed_gpu_offset =
 		(uint64_t) driBOOffset(addr[i].buf);
-	    val_req->presumed_flags |= VIA_USE_PRESUMED;
+	    if (driBOFlags(addr[i].buf) &
+		(DRM_BO_FLAG_MEM_TT | VIA_BO_FLAG_MEM_AGP))
+		val_req->presumed_flags |= VIA_PRESUMED_AGP;	    
 	}
 
 	fake[count].po_correct = 0;
 	fake[count].offset = val_req->presumed_gpu_offset;
-	fake[count].flags = driBOFlags(addr[i].buf);
+	fake[count].flags =
+	    fake[count].flags = (val_req->presumed_flags & VIA_PRESUMED_AGP) ?
+	    DRM_BO_FLAG_MEM_TT : DRM_BO_FLAG_MEM_VRAM;
 	real_addr[count].index = itemLoc;
 	real_addr[count].delta = addr[i].delta;
 	fake_addr[count].index = count;
