@@ -47,7 +47,7 @@ VIARefreshArea(ScrnInfoPtr pScrn, int num, BoxPtr pbox)
         height = pbox->y2 - pbox->y1;
         src = (pVia->ShadowPtr + (pbox->y1 * pVia->ShadowPitch)
                + (pbox->x1 * Bpp));
-        dst = pVia->FBBase + (pbox->y1 * FBPitch) + (pbox->x1 * Bpp);
+        dst = pVia->displayMap + (pbox->y1 * FBPitch) + (pbox->x1 * Bpp);
 
         while (height--) {
             memcpy(dst, src, width);
@@ -95,11 +95,11 @@ VIARefreshArea8(ScrnInfoPtr pScrn, int num, BoxPtr pbox)
         height = (y2 - y1) >> 2;  /* in dwords */
 
         if (pVia->rotate == 1) {
-            dstPtr = (pVia->FBBase
+            dstPtr = (pVia->displayMap
                       + (pbox->x1 * dstPitch) + pScrn->virtualX - y2);
             srcPtr = pVia->ShadowPtr + ((1 - y2) * srcPitch) + pbox->x1;
         } else {
-            dstPtr = (pVia->FBBase
+            dstPtr = (pVia->displayMap
                       + ((pScrn->virtualY - pbox->x2) * dstPitch) + y1);
             srcPtr = pVia->ShadowPtr + (y1 * srcPitch) + pbox->x2 - 1;
         }
@@ -142,12 +142,12 @@ VIARefreshArea16(ScrnInfoPtr pScrn, int num, BoxPtr pbox)
         height = (y2 - y1) >> 1;  /* in dwords */
 
         if (pVia->rotate == 1) {
-            dstPtr = ((CARD16*) pVia->FBBase
+            dstPtr = ((CARD16*) pVia->displayMap
                       + (pbox->x1 * dstPitch) + pScrn->virtualX - y2);
             srcPtr = ((CARD16*) pVia->ShadowPtr
                       + ((1 - y2) * srcPitch) + pbox->x1);
         } else {
-            dstPtr = ((CARD16*) pVia->FBBase
+            dstPtr = ((CARD16*) pVia->displayMap
                       + ((pScrn->virtualY - pbox->x2) * dstPitch) + y1);
             srcPtr = ((CARD16*) pVia->ShadowPtr
                       + (y1 * srcPitch) + pbox->x2 - 1);
@@ -191,11 +191,11 @@ VIARefreshArea24(ScrnInfoPtr pScrn, int num, BoxPtr pbox)
         height = (y2 - y1) >> 2;  /* blocks of 3 dwords */
 
         if (pVia->rotate == 1) {
-            dstPtr = (pVia->FBBase
+            dstPtr = (pVia->displayMap
                       + (pbox->x1 * dstPitch) + ((pScrn->virtualX - y2) * 3));
             srcPtr = pVia->ShadowPtr + ((1 - y2) * srcPitch) + (pbox->x1 * 3);
         } else {
-            dstPtr = (pVia->FBBase
+            dstPtr = (pVia->displayMap
                       + ((pScrn->virtualY - pbox->x2) * dstPitch) + (y1 * 3));
             srcPtr = pVia->ShadowPtr + (y1 * srcPitch) + (pbox->x2 * 3) - 3;
         }
@@ -241,12 +241,12 @@ VIARefreshArea32(ScrnInfoPtr pScrn, int num, BoxPtr pbox)
         height = pbox->y2 - pbox->y1;
 
         if (pVia->rotate == 1) {
-            dstPtr = ((CARD32*) pVia->FBBase
+            dstPtr = ((CARD32*) pVia->displayMap
                       + (pbox->x1 * dstPitch) + pScrn->virtualX - pbox->y2);
             srcPtr = ((CARD32*) pVia->ShadowPtr
                       + ((1 - pbox->y2) * srcPitch) + pbox->x1);
         } else {
-            dstPtr = ((CARD32*) pVia->FBBase
+            dstPtr = ((CARD32*) pVia->displayMap
                       + ((pScrn->virtualY - pbox->x2) * dstPitch) + pbox->y1);
             srcPtr = ((CARD32*) pVia->ShadowPtr
                       + (pbox->y1 * srcPitch) + pbox->x2 - 1);
