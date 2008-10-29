@@ -72,17 +72,15 @@
 #define VIA_REG_COLORPAT        0x100       /* from 0x100 to 0x1ff */
 
 /* secret regs */
-#define VIA_REG_HI_HVSTAT       0x208
-#define VIA_REG_HI_SIZE         0x20C
-
-#define VIA_REG_HI_T_COLOR      0x270
-
 #define VIA_REG_HI_CONTROL0     0x2F0
 #define VIA_REG_HI_BASE0        0x2F4
 #define VIA_REG_HI_POS0         0x2F8
+#define VIA_REG_HI_OFFSET0      0x2FC
 
 #define VIA_REG_HI_CONTROL1     0x260
 #define VIA_REG_HI_BASE1        0x220
+#define VIA_REG_HI_POS1         0x0 // TODO
+#define VIA_REG_HI_OFFSET1      0x0 // TODO
 
 /* defines for VIA video registers */
 #define VIA_REG_INTERRUPT       0x200

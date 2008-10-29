@@ -344,11 +344,19 @@ typedef struct _VIA {
     Bool                dmaXV;
 
     CARD8               ActiveDevice;	/* Option */
+
     unsigned char       *CursorImage;
     CARD32		CursorFG;
     CARD32		CursorBG;
-    CARD32		CursorMC;
     Bool		CursorARGB;
+    CARD8		CursorPipe;
+
+    CARD32		CursorControl0;
+    CARD32		CursorHiBase0;
+    CARD32		CursorFifo;
+    CARD32		CursorTransparentKey;
+    CARD32		CursorPrimHiInvtColor;
+    CARD32 		CursorV327HiInvtColor;
 
     /* Video */
     int                 VideoEngine;
