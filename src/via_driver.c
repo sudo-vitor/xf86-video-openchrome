@@ -777,7 +777,6 @@ VIASetupDefaultOptions(ScrnInfoPtr pScrn)
     pVia->shadowFB = FALSE;
     pVia->NoAccel = FALSE;
     pVia->noComposite = FALSE;
-    pVia->exaScratchSize = VIA_SCRATCH_SIZE / 1024;
     pVia->hwcursor = TRUE;
     pVia->VQEnable = TRUE;
     pVia->DRIIrqEnable = TRUE;
@@ -1216,13 +1215,6 @@ VIAPreInit(ScrnInfoPtr pScrn, int flags)
                        "EXA composite acceleration %s.\n",
                        !pVia->noComposite ? "enabled" : "disabled");
 
-            //pVia->exaScratchSize = VIA_SCRATCH_SIZE / 1024;
-            from = xf86GetOptValInteger(VIAOptions, OPTION_EXA_SCRATCH_SIZE,
-                                        &pVia->exaScratchSize)
-                    ? X_CONFIG : X_DEFAULT;
-            xf86DrvMsg(pScrn->scrnIndex, from,
-                       "EXA scratch area size is %d kB.\n",
-                       pVia->exaScratchSize);
         }
     }
 

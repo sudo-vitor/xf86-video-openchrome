@@ -247,8 +247,6 @@ typedef struct _VIA {
     int                 FBFreeEnd;
     int                 driSize;
     int                 maxDriSize;
-    int                 VQStart;
-    int                 VQEnd;
 
     /* These are physical addresses. */
     unsigned long       FrameBufferBase;
@@ -313,24 +311,15 @@ typedef struct _VIA {
     Bool                nPOT[VIA_NUM_TEXUNITS];
 #ifdef VIA_HAVE_EXA
     ExaDriverPtr        exaDriverPtr;
-    ExaOffscreenArea   *exa_scratch;
-    unsigned int        exa_scratch_next;
+    //    ExaOffscreenArea   *exa_scratch;
     Bool                useEXA;
     void               *maskP;
     CARD32              maskFormat;
     Bool                componentAlpha;
     void               *srcP;
     CARD32              srcFormat;
-    ExaOffscreenArea   *scratchFBBuffer;
-    unsigned            scratchOffset;
-    int                 exaScratchSize;
-    char *              scratchAddr;
     Bool                noComposite;
 #ifdef XF86DRI
-    struct drm_via_mem  scratchAGPBuffer;
-    struct drm_via_mem  texAGPBuffer;
-    unsigned            texOffset;
-    char *              texAddr;
     char *              dBounce;
 #endif
 #endif

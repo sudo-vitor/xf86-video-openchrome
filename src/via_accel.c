@@ -1079,6 +1079,7 @@ viaExaCheckComposite(int op, PicturePtr pSrcPicture,
 static Bool
 viaIsAGP(VIAPtr pVia, PixmapPtr pPix, unsigned long *offset)
 {
+#if 0
 #ifdef XF86DRI
     unsigned long offs;
 
@@ -1091,6 +1092,7 @@ viaIsAGP(VIAPtr pVia, PixmapPtr pPix, unsigned long *offset)
             return TRUE;
         }
     }
+#endif
 #endif
     return FALSE;
 }
@@ -1325,14 +1327,6 @@ viaInitAccel(ScreenPtr pScreen)
     int maxY;
     Bool nPOTSupported;
 
-    pVia->VQStart = 0;
-    if (((pVia->FBFreeEnd - pVia->FBFreeStart) >= VIA_VQ_SIZE)
-        && pVia->VQEnable) {
-        pVia->VQStart = pVia->FBFreeEnd - VIA_VQ_SIZE;
-        pVia->VQEnd = pVia->VQStart + VIA_VQ_SIZE - 1;
-        pVia->FBFreeEnd -= VIA_VQ_SIZE;
-    }
-
     viaInitialize2DEngine(pScrn);
 
     /* Sync marker space. */
@@ -1359,9 +1353,7 @@ viaInitAccel(ScreenPtr pScreen)
     pVia->nPOT[1] = nPOTSupported;
 
 #ifdef XF86DRI
-    pVia->texAddr = NULL;
     pVia->dBounce = NULL;
-    pVia->scratchAddr = NULL;
 #endif /* XF86DRI */
     pVia->exaDriverPtr = viaInitExa(pScreen);
     if (!pVia->exaDriverPtr) {
@@ -1404,29 +1396,9 @@ viaExitAccel(ScreenPtr pScreen)
 
     if (pVia->useEXA) {
 #ifdef XF86DRI
-        if (pVia->directRenderingEnabled) {
-            if (pVia->texAddr) {
-                drmCommandWrite(pVia->drmFD, DRM_VIA_FREEMEM,
-                                &pVia->texAGPBuffer, 
-				sizeof(struct drm_via_mem));
-                pVia->texAddr = NULL;
-            }
-            if (pVia->scratchAddr && !pVia->IsPCI &&
-                ((unsigned long)pVia->scratchAddr -
-                 (unsigned long)pVia->agpMappedAddr == pVia->scratchOffset)) {
-                drmCommandWrite(pVia->drmFD, DRM_VIA_FREEMEM,
-                                &pVia->scratchAGPBuffer, 
-				sizeof(struct drm_via_mem));
-                pVia->scratchAddr = NULL;
-            }
-        }
         if (pVia->dBounce)
             xfree(pVia->dBounce);
 #endif /* XF86DRI */
-        if (pVia->scratchAddr) {
-            exaOffscreenFree(pScreen, pVia->scratchFBBuffer);
-            pVia->scratchAddr = NULL;
-        }
         if (pVia->exaDriverPtr) {
             exaDriverFini(pScreen);
         }
