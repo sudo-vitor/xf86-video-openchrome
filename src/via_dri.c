@@ -394,7 +394,6 @@ VIADRICloseScreen(ScreenPtr pScreen)
 
 
     DRICloseScreen(pScreen);
-    VIAFreeLinear(&pVia->driOffScreenMem);
 
     if (pVia->pDRIInfo) {
         if ((pVIADRI = (VIADRIPtr) pVia->pDRIInfo->devPrivate)) {

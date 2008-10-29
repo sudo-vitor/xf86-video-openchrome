@@ -1039,11 +1039,11 @@ AddHQVSurface(ScrnInfoPtr pScrn, unsigned int numbuf, CARD32 fourcc)
     pitch = pVia->swov.SWDevice.dwPitch;
     fbsize = pitch * height * (isplanar ? 2 : 1);
 
-    VIAFreeLinear(&pVia->swov.HQVMem);
-    retCode = VIAAllocLinear(&pVia->swov.HQVMem, pScrn, fbsize * numbuf);
+    //    VIAFreeLinear(&pVia->swov.HQVMem);
+    //    retCode = VIAAllocLinear(&pVia->swov.HQVMem, pScrn, fbsize * numbuf);
     if (retCode != Success)
         return retCode;
-    addr = pVia->swov.HQVMem.base;
+    //    addr = pVia->swov.HQVMem.base;
 
     ViaYUVFillBlack(pVia, pVia->FBBase + addr, fbsize);
 
@@ -1226,13 +1226,13 @@ ViaSwovSurfaceDestroy(ScrnInfoPtr pScrn, viaPortPrivPtr pPriv)
             case FOURCC_RV15:
                 pVia->swov.SrcFourCC = 0;
 
-                if ((pVia->swov.gdwVideoFlagSW & SW_USE_HQV))
-                    VIAFreeLinear(&pVia->swov.HQVMem);
+		//                if ((pVia->swov.gdwVideoFlagSW & SW_USE_HQV))
+		//                    VIAFreeLinear(&pVia->swov.HQVMem);
                 pVia->swov.gdwVideoFlagSW = 0;
                 break;
 
             case FOURCC_HQVSW:
-                VIAFreeLinear(&pVia->swov.HQVMem);
+		//                VIAFreeLinear(&pVia->swov.HQVMem);
                 pVia->swov.gdwVideoFlagSW = 0;
                 break;
 
@@ -1240,7 +1240,7 @@ ViaSwovSurfaceDestroy(ScrnInfoPtr pScrn, viaPortPrivPtr pPriv)
             case FOURCC_XVMC:
                 pVia->swov.SrcFourCC = 0;
 
-                VIAFreeLinear(&pVia->swov.HQVMem);
+		//                VIAFreeLinear(&pVia->swov.HQVMem);
                 pVia->swov.gdwVideoFlagSW = 0;
                 break;
         }

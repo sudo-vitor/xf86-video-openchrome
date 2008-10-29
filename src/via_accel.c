@@ -1296,7 +1296,7 @@ viaInitExa(ScreenPtr pScreen)
 
     pExa->UploadToScratch = NULL; /* viaExaUploadToScratch; */
 
-    if (0 /*!pVia->noComposite */) {
+    if (!pVia->noComposite) {
         pExa->CheckComposite = viaExaCheckComposite;
         pExa->PrepareComposite = viaExaPrepareComposite;
         pExa->Composite = viaExaComposite;

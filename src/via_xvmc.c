@@ -578,6 +578,7 @@ ViaXvMCCreateSurface(ScrnInfoPtr pScrn, XvMCSurfacePtr pSurf,
 
     ctx = pSurf->context;
     bufSize = size_yuv420(ctx->width, ctx->height);
+#if 0
     sPriv->memory_ref.pool = 0;
     if (VIAAllocLinear(&(sPriv->memory_ref), pScrn,
                        numBuffers * bufSize + 32)) {
@@ -587,12 +588,13 @@ ViaXvMCCreateSurface(ScrnInfoPtr pScrn, XvMCSurfacePtr pSurf,
                    "Unable to allocate frambuffer memory!\n");
         return BadAlloc;
     }
-
     (*priv)[1] = numBuffers;
     (*priv)[2] = sPriv->offsets[0] = ALIGN_TO(sPriv->memory_ref.base, 32);
     for (i = 1; i < numBuffers; ++i) {
         (*priv)[i + 2] = sPriv->offsets[i] = sPriv->offsets[i - 1] + bufSize;
     }
+
+#endif
 
     yBufSize = stride(ctx->width) * ctx->height;
     for (i = 0; i < numBuffers; ++i) {
@@ -654,6 +656,7 @@ ViaXvMCCreateSubpicture(ScrnInfoPtr pScrn, XvMCSubpicturePtr pSubp,
 
     ctx = pSubp->context;
     bufSize = size_xx44(ctx->width, ctx->height);
+#if 0
     sPriv->memory_ref.pool = 0;
     if (VIAAllocLinear(&(sPriv->memory_ref), pScrn, 1 * bufSize + 32)) {
         xfree(*priv);
@@ -664,6 +667,7 @@ ViaXvMCCreateSubpicture(ScrnInfoPtr pScrn, XvMCSubpicturePtr pSubp,
     }
     (*priv)[1] = sPriv->offsets[0] = ALIGN_TO(sPriv->memory_ref.base, 32);
 
+#endif
     vXvMC->sPrivs[srfNo] = sPriv;
     vXvMC->surfaces[srfNo] = pSubp->subpicture_id;
     vXvMC->nSurfaces++;
@@ -728,7 +732,7 @@ ViaXvMCDestroySurface(ScrnInfoPtr pScrn, XvMCSurfacePtr pSurf)
                     ViaOverlayHide(pScrn);
             }
 
-            VIAFreeLinear(&(vXvMC->sPrivs[i]->memory_ref));
+	    //            VIAFreeLinear(&(vXvMC->sPrivs[i]->memory_ref));
             xfree(vXvMC->sPrivs[i]);
             vXvMC->nSurfaces--;
             vXvMC->sPrivs[i] = 0;
@@ -770,7 +774,7 @@ ViaXvMCDestroySubpicture(ScrnInfoPtr pScrn, XvMCSubpicturePtr pSubp)
                 }
             }
 
-            VIAFreeLinear(&(vXvMC->sPrivs[i]->memory_ref));
+	    //            VIAFreeLinear(&(vXvMC->sPrivs[i]->memory_ref));
             xfree(vXvMC->sPrivs[i]);
             vXvMC->nSurfaces--;
             vXvMC->sPrivs[i] = 0;

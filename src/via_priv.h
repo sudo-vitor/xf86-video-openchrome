@@ -136,33 +136,11 @@ typedef struct
     CARD32         dwMpegDecoded;
 } OVERLAYRECORD;
 
-#define MEM_BLOCKS		4
-
-typedef struct {
-    unsigned long   base;		/* Offset into fb */
-    int    pool;			/* Pool we drew from */
-#ifdef XF86DRI
-    int    drm_fd;			/* Fd in DRM mode */
-    struct drm_via_mem drm;			/* DRM management object */
-#endif
-    void  *pVia;			/* VIA driver pointer */
-    FBLinearPtr linear;			/* X linear pool info ptr */
-#ifdef VIA_HAVE_EXA
-    ExaOffscreenArea *exa;
-#endif
-    ScrnInfoPtr pScrn;
-} VIAMem;
-
-typedef VIAMem *VIAMemPtr;
-
-
 
 typedef struct  {
     unsigned long   gdwVideoFlagSW;
     unsigned long   gdwVideoFlagMPEG;
     unsigned long   gdwAlphaEnabled;		/* For Alpha blending use*/
-
-    VIAMem HQVMem;
 
     CARD32 SrcFourCC;
     DDUPDATEOVERLAY UpdateOverlayBackup;    /* For HQVcontrol func use

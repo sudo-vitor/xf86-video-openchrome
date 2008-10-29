@@ -2842,7 +2842,6 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
         AvailFBArea.y2 = pScrn->virtualY + 1;
         pVia->FBFreeStart = (AvailFBArea.y2 + 1) * pVia->Bpl;
         xf86InitFBManager(pScreen, &AvailFBArea);
-        VIAInitLinear(pScreen);
         pVia->driSize = (pVia->FBFreeEnd - pVia->FBFreeStart - pVia->Bpl);
     }
 

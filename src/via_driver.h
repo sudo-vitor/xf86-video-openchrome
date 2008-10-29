@@ -150,7 +150,7 @@ typedef struct {
 
     
 typedef struct {
-    VIAMem memory_ref;
+    //    VIAMem memory_ref;
     unsigned long offsets[VIA_XVMC_MAX_BUFFERS];
 } ViaXvMCSurfacePriv;
 
@@ -380,8 +380,6 @@ typedef struct _VIA {
     int                 drmVerMajor;
     int                 drmVerMinor;
     int                 drmVerPL;
-    VIAMem              driOffScreenMem;
-    void *              driOffScreenSave;
     Bool                vtNotified;
 #endif
     Bool                agpEnable;
@@ -491,12 +489,6 @@ void viaRestoreVideo(ScrnInfoPtr pScrn);
 void viaSetColorSpace(VIAPtr pVia, int hue, int saturation, int brightness, int contrast,
 		      Bool reset);
 void VIAVidAdjustFrame(ScrnInfoPtr pScrn, int x, int y);
-
-/* In via_memory.c */
-void VIAFreeLinear(VIAMemPtr);
-int VIAAllocLinear(VIAMemPtr, ScrnInfoPtr, unsigned long);
-int viaOffscreenLinear(VIAMemPtr, ScrnInfoPtr, unsigned long);
-void VIAInitLinear(ScreenPtr pScreen);
 
 /* In via_xwmc.c */
 
