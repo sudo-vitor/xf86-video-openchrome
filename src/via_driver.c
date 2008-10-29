@@ -1701,11 +1701,11 @@ static Bool VIAEnterVT(int scrnIndex, int flags)
 	    ViaVbeSaveRestore(pScrn, MODE_SAVE);
 	else
 	    VIASave(pScrn);
-	ret = ViaVbeSetMode(pScrn, pScrn->currentMode); 
+	//	ret = ViaVbeSetMode(pScrn, pScrn->currentMode); 
     } else {
 	VIASave(pScrn);
-	ret = VIAWriteMode(pScrn, pScrn->currentMode);
     }
+    ret = VIAWriteMode(pScrn, pScrn->currentMode);
     vgaHWUnlock(hwp);
 
     VIASaveScreen(pScrn->pScreen, SCREEN_SAVER_ON);
@@ -2337,7 +2337,7 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
     vgaHWUnlock(hwp);
 
     pVia->FirstInit = TRUE;
-    if (pVia->pVbe) {
+    if (0 && pVia->pVbe) {
         vgaHWBlankScreen(pScrn, FALSE);
 	if (!ViaVbeSetMode(pScrn, pScrn->currentMode)) {
 	    vgaHWBlankScreen(pScrn, TRUE);
@@ -2592,6 +2592,7 @@ VIAWriteMode(ScrnInfoPtr pScrn, DisplayModePtr mode)
     pVia->OverlaySupported = FALSE;
 
     pScrn->vtSema = TRUE;
+    ErrorF("Writemode\n");
 
     if (!pVia->pVbe) {
 
@@ -2605,8 +2606,9 @@ VIAWriteMode(ScrnInfoPtr pScrn, DisplayModePtr mode)
 
     } else {
 
-        if (!ViaVbeSetMode(pScrn, mode))
+      if (!ViaVbeSetMode(pScrn, mode))
             return FALSE;
+
         /*
          * FIXME: pVia->IsSecondary is not working here.
          * We should be able to detect when the display
