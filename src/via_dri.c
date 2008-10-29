@@ -66,8 +66,8 @@ typedef struct
 
 static char VIAKernelDriverName[] = "via";
 static char VIAClientDriverName[] = "unichrome";
-static const ViaDRMVersion drmExpected = { 4, 0, 0 };
-static const ViaDRMVersion drmCompat = { 4, 0, 0 };
+static const ViaDRMVersion drmExpected = { 5, 0, 0 };
+static const ViaDRMVersion drmCompat = { 5, 0, 0 };
 
 static Bool VIAInitVisualConfigs(ScreenPtr pScreen);
 static Bool VIADRIMapInit(ScreenPtr pScreen, VIAPtr pVia);
