@@ -1063,7 +1063,6 @@ viaVideoFlip(VIAPtr pVia, int fourcc,
     unsigned long proReg = 0x200;
     uint64_t hqvFlag = VIA_BO_FLAG_HQV0;
     struct _HQVBuffer *hqvBuf = &pVia->swov.SWDevice.hqvBuf[DisplayBufferIndex];
-   
     int ret;
     RING_VARS;
     BEGIN_RING_H6(8);
@@ -1114,6 +1113,9 @@ viaVideoFlip(VIAPtr pVia, int fourcc,
         break;
     }
 
+    if (pVia->VideoEngine == VIDEO_ENGINE_CME) 
+	pVia->swov.hqvCtl |= HQV_GEN_IRQ;
+    
     OUT_RING_QW(HQV_CONTROL + proReg, 
 		(pVia->swov.hqvCtl & ~HQV_FLIP_ODD) | 
 		HQV_SW_FLIP | HQV_FLIP_STATUS);
