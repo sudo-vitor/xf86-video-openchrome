@@ -652,6 +652,23 @@ viaExaDoneSolidCopy(PixmapPtr pPixmap)
 }
 
 static void
+viaFreeScratchBuffers(VIAPtr pVia)
+{
+    struct _ViaOffscreenBuffer *entry;
+    struct _WSDriListHead *list;
+    struct _WSDriListHead *prev;
+
+    WSDRILISTFOREACHPREVSAFE(list, prev, &pVia->offscreen) {
+	entry = WSDRILISTENTRY(list, struct _ViaOffscreenBuffer, head);
+	if (entry->scratch) {
+	    WSDRILISTDEL(list);
+	    driBOUnReference(entry->buf);
+	    free(entry);
+	}
+    }
+}
+    
+static void
 viaExaDoneComposite(PixmapPtr pPixmap)
 {
     ScrnInfoPtr pScrn = xf86Screens[pPixmap->drawable.pScreen->myNum];
@@ -660,6 +677,8 @@ viaExaDoneComposite(PixmapPtr pPixmap)
 
     cb->inComposite = FALSE;
     FLUSH_RING;
+
+    viaFreeScratchBuffers(pVia);
 }
 
 
@@ -1023,7 +1042,6 @@ viaExaDownloadFromScreen(PixmapPtr pSrc, int x, int y, int w, int h,
 #endif
 
 #endif
-#if 0
 
 static Bool
 viaExaUploadToScratch(PixmapPtr pSrc, PixmapPtr pDst)
@@ -1033,37 +1051,42 @@ viaExaUploadToScratch(PixmapPtr pSrc, PixmapPtr pDst)
     char *src, *dst;
     unsigned w, wBytes, srcPitch, h;
     CARD32 dstPitch;
-    size = dstPitch * h;
+    struct _ViaOffscreenBuffer *entry;
+    int ret;
+    unsigned size;
 
-    if (!pVia->scratchAddr)
-        return FALSE;
+    entry = malloc(sizeof(*entry));
+    if (!entry)
+	return FALSE;
 
-    *pDst = *pSrc;
+    ret = driGenBuffers(pVia->mainPool, "Scratch buffer", 1, 
+			&entry->buf, 0, 
+			VIA_BO_FLAG_MEM_AGP |
+			DRM_BO_FLAG_MEM_VRAM |
+			DRM_BO_FLAG_READ, 0);
+    if (ret)
+	goto out_err0;
+
     w = pSrc->drawable.width;
     h = pSrc->drawable.height;
     wBytes = (w * pSrc->drawable.bitsPerPixel + 7) >> 3;
     dstPitch = (wBytes + 31) & ~31;
+    size = dstPitch * h;
+
+    ret = driBOData(entry->buf, size, NULL, NULL, 0);
+    if (ret)
+	goto out_err1;
+
+    dst = driBOMap(entry->buf, WS_DRI_MAP_WRITE);
+    if (dst == NULL)
+	goto out_err1;
+
+    *pDst = *pSrc;
     
-    
-
-
-    if (dstPitch * h > pVia->exaScratchSize * 1024) {
-        ErrorF("EXA UploadToScratch Failed %u %u %u %u\n",
-               dstPitch, h, dstPitch * h, pVia->exaScratchSize * 1024);
-        return FALSE;
-    }
-
     pDst->devKind = dstPitch;
-    pDst->devPrivate.ptr = dst = pVia->scratchAddr;
+    pDst->devPrivate.ptr = dst;
     src = pSrc->devPrivate.ptr;
     srcPitch = exaGetPixmapPitch(pSrc);
-
-    /*
-     * Copying to AGP needs not be HW accelerated.
-     * If scratch is in FB, we are without DRI and HW accel.
-     */
-
-    viaAccelSync(pScrn);
 
     while (h--) {
         memcpy(dst, src, wBytes);
@@ -1071,10 +1094,21 @@ viaExaUploadToScratch(PixmapPtr pSrc, PixmapPtr pDst)
         src += srcPitch;
     }
 
-    return TRUE;
-}
+    (void) driBOUnmap(entry->buf);
+    entry->size = size;
+    entry->virtual = pDst->devPrivate.ptr;
+    entry->scratch = TRUE;
 
-#endif
+    WSDRILISTADDTAIL(&entry->head, &pVia->offscreen);
+
+    return TRUE;
+
+  out_err1:
+    driBOUnReference(entry->buf);
+  out_err0:
+    free(entry);
+    return FALSE;
+}
 
 static Bool
 viaExaCheckComposite(int op, PicturePtr pSrcPicture,
@@ -1382,7 +1416,7 @@ viaInitExa(ScreenPtr pScreen)
    
 #endif /* XF86DRI */
 
-    pExa->UploadToScratch = NULL; /* viaExaUploadToScratch; */
+    pExa->UploadToScratch = viaExaUploadToScratch;
 
     if (!pVia->noComposite) {
         pExa->CheckComposite = viaExaCheckComposite;
@@ -1468,6 +1502,8 @@ viaInitAccel(ScreenPtr pScreen)
     }	
     driBOUnmap(pVia->exaMem.buf);
     pVia->exaMem.size = driBOSize(pVia->exaMem.buf);
+    pVia->exaMem.scratch = FALSE;
+    pVia->front.scratch = FALSE;
 
     WSDRIINITLISTHEAD(&pVia->offscreen);
     WSDRILISTADDTAIL(&pVia->front.head, &pVia->offscreen);
@@ -1536,6 +1572,9 @@ viaExitAccel(ScreenPtr pScreen)
     xfree(pVia->exaDriverPtr);
     pVia->exaDriverPtr = NULL;
     viaTearDownCBuffer(&pVia->cb);
+    viaFreeScratchBuffers(pVia);
+    WSDRILISTDELINIT(&pVia->front.head);
+    WSDRILISTDELINIT(&pVia->exaMem.head);
     driDeleteBuffers(1, &pVia->exaMem.buf);
     return;
 }

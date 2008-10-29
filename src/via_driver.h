@@ -236,6 +236,7 @@ struct _ViaOffscreenBuffer {
     struct _DriBufferObject *buf;
     char *virtual;
     unsigned long size;
+    Bool scratch;
 };
 
 
