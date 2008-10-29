@@ -1827,7 +1827,7 @@ VIAEnterVT(int scrnIndex, int flags)
 	return FALSE;
     }
 
-    pVia->displayOffset = wsbmBOOffset(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY]);
+    pVia->displayOffset = wsbmBOOffsetHint(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY]);
 
     pScrn->AdjustFrame(scrnIndex, pScrn->frameX0, pScrn->frameY0, 0);
     retVal = wsbmBOSetStatus(pVia->scanout.bufs[VIA_SCANOUT_CURSOR],
@@ -1845,7 +1845,7 @@ VIAEnterVT(int scrnIndex, int flags)
     if (!pVia->cursorMap)
 	return FALSE;
 
-    pVia->cursorOffset = wsbmBOOffset(pVia->scanout.bufs[VIA_SCANOUT_CURSOR]);
+    pVia->cursorOffset = wsbmBOOffsetHint(pVia->scanout.bufs[VIA_SCANOUT_CURSOR]);
 
     /* A Patch for APM suspend/resume, when HWCursor has garbage. */
     if (pVia->hwcursor)
@@ -2585,7 +2585,7 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
     pVia->front.virtual = pVia->displayMap;
     pVia->front.size = wsbmBOSize(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY]);
 
-    pVia->displayOffset = wsbmBOOffset(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY]);
+    pVia->displayOffset = wsbmBOOffsetHint(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY]);
 
     pScrn->AdjustFrame(scrnIndex, pScrn->frameX0, pScrn->frameY0, 0);
 

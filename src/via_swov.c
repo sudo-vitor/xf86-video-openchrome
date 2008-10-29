@@ -964,7 +964,7 @@ AddHQVSurface(ScrnInfoPtr pScrn, unsigned int numbuf, CARD32 fourcc)
     ViaYUVFillBlack(pVia, hqvMap, fbsize);
     wsbmBOUnmap(pVia->scanout.bufs[VIA_SCANOUT_OVERLAY]);
 
-    addr = wsbmBOOffset(pVia->scanout.bufs[VIA_SCANOUT_OVERLAY]);
+    addr = wsbmBOOffsetHint(pVia->scanout.bufs[VIA_SCANOUT_OVERLAY]);
 
     for (i = 0; i < numbuf; i++) {
         pVia->swov.overlayRecordV1.dwHQVAddr[i] = addr;
@@ -1040,7 +1040,7 @@ CreateSurface(ScrnInfoPtr pScrn, CARD32 FourCC, CARD16 Width,
 	    if (hqvBuf->virtual == NULL)
 		goto out_err;
 
-	    hqvBuf->pinnedOffset = wsbmBOOffset(hqvBuf->buf);
+	    hqvBuf->pinnedOffset = wsbmBOOffsetHint(hqvBuf->buf);
 	    hqvBuf->deltaY = 0;
 	    if (isplanar) {
 		hqvBuf->deltaU = hqvBuf->deltaY + pitch*Height;
@@ -1872,7 +1872,7 @@ Upd_Video(ScrnInfoPtr pScrn, unsigned long videoFlag,
 	     */
 
 	    ret = wsbmBOSetStatus(hqvBuf->buf, WSBM_PL_FLAG_NO_EVICT, 0);
-	    hqvBuf->pinnedOffset = wsbmBOOffset(hqvBuf->buf);
+	    hqvBuf->pinnedOffset = wsbmBOOffsetHint(hqvBuf->buf);
 
 	    viaSetHqvSrc(pScrn, pVia->swov.SrcFourCC, hqvBuf);	    
             FlushVidRegBuffer(pVia);

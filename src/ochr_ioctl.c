@@ -242,7 +242,7 @@ ochr_yuv_relocation(struct _ViaCommandBuffer *cBuf,
     val_req = ochrValReq(node);
 
     if (!(val_req->presumed_flags & VIA_USE_PRESUMED)) {
-	val_req->presumed_gpu_offset = (uint64_t) wsbmBOOffset(buffer) - 
+	val_req->presumed_gpu_offset = (uint64_t) wsbmBOOffsetHint(buffer) - 
 	    wsbmBOPoolOffset(buffer);
 	val_req->presumed_flags |= VIA_USE_PRESUMED;
     }
@@ -329,7 +329,7 @@ ochr_2d_relocation(struct _ViaCommandBuffer *cBuf,
     val_req = ochrValReq(node);
 
     if (!(val_req->presumed_flags & VIA_USE_PRESUMED)) {
-	val_req->presumed_gpu_offset = (uint64_t) wsbmBOOffset(buffer);
+	val_req->presumed_gpu_offset = (uint64_t) wsbmBOOffsetHint(buffer);
 	val_req->presumed_flags |= VIA_USE_PRESUMED;
     }
 
@@ -447,8 +447,8 @@ ochr_tex_relocation(struct _ViaCommandBuffer *cBuf,
 	if (!(val_req->presumed_flags & VIA_USE_PRESUMED)) {
 	    val_req->presumed_flags = VIA_USE_PRESUMED;
 	    val_req->presumed_gpu_offset =
-		(uint64_t) wsbmBOOffset(addr[i].buf);
-	    if (wsbmBOPlacement(addr[i].buf) &
+		(uint64_t) wsbmBOOffsetHint(addr[i].buf);
+	    if (wsbmBOPlacementHint(addr[i].buf) &
 		(WSBM_PL_FLAG_TT | VIA_PL_FLAG_AGP))
 		val_req->presumed_flags |= VIA_PRESUMED_AGP;	    
 	}
@@ -538,7 +538,7 @@ ochr_dest_relocation(struct _ViaCommandBuffer *cBuf,
 
     if (!(val_req->presumed_flags & VIA_USE_PRESUMED)) {
         wsbmReadLockKernelBO();
-	val_req->presumed_gpu_offset = (uint64_t) wsbmBOOffset(dstBuffer);
+	val_req->presumed_gpu_offset = (uint64_t) wsbmBOOffsetHint(dstBuffer);
 	wsbmReadUnlockKernelBO();
 	val_req->presumed_flags |= VIA_USE_PRESUMED;
     }

@@ -76,7 +76,7 @@ VIAHWCursorInit(ScreenPtr pScreen)
     if (pVia->cursorMap == NULL)
 	return FALSE;
 
-    pVia->cursorOffset = wsbmBOOffset(pVia->scanout.bufs[VIA_SCANOUT_CURSOR]);
+    pVia->cursorOffset = wsbmBOOffsetHint(pVia->scanout.bufs[VIA_SCANOUT_CURSOR]);
     memset(pVia->cursorMap, 0x00, VIA_CURSOR_SIZE);
 
     if (pVia->Chipset == VIA_CX700 ||
