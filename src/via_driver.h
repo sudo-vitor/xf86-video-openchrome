@@ -420,6 +420,15 @@ typedef struct
 
     ScrnInfoPtr pSecondaryScrn;
     ScrnInfoPtr pPrimaryScrn;
+
+    /*
+     * Try to open DRM at device detection.
+     */
+
+#ifdef XF86DRI
+    Bool hasDrm;
+    int drmFD;
+#endif
 } VIAEntRec, *VIAEntPtr;
 
 /* Prototypes. */

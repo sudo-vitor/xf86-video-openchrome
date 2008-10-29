@@ -27,9 +27,9 @@
 BUILT_SOURCES = svnversion.h
 EXTRA_DIST = svnversion.h
 CONFIG_CLEAN_FILES= svnversion.h
-AM_CFLAGS = @XORG_CFLAGS@ @DRI_CFLAGS@
+AM_CFLAGS = @XORG_CFLAGS@ @DRI_CFLAGS@ @libwsdri_CFLAGS@
 openchrome_drv_la_LTLIBRARIES = openchrome_drv.la
-openchrome_drv_la_LDFLAGS = -module -avoid-version
+openchrome_drv_la_LDFLAGS = -module -avoid-version @libwsdri_LIBS@
 openchrome_drv_ladir = @moduledir@/drivers
 
 openchrome_drv_la_SOURCES = \
@@ -67,7 +67,10 @@ openchrome_drv_la_SOURCES = \
          via_video.h \
          via_vt162x.c \
          via_vt162x.h \
-         via_xvpriv.h
+         via_xvpriv.h \
+	 ochr_ws_driver.h \
+	 ochr_ws_driver.c
+
 
 if DRI
 openchrome_drv_la_SOURCES += \

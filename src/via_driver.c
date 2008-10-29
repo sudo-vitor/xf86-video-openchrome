@@ -41,6 +41,8 @@
 #include "via_driver.h"
 #include "via_video.h"
 #include "via.h"
+#include "ochr_ws_driver.h"
+#include <ws_dri_bufmgr.h>
 
 #ifdef XF86DRI
 #include "dri.h"
@@ -703,6 +705,10 @@ VIAProbe(DriverPtr drv, int flags)
                         pVIAEnt->BypassSecondary = FALSE;
                         pVIAEnt->HasSecondary = FALSE;
                         pVIAEnt->IsSecondaryRestored = FALSE;
+#ifdef XF86DRI
+			pVIAEnt->hasDrm = FALSE;
+			pVIAEnt->drmFD = -1;
+#endif
                     }
                 }
                 instance++;
@@ -865,6 +871,7 @@ VIAPreInit(ScrnInfoPtr pScrn, int flags)
     MessageType from = X_DEFAULT;
     ClockRangePtr clockRanges;
     char *s = NULL;
+    int ret;
 
 #ifndef USE_FB
     char *mod = NULL;
@@ -884,6 +891,7 @@ VIAPreInit(ScrnInfoPtr pScrn, int flags)
 
     if (flags & PROBE_DETECT)
         return FALSE;
+
 
     if (!xf86LoadSubModule(pScrn, "vgahw"))
         return FALSE;
@@ -950,6 +958,12 @@ VIAPreInit(ScrnInfoPtr pScrn, int flags)
             pVIAEnt->HasSecondary = FALSE;
             pVIAEnt->RestorePrimary = FALSE;
             pVIAEnt->IsSecondaryRestored = FALSE;
+	    ret = wsDriInit(wsDriNullThreadFuncs(), ochrVNodeFuncs());
+	    if (ret) {
+		xfree(pEnt);
+		VIAFreeRec(pScrn);
+		return FALSE;
+	    }		
         }
     } else {
         pVia->sharedData = xnfcalloc(sizeof(ViaSharedRec), 1);
