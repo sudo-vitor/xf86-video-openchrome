@@ -423,9 +423,6 @@ typedef struct
 } VIAEntRec, *VIAEntPtr;
 
 /* Prototypes. */
-#if defined(XF86DRI) || defined(VIA_HAVE_EXA)
-void VIAInitialize3DEngine(ScrnInfoPtr pScrn);
-#endif 
 
 /* In via_cursor.c. */
 Bool VIAHWCursorInit(ScreenPtr pScreen);
