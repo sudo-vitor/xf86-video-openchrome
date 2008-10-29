@@ -64,7 +64,6 @@ VIAHWCursorInit(ScreenPtr pScreen)
     ScrnInfoPtr pScrn = xf86Screens[pScreen->myNum];
     VIAPtr pVia = VIAPTR(pScrn);
     xf86CursorInfoPtr infoPtr;
-    CARD32 temp;
     int ret;
 
     ret = driBOData(pVia->scanout.bufs[VIA_SCANOUT_CURSOR], 

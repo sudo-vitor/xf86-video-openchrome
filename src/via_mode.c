@@ -34,6 +34,7 @@
 #include "config.h"
 #endif
 
+#include <unistd.h>
 #include "via.h"
 #include "via_driver.h"
 #include "via_vgahw.h"
@@ -1575,7 +1576,7 @@ ViaModePrimaryVGA(ScrnInfoPtr pScrn, DisplayModePtr mode)
 static CARD32
 ViaComputeDotClock(unsigned clock)
 {
-    double fvco, fout, fref, err, minErr;
+    double fout, fref, err, minErr;
     CARD32 dr, dn, dm, maxdm, maxdn;
     CARD32 factual, best;
 
@@ -1676,7 +1677,8 @@ ViaModeDotClockTranslate(ScrnInfoPtr pScrn, DisplayModePtr mode)
 
         DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO,
                          "ViaComputeDotClock %d : %04x : %04x\n",
-                         mode->Clock, best1, best2));
+                         mode->Clock, (unsigned) best1, 
+			 (unsigned) best2));
         return best2;
     } else {
         for (i = 0; ViaDotClocks[i].DotClock; i++)

@@ -432,7 +432,6 @@ ViaXvMCCreateContext(ScrnInfoPtr pScrn, XvMCContextPtr pContext,
     VIAPtr pVia = VIAPTR(pScrn);
     ViaXvMCPtr vXvMC = &(pVia->xvmc);
     DRIInfoPtr pDRIInfo = pVia->pDRIInfo;
-    VIADRIPtr pViaDRI = pDRIInfo->devPrivate;
     ViaXvMCCreateContextRec *contextRec;
     unsigned ctxNo;
     ViaXvMCContextPriv *cPriv;
@@ -493,8 +492,7 @@ ViaXvMCCreateContext(ScrnInfoPtr pScrn, XvMCContextPtr pContext,
     contextRec->minor = VIAXVMC_MINOR;
     contextRec->pl = VIAXVMC_PL;
     contextRec->initAttrs = vx->xvAttr;
-    contextRec->useAGP = (pViaDRI->ringBufActive &&
-                          ((pVia->Chipset == VIA_CLE266) ||
+    contextRec->useAGP = (((pVia->Chipset == VIA_CLE266) ||
                            (pVia->Chipset == VIA_KM400) ||
                            (pVia->Chipset == VIA_PM800) ||
                            (pVia->Chipset == VIA_P4M900)));

@@ -286,54 +286,6 @@ viaAccelSync(ScrnInfoPtr pScrn)
 }
 
 /*
- * Switch 2D state clipping on.
- */
-static void
-viaSetClippingRectangle(ScrnInfoPtr pScrn, int x1, int y1, int x2, int y2)
-{
-    VIAPtr pVia = VIAPTR(pScrn);
-    ViaTwodContext *tdc = &pVia->td;
-
-    tdc->clipping = TRUE;
-    tdc->clipX1 = (x1 & 0xFFFF);
-    tdc->clipY1 = y1;
-    tdc->clipX2 = (x2 & 0xFFFF);
-    tdc->clipY2 = y2;
-}
-
-/*
- * Switch 2D state clipping off.
- */
-static void
-viaDisableClipping(ScrnInfoPtr pScrn)
-{
-    VIAPtr pVia = VIAPTR(pScrn);
-    ViaTwodContext *tdc = &pVia->td;
-
-    tdc->clipping = FALSE;
-}
-
-/*
- * Emit clipping borders to the command buffer and update the 2D context
- * current command with clipping info.
- */
-static int
-viaAccelClippingHelper(ViaCommandBuffer * cb, int refY, ViaTwodContext * tdc)
-{
-    if (tdc->clipping) {
-        refY = (refY < tdc->clipY1) ? refY : tdc->clipY1;
-        tdc->cmd |= VIA_GEC_CLIP_ENABLE;
-        BEGIN_RING(4);
-        OUT_RING_H1(VIA_REG_CLIPTL, ((tdc->clipY1 - refY) << 16) | tdc->clipX1);
-        OUT_RING_H1(VIA_REG_CLIPBR, ((tdc->clipY2 - refY) << 16) | tdc->clipX2);
-	ADVANCE_RING;
-    } else {
-        tdc->cmd &= ~VIA_GEC_CLIP_ENABLE;
-    }
-    return refY;
-}
-
-/*
  * Emit a solid blit operation to the command buffer. 
  */
 static void
@@ -536,7 +488,6 @@ static struct _ViaOffscreenBuffer *
 viaInBuffer(struct _WSDriListHead *head, void *ptr)
 {
     struct _ViaOffscreenBuffer *entry;
-    struct _DriBufferObject *buf;
     struct _WSDriListHead *list;
     unsigned long offset;
 
@@ -1316,7 +1267,7 @@ viaInitExa(ScreenPtr pScreen)
 
     pExa->exa_major = EXA_VERSION_MAJOR;
     pExa->exa_minor = EXA_VERSION_MINOR;
-    pExa->memoryBase = pVia->exaMem.virtual;
+    pExa->memoryBase = (unsigned char *) pVia->exaMem.virtual;
     pExa->memorySize = pVia->exaMem.size;
     pExa->offScreenBase = 0;
     pExa->pixmapOffsetAlign = 32;
@@ -1374,8 +1325,6 @@ viaInitAccel(ScreenPtr pScreen)
 {
     ScrnInfoPtr pScrn = xf86Screens[pScreen->myNum];
     VIAPtr pVia = VIAPTR(pScrn);
-    BoxRec AvailFBArea;
-    int maxY;
     Bool nPOTSupported;
     int ret;
 
@@ -1518,7 +1467,6 @@ viaFinishInitAccel(ScreenPtr pScreen)
     VIAPtr pVia = VIAPTR(pScrn);
 
 #ifdef XF86DRI
-    int size, ret;
 
     if (pVia->directRenderingEnabled && pVia->useEXA) {
 

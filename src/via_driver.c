@@ -707,27 +707,6 @@ VIAProbe(DriverPtr drv, int flags)
 } /* VIAProbe */
 #endif /* !XSERVER_LIBPCIACCESS */
 
-#ifdef XF86DRI
-static void
-kickVblank(ScrnInfoPtr pScrn)
-{
-    /*
-     * Switching mode will clear registers that make vblank
-     * interrupts happen. If the driver thinks interrupts
-     * are enabled, make sure vblank interrupts go through.
-     * registers are not documented in VIA docs.
-     */
-
-    VIAPtr pVia = VIAPTR(pScrn);
-    vgaHWPtr hwp = VGAHWPTR(pScrn);
-    VIADRIPtr pVIADRI = pVia->pDRIInfo->devPrivate;
-
-    if (pVIADRI->irqEnabled) {
-        hwp->writeCrtc(hwp, 0x11, hwp->readCrtc(hwp, 0x11) | 0x30);
-    }
-}
-#endif
-
 static int
 LookupChipSet(PciChipsets *pset, int chipSet)
 {
@@ -779,7 +758,6 @@ VIASetupDefaultOptions(ScrnInfoPtr pScrn)
     pVia->noComposite = FALSE;
     pVia->hwcursor = TRUE;
     pVia->VQEnable = TRUE;
-    pVia->DRIIrqEnable = TRUE;
     pVia->agpEnable = TRUE;
     pVia->dma2d = TRUE;
     pVia->dmaXV = TRUE;
@@ -803,11 +781,9 @@ VIASetupDefaultOptions(ScrnInfoPtr pScrn)
         case VIA_KM400:
             /* IRQ is not broken on KM400A, but testing (pVia->ChipRev < 0x80)
              * is not enough to make sure we have an older, broken KM400. */
-            pVia->DRIIrqEnable = FALSE;
             break;
         case VIA_K8M800:
             pVia->agpEnable = FALSE;
-            pVia->DRIIrqEnable = FALSE;
             break;
         case VIA_PM800:
             pVia->VideoEngine = VIDEO_ENGINE_CME;
@@ -1123,6 +1099,8 @@ VIAPreInit(ScrnInfoPtr pScrn, int flags)
             break;
         default:
             if (pScrn->videoRam < 16384 || pScrn->videoRam > 65536) {
+		hwp = VGAHWPTR(pScrn);
+
                 xf86DrvMsg(pScrn->scrnIndex, X_WARNING,
                            "Using old memory-detection method.\n");
                 bMemSize = hwp->readSeq(hwp, 0x39);
@@ -1240,15 +1218,6 @@ VIAPreInit(ScrnInfoPtr pScrn, int flags)
     xf86DrvMsg(pScrn->scrnIndex, from,
                "GPU virtual command queue will be %s.\n",
                (pVia->VQEnable) ? "enabled" : "disabled");
-
-    //pVia->DRIIrqEnable = TRUE;
-    from = xf86GetOptValBool(VIAOptions, OPTION_DISABLEIRQ, &pVia->DRIIrqEnable)
-            ? X_CONFIG : X_DEFAULT;
-    if (from == X_CONFIG)
-        pVia->DRIIrqEnable = !pVia->DRIIrqEnable;
-    xf86DrvMsg(pScrn->scrnIndex, from,
-               "DRI IRQ will be %s if DRI is enabled.\n",
-               (pVia->DRIIrqEnable) ? "enabled" : "disabled");
 
     //pVia->agpEnable = FALSE;
     from = xf86GetOptValBool(VIAOptions, OPTION_AGP_DMA, &pVia->agpEnable)
@@ -1905,13 +1874,6 @@ VIAEnterVT(int scrnIndex, int flags)
     if (!pVia->IsSecondary)
         viaRestoreVideo(pScrn);
 
-#ifdef XF86DRI
-    if (pVia->directRenderingEnabled) {
-        kickVblank(pScrn);
-        viaDRIOffscreenRestore(pScrn);
-    }
-#endif
-
     if (pVia->NoAccel) {
 	memset(pVia->displayMap, 0x00, pVia->Bpl * pScrn->virtualY);
     } else {
@@ -1988,7 +1950,6 @@ VIALeaveVT(int scrnIndex, int flags)
     if (pVia->directRenderingEnabled) {
 	struct drm_via_vt vt;
 
-	viaDRIOffscreenSave(pScrn);
 	vt.enter = 0;
 
 	if (drmCommandWrite(pVia->drmFD, DRM_VIA_VT,
@@ -2486,7 +2447,6 @@ static void
 VIALoadRgbLut(ScrnInfoPtr pScrn, int numColors, int *indices, LOCO *colors,
               VisualPtr pVisual)
 {
-    VIAPtr pVia = VIAPTR(pScrn);
     vgaHWPtr hwp = VGAHWPTR(pScrn);
 
     int i, j, index;
@@ -2840,10 +2800,8 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
         pVia->directRenderingEnabled = VIADRIFinishScreenInit(pScreen);
 
     if (pVia->directRenderingEnabled) {
-        VIADRIPtr pVIADRI = pVia->pDRIInfo->devPrivate;
-
         xf86DrvMsg(pScrn->scrnIndex, X_INFO, "direct rendering enabled\n");
-        pVia->agpDMA = pVia->dma2d && pVIADRI->ringBufActive;
+        pVia->agpDMA = pVia->dma2d;
     } else {
         xf86DrvMsg(pScrn->scrnIndex, X_INFO, "direct rendering disabled\n");
     }
@@ -3179,17 +3137,10 @@ VIASwitchMode(int scrnIndex, DisplayModePtr mode, int flags)
 
     viaAccelSync(pScrn);
 
-#ifdef XF86DRI
-    if (pVia->directRenderingEnabled)
-        VIADRIRingBufferCleanup(pScrn);
-#endif
-
     ret = VIAWriteMode(pScrn, mode);
 
 #ifdef XF86DRI
     if (pVia->directRenderingEnabled) {
-        kickVblank(pScrn);
-        VIADRIRingBufferInit(pScrn);
         DRIUnlock(screenInfo.screens[scrnIndex]);
     }
 #endif

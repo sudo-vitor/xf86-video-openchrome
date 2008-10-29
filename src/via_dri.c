@@ -70,7 +70,6 @@ static const ViaDRMVersion drmExpected = { 4, 0, 0 };
 static const ViaDRMVersion drmCompat = { 4, 0, 0 };
 
 static Bool VIAInitVisualConfigs(ScreenPtr pScreen);
-static Bool VIADRIFBInit(ScreenPtr pScreen, VIAPtr pVia);
 static Bool VIADRIKernelInit(ScreenPtr pScreen, VIAPtr pVia);
 static Bool VIADRIMapInit(ScreenPtr pScreen, VIAPtr pVia);
 
@@ -88,104 +87,6 @@ static void VIADRIInitBuffers(WindowPtr pWin, RegionPtr prgn, CARD32 index);
 static void VIADRIMoveBuffers(WindowPtr pParent, DDXPointRec ptOldOrg,
                               RegionPtr prgnSrc, CARD32 index);
 
-
-static void
-VIADRIIrqInit(ScrnInfoPtr pScrn, VIADRIPtr pVIADRI)
-{
-    VIAPtr pVia = VIAPTR(pScrn);
-
-    pVIADRI->irqEnabled = drmGetInterruptFromBusID
-            (pVia->drmFD,
-#ifdef XSERVER_LIBPCIACCESS
-             ((pVia->PciInfo->domain << 8) | pVia->PciInfo->bus),
-             pVia->PciInfo->dev, pVia->PciInfo->func
-#else
-             ((pciConfigPtr)pVia->PciInfo->thisCard)->busnum,
-             ((pciConfigPtr)pVia->PciInfo->thisCard)->devnum,
-             ((pciConfigPtr)pVia->PciInfo->thisCard)->funcnum
-#endif
-            );
-    if ((drmCtlInstHandler(pVia->drmFD, pVIADRI->irqEnabled))) {
-        xf86DrvMsg(pScrn->scrnIndex, X_WARNING,
-                   "[drm] Failure adding IRQ handler. "
-                   "Falling back to IRQ-free operation.\n");
-        pVIADRI->irqEnabled = 0;
-    }
-
-    if (pVIADRI->irqEnabled)
-        xf86DrvMsg(pScrn->scrnIndex, X_INFO,
-                   "[drm] IRQ handler installed, using IRQ %d.\n",
-                   pVIADRI->irqEnabled);
-}
-
-static void
-VIADRIIrqExit(ScrnInfoPtr pScrn, VIADRIPtr pVIADRI)
-{
-    VIAPtr pVia = VIAPTR(pScrn);
-
-    if (pVIADRI->irqEnabled) {
-        if (drmCtlUninstHandler(pVia->drmFD)) {
-            xf86DrvMsg(pScrn->scrnIndex, X_INFO,
-                       "[drm] IRQ handler uninstalled.\n");
-        } else {
-            xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
-                       "[drm] Could not uninstall IRQ handler.\n");
-        }
-    }
-}
-
-static Bool
-VIADRIFBInit(ScreenPtr pScreen, VIAPtr pVia)
-{
-    ScrnInfoPtr pScrn = xf86Screens[pScreen->myNum];
-    int FBSize = pVia->driSize;
-    int FBOffset;
-    VIADRIPtr pVIADRI = pVia->pDRIInfo->devPrivate;
-
-    if (FBSize < pVia->Bpl) {
-        xf86DrvMsg(pScreen->myNum, X_ERROR,
-                   "[drm] No DRM framebuffer heap available.\n"
-                   "[drm] Please increase the frame buffer\n"
-                   "[drm] memory area in the BIOS. Disabling DRI.\n");
-        return FALSE;
-    }
-    if (FBSize < 3 * (pScrn->virtualY * pVia->Bpl)) {
-        xf86DrvMsg(pScreen->myNum, X_WARNING,
-                   "[drm] The DRM heap and pixmap cache memory may be too\n"
-                   "[drm] small for optimal performance. Please increase\n"
-                   "[drm] the frame buffer memory area in the BIOS.\n");
-    }
-
-    pVia->driOffScreenMem.pool = 0;
-    if (Success != viaOffScreenLinear(&pVia->driOffScreenMem, pScrn, FBSize)) {
-        xf86DrvMsg(pScreen->myNum, X_ERROR,
-                   "[drm] Failed to allocate offscreen frame buffer area.\n");
-        return FALSE;
-    }
-
-    FBOffset = pVia->driOffScreenMem.base;
-
-    pVIADRI->fbOffset = FBOffset;
-    pVIADRI->fbSize = FBSize;
-
-    {
-        struct drm_via_fb fb;
-
-        fb.offset = FBOffset;
-        fb.size = FBSize;
-
-        if (drmCommandWrite(pVia->drmFD, DRM_VIA_FB_INIT, &fb,
-                            sizeof(struct drm_via_fb)) < 0) {
-            xf86DrvMsg(pScreen->myNum, X_ERROR,
-                       "[drm] Failed to initialize frame buffer area.\n");
-            return FALSE;
-        } else {
-            xf86DrvMsg(pScreen->myNum, X_INFO,
-                       "[drm] Using %d bytes for DRM memory heap.\n", FBSize);
-            return TRUE;
-        }
-    }
-}
 
 static Bool
 VIAInitVisualConfigs(ScreenPtr pScreen)
@@ -497,7 +398,6 @@ VIADRICloseScreen(ScreenPtr pScreen)
 
     if (pVia->pDRIInfo) {
         if ((pVIADRI = (VIADRIPtr) pVia->pDRIInfo->devPrivate)) {
-            VIADRIIrqExit(pScrn, pVIADRI);
             xfree(pVIADRI);
             pVia->pDRIInfo->devPrivate = NULL;
         }
@@ -582,15 +482,6 @@ VIADRIFinishScreenInit(ScreenPtr pScreen)
     pVIADRI->scrnX = pVIADRI->width;
     pVIADRI->scrnY = pVIADRI->height;
 
-    /* Initialize IRQ. */
-    if (pVia->DRIIrqEnable)
-        VIADRIIrqInit(pScrn, pVIADRI);
-#if 0
-    pVIADRI->ringBufActive = 0;
-    VIADRIRingBufferInit(pScrn);
-#else
-    pVIADRI->ringBufActive = 1;
-#endif    
     return TRUE;
 }
 
@@ -671,104 +562,3 @@ VIADRIMapInit(ScreenPtr pScreen, VIAPtr pVia)
     return TRUE;
 }
 
-#define DRM_VIA_BLIT_MAX_SIZE (2048*2048*4)
-
-static int
-viaDRIFBMemcpy(int fd, unsigned long fbOffset, unsigned char *addr,
-               unsigned long size, Bool toFB)
-{
-    int err;
-    struct drm_via_dmablit blit;
-    unsigned long curSize;
-
-    do {
-        curSize = (size > DRM_VIA_BLIT_MAX_SIZE) ? DRM_VIA_BLIT_MAX_SIZE : size;
-
-        blit.num_lines = 1;
-        blit.line_length = curSize;
-        blit.fb_addr = fbOffset;
-        blit.fb_stride = ALIGN_TO(curSize, 16);
-        blit.mem_addr = addr;
-        blit.mem_stride = blit.fb_stride;
-        blit.to_fb = (toFB) ? 1 : 0;
-
-        do {
-            err = drmCommandWriteRead(fd, DRM_VIA_DMA_BLIT,
-                                      &blit, sizeof(blit));
-        } while (-EAGAIN == err);
-        if (err)
-            return err;
-
-        do {
-            err = drmCommandWriteRead(fd, DRM_VIA_BLIT_SYNC,
-                                      &blit.sync, sizeof(blit.sync));
-        } while (-EAGAIN == err);
-        if (err)
-            return err;
-
-        fbOffset += curSize;
-        addr += curSize;
-        size -= curSize;
-
-    } while (size > 0);
-    return 0;
-}
-
-
-void
-viaDRIOffscreenSave(ScrnInfoPtr pScrn)
-{
-    VIAPtr pVia = VIAPTR(pScrn);
-    VIADRIPtr pVIADRI = pVia->pDRIInfo->devPrivate;
-    unsigned char *saveAddr = pVia->FBBase + pVIADRI->fbOffset;
-    unsigned long saveSize = pVIADRI->fbSize;
-    unsigned long curSize;
-    int err;
-
-    if (pVia->driOffScreenSave)
-        free(pVia->driOffScreenSave);
-
-    pVia->driOffScreenSave = malloc(saveSize + 16);
-    if (pVia->driOffScreenSave) {
-        if ((pVia->drmVerMajor == 2) && (pVia->drmVerMinor >= 8) ||
-	    (pVia->drmVerMajor > 2)) {
-            err = viaDRIFBMemcpy(pVia->drmFD, pVIADRI->fbOffset,
-                                 (unsigned char *)
-                                 ALIGN_TO((unsigned long)
-                                          pVia->driOffScreenSave, 16),
-                                 saveSize, FALSE);
-            if (!err)
-                return;
-
-            xf86DrvMsg(pScrn->scrnIndex, X_WARNING,
-                       "Hardware backup of DRI offscreen memory failed: %s.\n"
-                       "\tUsing slow software backup instead.\n",
-                       strerror(-err));
-        }
-        memcpy((void *)ALIGN_TO((unsigned long)pVia->driOffScreenSave, 16),
-               saveAddr, saveSize);
-
-    } else {
-        xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
-                   "Out of memory trying to backup DRI offscreen memory.\n");
-    }
-    return;
-}
-
-void
-viaDRIOffscreenRestore(ScrnInfoPtr pScrn)
-{
-    VIAPtr pVia = VIAPTR(pScrn);
-    VIADRIPtr pVIADRI = pVia->pDRIInfo->devPrivate;
-
-    unsigned char *saveAddr = pVia->FBBase + pVIADRI->fbOffset;
-    unsigned long saveSize = pVIADRI->fbSize;
-
-    if (pVia->driOffScreenSave) {
-        memcpy(saveAddr,
-               (void *)ALIGN_TO((unsigned long)pVia->driOffScreenSave, 16),
-               saveSize);
-        free(pVia->driOffScreenSave);
-        pVia->driOffScreenSave = NULL;
-    }
-}

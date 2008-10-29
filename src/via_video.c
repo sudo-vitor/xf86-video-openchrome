@@ -662,9 +662,6 @@ viaVideoFillPixmap(ScrnInfoPtr pScrn,
 {
     int i;
 
-    ErrorF("pitch %lu, depth %d, x %d, y %d, w %d h %d, color 0x%08x\n",
-            pitch, depth, x, y, w, h, color);
-
     depth = (depth + 7) >> 3;
 
     base += y*pitch + x*depth;
@@ -719,7 +716,6 @@ viaPaintColorkey(ScrnInfoPtr pScrn, viaPortPrivPtr pPriv, RegionPtr clipBoxes,
         PixmapPtr pPix = (pScrn->pScreen->GetWindowPixmap)((WindowPtr) pDraw);
         unsigned long pitch = pPix->devKind;
         long offset = (long) pPix->devPrivate.ptr - (long) pVia->FBBase;
-        int x,y;
         BoxPtr pBox;
         int nBox;
 

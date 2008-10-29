@@ -384,7 +384,6 @@ typedef struct _VIA {
     void *              driOffScreenSave;
     Bool                vtNotified;
 #endif
-    Bool		DRIIrqEnable;
     Bool                agpEnable;
     Bool                dma2d;
     Bool                dmaXV;
@@ -521,10 +520,6 @@ void ViaI2CInit(ScrnInfoPtr pScrn);
 Bool VIADRIScreenInit(ScreenPtr pScreen);
 void VIADRICloseScreen(ScreenPtr pScreen);
 Bool VIADRIFinishScreenInit(ScreenPtr pScreen);
-void VIADRIRingBufferCleanup(ScrnInfoPtr pScrn);
-Bool VIADRIRingBufferInit(ScrnInfoPtr pScrn);
-void viaDRIOffscreenRestore(ScrnInfoPtr pScrn);
-void viaDRIOffscreenSave(ScrnInfoPtr pScrn);
 
 #endif /* XF86DRI */
 

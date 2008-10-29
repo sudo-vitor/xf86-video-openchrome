@@ -63,8 +63,6 @@ typedef struct {
     int irqEnabled;
     unsigned int scrnX, scrnY;
     int sarea_priv_offset;
-    int ringBufActive;
-    unsigned int reg_pause_addr;
 } VIADRIRec, *VIADRIPtr;
 
 typedef struct {
