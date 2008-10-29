@@ -2331,7 +2331,7 @@ viaInitAccel(ScreenPtr pScreen)
         pVia->CursorStart = pVia->FBFreeEnd;
     }
 
-    viaInitialize2DEngine(pScrn);
+    //    viaInitialize2DEngine(pScrn);
 
     /* Sync marker space. */
     pVia->FBFreeEnd -= 32;

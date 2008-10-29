@@ -267,6 +267,7 @@ VIADRIAgpInit(ScreenPtr pScreen, VIAPtr pVia)
     pVIADRI = pDRIInfo->devPrivate;
     pVia->agpSize = 0;
 
+#if 0
     if (drmAgpAcquire(pVia->drmFD) < 0) {
         xf86DrvMsg(pScreen->myNum, X_ERROR, "[drm] drmAgpAcquire failed %d\n",
                    errno);
@@ -278,7 +279,7 @@ VIADRIAgpInit(ScreenPtr pScreen, VIAPtr pVia)
         drmAgpRelease(pVia->drmFD);
         return FALSE;
     }
-
+#endif
     xf86DrvMsg(pScreen->myNum, X_INFO, "[drm] drmAgpEnabled succeeded\n");
 
     agpCmdSize = (pVia->agpEnable) ? AGP_CMDBUF_SIZE : 0;
@@ -294,14 +295,14 @@ VIADRIAgpInit(ScreenPtr pScreen, VIAPtr pVia)
     if (drmAgpAlloc(pVia->drmFD, agpPages * AGP_PAGE_SIZE,
                     0, &agp_phys, &pVia->agpHandle) < 0) {
         xf86DrvMsg(pScreen->myNum, X_ERROR, "[drm] drmAgpAlloc failed\n");
-        drmAgpRelease(pVia->drmFD);
+	//        drmAgpRelease(pVia->drmFD);
         return FALSE;
     }
 
     if (drmAgpBind(pVia->drmFD, pVia->agpHandle, 0) < 0) {
         xf86DrvMsg(pScreen->myNum, X_ERROR, "[drm] drmAgpBind failed\n");
         drmAgpFree(pVia->drmFD, pVia->agpHandle);
-        drmAgpRelease(pVia->drmFD);
+	//        drmAgpRelease(pVia->drmFD);
         return FALSE;
     }
 
@@ -323,7 +324,7 @@ VIADRIAgpInit(ScreenPtr pScreen, VIAPtr pVia)
         pVIADRI->agp.size = 0;
         drmAgpUnbind(pVia->drmFD, pVia->agpHandle);
         drmAgpFree(pVia->drmFD, pVia->agpHandle);
-        drmAgpRelease(pVia->drmFD);
+	//        drmAgpRelease(pVia->drmFD);
         return FALSE;
     }
 
@@ -350,7 +351,7 @@ VIADRIAgpInit(ScreenPtr pScreen, VIAPtr pVia)
             drmRmMap(pVia->drmFD, pVIADRI->agp.handle);
             drmAgpUnbind(pVia->drmFD, pVia->agpHandle);
             drmAgpFree(pVia->drmFD, pVia->agpHandle);
-            drmAgpRelease(pVia->drmFD);
+	    //            drmAgpRelease(pVia->drmFD);
             return FALSE;
         }
     }
@@ -721,7 +722,7 @@ VIADRICloseScreen(ScreenPtr pScreen)
     VIAPtr pVia = VIAPTR(pScrn);
     VIADRIPtr pVIADRI;
 
-    VIADRIRingBufferCleanup(pScrn);
+    //    VIADRIRingBufferCleanup(pScrn);
     if (pVia->agpSize) {
         drmUnmap(pVia->agpMappedAddr, pVia->agpSize);
         drmRmMap(pVia->drmFD, pVia->agpHandle);
@@ -729,7 +730,7 @@ VIADRICloseScreen(ScreenPtr pScreen)
         xf86DrvMsg(pScreen->myNum, X_INFO, "[drm] Freeing agp memory\n");
         drmAgpFree(pVia->drmFD, pVia->agpHandle);
         xf86DrvMsg(pScreen->myNum, X_INFO, "[drm] Releasing agp module\n");
-        drmAgpRelease(pVia->drmFD);
+	//        drmAgpRelease(pVia->drmFD);
     }
 
     DRICloseScreen(pScreen);
@@ -829,9 +830,12 @@ VIADRIFinishScreenInit(ScreenPtr pScreen)
     /* Initialize IRQ. */
     if (pVia->DRIIrqEnable)
         VIADRIIrqInit(pScrn, pVIADRI);
-
+#if 0
     pVIADRI->ringBufActive = 0;
     VIADRIRingBufferInit(pScrn);
+#else
+    pVIADRI->ringBufActive = 1;
+#endif    
     return TRUE;
 }
 

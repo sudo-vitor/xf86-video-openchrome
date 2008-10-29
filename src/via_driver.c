@@ -2830,9 +2830,9 @@ VIAWriteMode(ScrnInfoPtr pScrn, DisplayModePtr mode)
     /* Enable the graphics engine. */
     if (!pVia->NoAccel) {
 #if defined(XF86DRI) || defined(VIA_HAVE_EXA)
-        VIAInitialize3DEngine(pScrn);
+	// VIAInitialize3DEngine(pScrn);
 #endif
-        viaInitialize2DEngine(pScrn);
+	// viaInitialize2DEngine(pScrn);
     }
 
     VIAAdjustFrame(pScrn->scrnIndex, pScrn->frameX0, pScrn->frameY0, 0);
@@ -2859,9 +2859,10 @@ VIACloseScreen(int scrnIndex, ScreenPtr pScreen)
         viaAccelSync(pScrn);
 
         /* A soft reset avoids a 3D hang after X restart. */
+#if 1
         if (pVia->Chipset != VIA_K8M890 && pVia->Chipset != VIA_P4M900)
             hwp->writeSeq(hwp, 0x1A, pVia->SavedReg.SR1A | 0x40);
-
+#endif
         if (!pVia->IsSecondary) {
             /* Turn off all video activities. */
             viaExitVideo(pScrn);
