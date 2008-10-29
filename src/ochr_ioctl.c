@@ -185,6 +185,92 @@ struct via_validate_buffer
 };
 
 static int
+ochr_apply_yuv_reloc(uint32_t *cmdbuf,
+		    uint32_t num_buffers,
+		    struct via_validate_buffer *buffers,
+		    const struct via_yuv_reloc *reloc)
+{
+	uint32_t *buf = cmdbuf + reloc->base.offset;
+	const struct via_reloc_bufaddr *baddr = &reloc->addr;
+	const struct via_validate_buffer *val_buf;
+	uint32_t val;
+	int i;
+
+	if (reloc->planes > 3)
+		return -EINVAL;
+
+	if (baddr->index > num_buffers)
+		return -EINVAL;
+
+	val_buf = &buffers[baddr->index];
+	if (val_buf->po_correct)
+		return 0;
+
+	val = val_buf->offset + baddr->delta;
+
+	for(i=0; i<reloc->planes; ++i) {
+		*buf++ = val + reloc->plane_offs[i];
+		++buf;
+	}
+	
+	return 0;
+}
+
+int
+ochr_yuv_relocation(struct _ViaCommandBuffer *cBuf,
+		   struct _DriBufferObject *buffer,
+		   uint32_t delta, 
+		   int planes, uint32_t plane_0, uint32_t plane_1,
+		    uint32_t plane_2,
+		   uint64_t flags, uint64_t mask)
+{
+    struct via_yuv_reloc reloc;
+    struct via_validate_buffer fake;
+    int itemLoc;
+    struct _ValidateNode *node;
+    struct via_validate_req *val_req;
+    int ret;
+    uint32_t tmp;
+    uint32_t *cmdbuf = (uint32_t *) cBuf->buf + (cBuf->pos - planes * 2);
+
+    ret = driBOAddListItem(cBuf->validate_list, buffer,
+			   flags, mask, &itemLoc, &node);
+    if (ret)
+	return ret;
+
+    val_req = ochrValReq(node);
+
+    if (!(val_req->presumed_flags & VIA_USE_PRESUMED)) {
+	val_req->presumed_gpu_offset = (uint64_t) driBOOffset(buffer) - 
+	    driBOPoolOffset(buffer);
+	val_req->presumed_flags |= VIA_USE_PRESUMED;
+    }
+
+    fake.po_correct = 0;
+    fake.offset = val_req->presumed_gpu_offset;
+    reloc.base.type = VIA_RELOC_YUV;
+    reloc.base.offset = 1;
+    reloc.addr.index = 0;
+    reloc.addr.delta = delta + driBOPoolOffset(buffer);
+    reloc.planes = planes;
+    reloc.plane_offs[0] = plane_0;
+    reloc.plane_offs[1] = plane_1;
+    reloc.plane_offs[2] = plane_2;
+
+    tmp = cmdbuf - (uint32_t *) cBuf->buf;
+
+    ret = ochr_apply_yuv_reloc(cmdbuf, 1, &fake, &reloc);
+
+    reloc.addr.index = itemLoc;
+    reloc.base.offset = tmp + 1;
+
+    assert(ret == 0);
+
+    return ochr_add_reloc(cBuf->reloc_info, &reloc, sizeof(reloc));
+}
+
+
+static int
 ochr_apply_2d_reloc(uint32_t * cmdbuf,
 		    uint32_t num_buffers,
 		    const struct via_validate_buffer *buffers,

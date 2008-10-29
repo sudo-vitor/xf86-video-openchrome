@@ -139,6 +139,25 @@ typedef struct _ViaCommandBuffer
 #define OUT_RING_SubA(val1, val2) \
   OUT_RING(((val1) << HC_SubA_SHIFT) | ((val2) & HC_Para_MASK))
 
+#define BEGIN_RING_H6(size) { \
+	    BEGIN_RING(((size) + 4 + 3) & ~3);	\
+	    cb->mode = 6;			\
+	    cb->header_start = cb->pos;		\
+	    cb->pos += 4;			\
+	}
+#define ADVANCE_RING_H6() {					\
+	    CARD32 *hs = cb->buf + cb->header_start;		\
+	    *hs++ = VIA_VIDEO_HEADER6;				\
+	    *hs++ = (cb->pos - cb->header_start - 4) >> 1;	\
+	    *hs++ = 0x00F60000;					\
+	    *hs++ = 0x00000000;					\
+	    while (cb->pos & 3) 				\
+		cb->buf[cb->pos++] = 0x00000000;		\
+	    ADVANCE_RING_VARIABLE;				\
+	}
+	
+	
+
 extern int viaSetupCBuffer(ScrnInfoPtr pScrn, ViaCommandBuffer * buf,
     unsigned size);
 extern void viaTearDownCBuffer(ViaCommandBuffer * buf);

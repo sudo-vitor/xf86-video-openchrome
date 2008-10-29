@@ -122,22 +122,6 @@ viaWaitVBI(VIAPtr pVia)
     while (IN_VIDEO_DISPLAY) ;
 }
 
-static void
-viaWaitHQVDone(VIAPtr pVia)
-{
-    CARD32 volatile *pdwState;
-    unsigned long proReg = 0;
-
-    if (pVia->ChipId == PCI_CHIP_VT3259
-        && !(pVia->swov.gdwVideoFlagSW & VIDEO_1_INUSE))
-        proReg = PRO_HQV1_OFFSET;
-
-    pdwState = (CARD32 volatile *)(pVia->VidMapBase + (HQV_CONTROL + proReg));
-    if (pVia->swov.MPEG_ON) {
-        while ((*pdwState & HQV_SW_FLIP)) ;
-    }
-}
-
 /*
  * Send all data in VidRegBuffer to the hardware.
  */
@@ -1047,7 +1031,6 @@ CreateSurface(ScrnInfoPtr pScrn, CARD32 FourCC, CARD16 Width,
 					&hqvBuf->buf, 0, 
 					DRM_BO_FLAG_MEM_VRAM |
 					DRM_BO_FLAG_READ |
-					DRM_BO_FLAG_NO_EVICT |
 					hqvFlag, 0);
 		if (retCode) {
 		    hqvBuf->buf = NULL;
@@ -1580,12 +1563,49 @@ SetVideoWindow(ScrnInfoPtr pScrn, unsigned long videoFlag,
     }
 }
 
+static void viaSetHqvSrc(ScrnInfoPtr pScrn, int fourcc, 
+			 struct _HQVBuffer *hqvBuf)
+{
+    VIAPtr pVia = VIAPTR(pScrn);
+    int proReg = 0;
+
+    if (pVia->ChipId == PCI_CHIP_VT3259
+        && !(pVia->swov.gdwVideoFlagSW & VIDEO_1_INUSE)) {
+        proReg += PRO_HQV1_OFFSET;
+    }
+
+    switch (fourcc) {
+    case FOURCC_UYVY:
+    case FOURCC_YUY2:
+    case FOURCC_RV15:
+    case FOURCC_RV16:
+    case FOURCC_RV32:
+	SaveVideoRegister(pVia, HQV_SRC_STARTADDR_Y + proReg,
+			  hqvBuf->pinnedOffset + hqvBuf->deltaY);
+	break;
+    case FOURCC_YV12:
+    default:
+	SaveVideoRegister(pVia, HQV_SRC_STARTADDR_Y + proReg, 
+			  hqvBuf->pinnedOffset + hqvBuf->deltaY);
+	if (pVia->VideoEngine == VIDEO_ENGINE_CME) {
+	    SaveVideoRegister(pVia, HQV_SRC_STARTADDR_U + proReg,
+			      hqvBuf->pinnedOffset + hqvBuf->deltaU); 
+	} else {
+	    SaveVideoRegister(pVia, HQV_SRC_STARTADDR_U + proReg, 
+			      hqvBuf->pinnedOffset + hqvBuf->deltaV); 
+	    SaveVideoRegister(pVia, HQV_SRC_STARTADDR_V + proReg, 
+			      hqvBuf->pinnedOffset + hqvBuf->deltaU);
+	}
+	break;
+    }
+}
+
 /*
  * Upd_Video()
  */
 static Bool
 Upd_Video(ScrnInfoPtr pScrn, unsigned long videoFlag,
-          unsigned long startAddr, LPDDUPDATEOVERLAY pUpdate,
+          LPDDUPDATEOVERLAY pUpdate,
           unsigned long srcPitch,
           unsigned long oriSrcWidth, unsigned long oriSrcHeight,
           unsigned long deinterlaceMode,
@@ -1608,6 +1628,7 @@ Upd_Video(ScrnInfoPtr pScrn, unsigned long videoFlag,
     unsigned long hqvSrcFetch = 0, hqvOffset = 0;
     unsigned long dwOffset = 0, fetch = 0, tmp = 0;
     unsigned long proReg = 0;
+    int ret;
 
     DBG_DD(ErrorF("videoflag=%p\n", videoFlag));
 
@@ -1674,44 +1695,16 @@ Upd_Video(ScrnInfoPtr pScrn, unsigned long videoFlag,
 
     pVia->swov.overlayRecordV1.dwOffset = dwOffset;
 
-    /*
-     * FIXME: Note that the HQV source is initialized to its own destination
-     * surfaces here. Should be investigated in case of strange
-     * behaviour during video startup.
-     */
-
     if (pVia->swov.SrcFourCC == FOURCC_YV12
         || pVia->swov.SrcFourCC == FOURCC_XVMC) {
 
         if (videoFlag & VIDEO_HQV_INUSE) {
-	    int bufNum = 1 - (pVia->dwFrameNum & 1);
-	    struct _HQVBuffer *hqvBuf = &pVia->swov.SWDevice.hqvBuf[bufNum];
-
             SetVideoStart(pVia, videoFlag, hwDiff->dwThreeHQVBuffer ? 3 : 2,
                           pVia->swov.overlayRecordV1.dwHQVAddr[0] + dwOffset,
                           pVia->swov.overlayRecordV1.dwHQVAddr[1] + dwOffset,
                           pVia->swov.overlayRecordV1.dwHQVAddr[2] + dwOffset);
-
-            if (pVia->swov.SrcFourCC != FOURCC_XVMC) {
-                if (pVia->VideoEngine == VIDEO_ENGINE_CME) {
-                    SaveVideoRegister(pVia, HQV_SRC_STARTADDR_Y + proReg,
-                                      hqvBuf->pinnedOffset + hqvBuf->deltaY);
-                    SaveVideoRegister(pVia, HQV_SRC_STARTADDR_U + proReg,
-                                      hqvBuf->pinnedOffset + hqvBuf->deltaU);
-                } else {
-                    SaveVideoRegister(pVia, HQV_SRC_STARTADDR_Y,
-				      hqvBuf->pinnedOffset + hqvBuf->deltaY);
-                    SaveVideoRegister(pVia, HQV_SRC_STARTADDR_U,
-				      hqvBuf->pinnedOffset + hqvBuf->deltaV);
-                    SaveVideoRegister(pVia, HQV_SRC_STARTADDR_V, 
-				      hqvBuf->pinnedOffset + hqvBuf->deltaU);
-                }
-            }
         } 
     } else {
-	int bufNum = 1 - (pVia->dwFrameNum & 1);
-	struct _HQVBuffer *hqvBuf = &pVia->swov.SWDevice.hqvBuf[bufNum];
-
         if (videoFlag & VIDEO_HQV_INUSE) {
             hqvSrcWidth = (unsigned long)pUpdate->SrcRight - pUpdate->SrcLeft;
             hqvDstWidth = (unsigned long)pUpdate->DstRight - pUpdate->DstLeft;
@@ -1726,10 +1719,6 @@ Upd_Video(ScrnInfoPtr pScrn, unsigned long videoFlag,
     
             if (pVia->VideoEngine == VIDEO_ENGINE_CME)
                 SaveVideoRegister(pVia, 0x1cc + proReg, dwOffset);
-
-            SaveVideoRegister(pVia, HQV_SRC_STARTADDR_Y + proReg, 
-			      hqvBuf->pinnedOffset + hqvBuf->deltaY);
-
         } 
     }
 
@@ -1737,18 +1726,6 @@ Upd_Video(ScrnInfoPtr pScrn, unsigned long videoFlag,
                                srcWidth, dstWidth, oriSrcWidth, &hqvSrcFetch);
     DBG_DD(ErrorF("===fetch= 0x%lx\n", fetch));
 
-#if 0
-    /* For DCT450 test-BOB INTERLEAVE */
-    if ((deinterlaceMode & DDOVER_INTERLEAVED)
-        && (deinterlaceMode & DDOVER_BOB)) {
-        if (videoFlag & VIDEO_HQV_INUSE)
-            hqvCtl |= HQV_FIELD_2_FRAME | HQV_FRAME_2_FIELD | HQV_DEINTERLACE;
-    } else if (deinterlaceMode & DDOVER_BOB) {
-        if (videoFlag & VIDEO_HQV_INUSE)
-            /* The HQV source data line count should be two times of the original line count */
-            hqvCtl |= HQV_FIELD_2_FRAME | HQV_DEINTERLACE;
-    }
-#endif
 
     if (videoFlag & VIDEO_HQV_INUSE) {
         if (!(deinterlaceMode & DDOVER_INTERLEAVED)
@@ -1887,12 +1864,25 @@ Upd_Video(ScrnInfoPtr pScrn, unsigned long videoFlag,
 
     /* Set up video control */
     if (videoFlag & VIDEO_HQV_INUSE) {
-
         if (!pVia->swov.SWVideo_ON) {
+	    unsigned bufNum = 1 - (pVia->dwFrameNum & 1);
+	    struct _HQVBuffer *hqvBuf = &pVia->swov.SWDevice.hqvBuf[bufNum];
+
             DBG_DD(ErrorF("    First HQV\n"));
 
-            FlushVidRegBuffer(pVia);
+	    /*
+	     * Since HQV initialization seems to require a tight 
+	     * interaction with the hardware, we pin the HQV source
+	     * buffer here, and unpin it when the HQV is idle and
+	     * initialization done.
+	     */
 
+	    ret = driBOSetStatus(hqvBuf->buf, DRM_BO_FLAG_NO_EVICT, 0);
+	    hqvBuf->pinnedOffset = driBOOffset(hqvBuf->buf);
+
+	    viaSetHqvSrc(pScrn, pVia->swov.SrcFourCC, hqvBuf);	    
+            FlushVidRegBuffer(pVia);
+	    
             DBG_DD(ErrorF(" Wait flips"));
 
             if (hwDiff->dwHQVInitPatch) {
@@ -1940,6 +1930,8 @@ Upd_Video(ScrnInfoPtr pScrn, unsigned long videoFlag,
                 DBG_DD(ErrorF(" Wait flips6"));
             }
 
+	    ret = driBOSetStatus(hqvBuf->buf, 0, DRM_BO_FLAG_NO_EVICT);
+
             if (videoFlag & VIDEO_1_INUSE) {
                 VIDOutD(V1_CONTROL, vidCtl);
                 VIDOutD(V_COMPOSE_MODE, compose | V1_COMMAND_FIRE);
@@ -1961,16 +1953,17 @@ Upd_Video(ScrnInfoPtr pScrn, unsigned long videoFlag,
             DBG_DD(ErrorF(" Done flips"));
         } else {
             DBG_DD(ErrorF("    Normal called\n"));
-            SaveVideoRegister(pVia, HQV_CONTROL + proReg,
-                              hqvCtl | HQV_FLIP_STATUS);
             SetVideoControl(pVia, videoFlag, vidCtl);
             FireVideoCommand(pVia, videoFlag, compose);
-            viaWaitHQVDone(pVia);
             FlushVidRegBuffer(pVia);
+
+	    viaVideoFlip(pVia, pVia->swov.SrcFourCC, 
+			 1 - (pVia->dwFrameNum & 1));	    
         }
     }
     pVia->swov.SWVideo_ON = TRUE;
 
+    pVia->swov.hqvCtl = hqvCtl;
     DBG_DD(ErrorF(" Done Upd_Video"));
 
     return TRUE;
@@ -1991,7 +1984,6 @@ VIAVidUpdateOverlay(ScrnInfoPtr pScrn, LPDDUPDATEOVERLAY pUpdate)
 
     unsigned long flags = pUpdate->dwFlags;
     unsigned long videoFlag = 0;
-    unsigned long startAddr = 0;
     unsigned long deinterlaceMode = 0;
 
     unsigned long haveColorKey = 0, haveChromaKey = 0;
@@ -2042,7 +2034,6 @@ VIAVidUpdateOverlay(ScrnInfoPtr pScrn, LPDDUPDATEOVERLAY pUpdate)
     ResetVidRegBuffer(pVia);
 
     /* For SW decode HW overlay use */
-    startAddr = VIDInD(HQV_SRC_STARTADDR_Y + proReg);
 
     if (flags & DDOVER_KEYDEST) {
         haveColorKey = 1;
@@ -2130,14 +2121,14 @@ VIAVidUpdateOverlay(ScrnInfoPtr pScrn, LPDDUPDATEOVERLAY pUpdate)
 
     /* Update the overlay */
 
-    if (!Upd_Video(pScrn, videoFlag, startAddr, pUpdate,
+    if (!Upd_Video(pScrn, videoFlag, pUpdate,
                    pVia->swov.SWDevice.dwPitch, ovlV1->dwV1OriWidth,
                    ovlV1->dwV1OriHeight, deinterlaceMode, haveColorKey,
                    haveChromaKey, colorKeyLow, colorKeyHigh, chromaKeyLow,
-                   chromaKeyHigh))
+                   chromaKeyHigh)) {
+	pVia->swov.SWVideo_ON = FALSE;
         return FALSE;
-
-    pVia->swov.SWVideo_ON = FALSE;
+    }
 
     return TRUE;
 
@@ -2194,3 +2185,4 @@ ViaOverlayHide(ScrnInfoPtr pScrn)
     pVia->swov.SWVideo_ON = FALSE;
     pVia->VideoStatus &= ~VIDEO_SWOV_ON;
 }
+

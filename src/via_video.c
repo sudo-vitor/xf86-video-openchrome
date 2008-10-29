@@ -1056,19 +1056,23 @@ viaQueryBestSize(ScrnInfoPtr pScrn,
         *p_w = 2048;
 }
 
-/*
- *  To do SW Flip
- */
-static void
-Flip(VIAPtr pVia, viaPortPrivPtr pPriv, int fourcc,
-        unsigned long DisplayBufferIndex)
+void
+viaVideoFlip(VIAPtr pVia, int fourcc,
+	     unsigned long DisplayBufferIndex)
 {
-    unsigned long proReg = 0;
+    unsigned long proReg = 0x200;
+    uint64_t hqvFlag = VIA_BO_FLAG_HQV0;
     struct _HQVBuffer *hqvBuf = &pVia->swov.SWDevice.hqvBuf[DisplayBufferIndex];
+   
+    int ret;
+    RING_VARS;
+    BEGIN_RING_H6(8);
 
     if (pVia->ChipId == PCI_CHIP_VT3259
-        && !(pVia->swov.gdwVideoFlagSW & VIDEO_1_INUSE))
-        proReg = PRO_HQV1_OFFSET;
+        && !(pVia->swov.gdwVideoFlagSW & VIDEO_1_INUSE)) {
+        proReg += PRO_HQV1_OFFSET;
+	hqvFlag = VIA_BO_FLAG_HQV1;
+    }
 
     switch (fourcc) {
         case FOURCC_UYVY:
@@ -1076,32 +1080,46 @@ Flip(VIAPtr pVia, viaPortPrivPtr pPriv, int fourcc,
         case FOURCC_RV15:
         case FOURCC_RV16:
         case FOURCC_RV32:
-            while ((VIDInD(HQV_CONTROL + proReg) & HQV_SW_FLIP));
-            VIDOutD(HQV_SRC_STARTADDR_Y + proReg,
-		    hqvBuf->pinnedOffset + hqvBuf->deltaY);
-            VIDOutD(HQV_CONTROL + proReg,
-                (VIDInD(HQV_CONTROL +
-                proReg) & ~HQV_FLIP_ODD) | HQV_SW_FLIP | HQV_FLIP_STATUS);
+            OUT_RING_QW(HQV_SRC_STARTADDR_Y + proReg, 0);
+	    ret = ochr_yuv_relocation(cb, hqvBuf->buf, 0, 1,
+				      hqvBuf->deltaY, 0, 0, 
+				      DRM_BO_FLAG_MEM_VRAM |
+				      hqvFlag,
+				      DRM_BO_MASK_MEM |
+				      hqvFlag);
             break;
         case FOURCC_YV12:
         default:
-            while ((VIDInD(HQV_CONTROL + proReg) & HQV_SW_FLIP));
-            VIDOutD(HQV_SRC_STARTADDR_Y + proReg,
-		    hqvBuf->pinnedOffset + hqvBuf->deltaY);
+	    OUT_RING_QW(HQV_SRC_STARTADDR_Y + proReg, 0);
             if (pVia->VideoEngine == VIDEO_ENGINE_CME) {
-                VIDOutD(HQV_SRC_STARTADDR_U + proReg,
-			hqvBuf->pinnedOffset + hqvBuf->deltaU);
+		OUT_RING_QW(HQV_SRC_STARTADDR_U + proReg, 0);
+		ret = ochr_yuv_relocation(cb, hqvBuf->buf, 0, 2,
+					  hqvBuf->deltaY, hqvBuf->deltaU, 0, 
+					  DRM_BO_FLAG_MEM_VRAM |
+					  hqvFlag,
+					  DRM_BO_MASK_MEM |
+					  hqvFlag);
             } else {
-                VIDOutD(HQV_SRC_STARTADDR_U,
-			hqvBuf->pinnedOffset + hqvBuf->deltaV);
-                VIDOutD(HQV_SRC_STARTADDR_V,
-			hqvBuf->pinnedOffset + hqvBuf->deltaU);
+		OUT_RING_QW(HQV_SRC_STARTADDR_U + proReg, 0);
+		OUT_RING_QW(HQV_SRC_STARTADDR_V + proReg, 0);
+		ret = ochr_yuv_relocation(cb, hqvBuf->buf, 0, 3,
+					  hqvBuf->deltaY, hqvBuf->deltaV, 
+					  hqvBuf->deltaU,
+					  DRM_BO_FLAG_MEM_VRAM |
+					  hqvFlag,
+					  DRM_BO_MASK_MEM |
+					  hqvFlag);
             }
-            VIDOutD(HQV_CONTROL + proReg,
-            (VIDInD(HQV_CONTROL +
-                proReg) & ~HQV_FLIP_ODD) | HQV_SW_FLIP | HQV_FLIP_STATUS);
+
         break;
     }
+
+    OUT_RING_QW(HQV_CONTROL + proReg, 
+		(pVia->swov.hqvCtl & ~HQV_FLIP_ODD) | 
+		HQV_SW_FLIP | HQV_FLIP_STATUS);
+
+    ADVANCE_RING_H6();
+    FLUSH_RING;
 }
 
 /*
@@ -1302,11 +1320,6 @@ viaPutImage(ScrnInfoPtr pScrn,
 	    void *virtual;
 
 
-	    if (virtual == NULL) {
-		viaXvError(pScrn, pPriv, xve_mem);
-		return BadAlloc;
-	    }
-
             DBG_DD(ErrorF(" via_video.c :              : S/W Overlay! \n"));
             /*  Allocate video memory(CreateSurface),
              *  add codes to judge if need to re-create surface
@@ -1325,6 +1338,12 @@ viaPutImage(ScrnInfoPtr pScrn,
 
 	    hqvBuf = &pVia->swov.SWDevice.hqvBuf[pVia->dwFrameNum & 1];
 	    virtual = driBOMap(hqvBuf->buf, WS_DRI_MAP_WRITE);
+
+	    if (virtual == NULL) {
+		viaXvError(pScrn, pPriv, xve_mem);
+		return BadAlloc;
+	    }
+
 
             /*  Copy image data from system memory to video memory
              *  TODO: use DRM's DMA feature to accelerate data copy
@@ -1410,17 +1429,6 @@ viaPutImage(ScrnInfoPtr pScrn,
                 dwUseExtendedFIFO = 1;
             }
 
-            if (FOURCC_XVMC != id) {
-
-                /*
-                 * XvMC flipping is done in the client lib.
-                 */
-
-                DBG_DD(ErrorF("             : Flip\n"));
-                Flip(pVia, pPriv, id, pVia->dwFrameNum & 1);
-            }
-
-            pVia->dwFrameNum++;
 
             /* If the dest rec. & extendFIFO doesn't change, don't do UpdateOverlay 
              * unless the surface clipping has changed */
@@ -1431,10 +1439,22 @@ viaPutImage(ScrnInfoPtr pScrn,
                     && (pVia->old_dwUseExtendedFIFO == dwUseExtendedFIFO)
                     && (pVia->VideoStatus & VIDEO_SWOV_ON) &&
                     RegionsEqual(&pPriv->clip, clipBoxes)) {
+		if (FOURCC_XVMC != id) {
+		
+		    /*
+		     * XvMC flipping is done in the client lib.
+		     */
+
+		    DBG_DD(ErrorF("             : Flip\n"));
+		    viaVideoFlip(pVia, id, pVia->dwFrameNum & 1);
+		    pVia->dwFrameNum++;
+		}
+
                 viaXvError(pScrn, pPriv, xve_none);
                 return Success;
             }
 
+	    pVia->dwFrameNum++;
             pPriv->old_src_x = src_x;
             pPriv->old_src_y = src_y;
             pPriv->old_src_w = src_w;
@@ -1472,7 +1492,7 @@ viaPutImage(ScrnInfoPtr pScrn,
                         (" via_video.c : call v4l updateoverlay fail. \n"));
             } else {
                 DBG_DD(ErrorF(" via_video.c : PutImage done OK\n"));
-                viaXvError(pScrn, pPriv, xve_none);
+		viaXvError(pScrn, pPriv, xve_none);
                 return Success;
             }
             break;

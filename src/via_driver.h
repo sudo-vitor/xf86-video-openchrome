@@ -223,7 +223,6 @@ enum _ViaScanoutTypes {
     VIA_SCANOUT_DISPLAY,
     VIA_SCANOUT_CURSOR,
     VIA_SCANOUT_OVERLAY,
-    VIA_SCANOUT_HQV,
     VIA_SCANOUT_NUM
 };
 
@@ -476,6 +475,8 @@ void viaRestoreVideo(ScrnInfoPtr pScrn);
 void viaSetColorSpace(VIAPtr pVia, int hue, int saturation, int brightness, int contrast,
 		      Bool reset);
 void VIAVidAdjustFrame(ScrnInfoPtr pScrn, int x, int y);
+void viaVideoFlip(VIAPtr pVia, int fourcc, unsigned long DisplayBufferIndex);
+
 
 /* In via_xwmc.c */
 

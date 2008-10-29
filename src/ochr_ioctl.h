@@ -37,6 +37,14 @@ extern int
 ochr_dest_relocation(struct _ViaCommandBuffer *cBuf,
 		     struct _DriBufferObject *dstBuffer,
 		     uint32_t delta, uint64_t flags, uint64_t mask);
+extern int
+ochr_yuv_relocation(struct _ViaCommandBuffer *cBuf,
+		    struct _DriBufferObject *buffer,
+		    uint32_t delta, int planes, 
+		    uint32_t plane_0, uint32_t plane_1,
+		    uint32_t plane_2,
+		    uint64_t flags, uint64_t mask);
+
 
 extern int ochr_execbuf(int fd, struct _ViaCommandBuffer *cBuf);
 #endif
