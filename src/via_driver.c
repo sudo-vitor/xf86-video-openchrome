@@ -2631,8 +2631,11 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
     /*
      * FIXME: DRM-less operation. 
      */
-    pVia->mainPool = NULL; 
+    pVia->mainPool = NULL;
 #endif
+
+    if (pVia->mainPool == NULL) 
+	FatalError("This driver currently reqires DRM to operate.\n");
 
     if (pVia->IsSecondary) {
 	VIAPtr   pVia1;
