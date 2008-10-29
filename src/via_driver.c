@@ -42,6 +42,7 @@
 #include "via_video.h"
 #include "via.h"
 #include "ochr_ws_driver.h"
+#include <ws_dri_bufpool.h>
 #include <ws_dri_bufmgr.h>
 
 #ifdef XF86DRI
@@ -705,10 +706,6 @@ VIAProbe(DriverPtr drv, int flags)
                         pVIAEnt->BypassSecondary = FALSE;
                         pVIAEnt->HasSecondary = FALSE;
                         pVIAEnt->IsSecondaryRestored = FALSE;
-#ifdef XF86DRI
-			pVIAEnt->hasDrm = FALSE;
-			pVIAEnt->drmFD = -1;
-#endif
                     }
                 }
                 instance++;
@@ -967,6 +964,12 @@ VIAPreInit(ScrnInfoPtr pScrn, int flags)
         }
     } else {
         pVia->sharedData = xnfcalloc(sizeof(ViaSharedRec), 1);
+	ret = wsDriInit(wsDriNullThreadFuncs(), ochrVNodeFuncs());
+	if (ret) {
+	    xfree(pEnt);
+	    VIAFreeRec(pScrn);
+	    return FALSE;
+	}		
     }
 
     if (flags & PROBE_DETECT) {
@@ -2605,10 +2608,43 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
             return FALSE;
     }
 
+    /*
+     * FIXME: This should really be done at device (pViaEnt) init, but
+     * at that time we haven't opened drm, so we can't decide which pool
+     * to use. That is fixable with Xserver 1.4 with new DRI initalization
+     * functions.
+     */
+
+    ErrorF("Takedown old pool.\n");
+
+    if (pVia->mainPool && !pVia->IsSecondary)
+	pVia->mainPool->takeDown(pVia->mainPool);
+
 #ifdef XF86DRI
     pVia->directRenderingEnabled = VIADRIScreenInit(pScreen);
     pVia->vtNotified = FALSE;
+    if (pVia->directRenderingEnabled && !pVia->IsSecondary) {
+	ErrorF("Init new pool.\n");
+	pVia->mainPool = driDRMPoolInit(pVia->drmFD);
+    }
+#else
+    /*
+     * FIXME: DRM-less operation. 
+     */
+    pVia->mainPool = NULL; 
 #endif
+
+    if (pVia->IsSecondary) {
+	VIAPtr   pVia1;
+        DevUnion* pPriv;
+        VIAEntPtr pVIAEnt;
+
+        pPriv = xf86GetEntityPrivate(pScrn->entityList[0],
+				     gVIAEntityIndex);
+        pVIAEnt = pPriv->ptr;
+        pVia1 = VIAPTR(pVIAEnt->pPrimaryScrn);
+	pVia->mainPool = pVia1->mainPool;
+    }
 
     DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "- Visuals set up\n"));
 
@@ -2932,6 +2968,11 @@ VIACloseScreen(int scrnIndex, ScreenPtr pScreen)
     }
     pScrn->vtSema = FALSE;
     pScreen->CloseScreen = pVia->CloseScreen;
+
+    ErrorF("Takedown main pool\n");
+    if (pVia->mainPool && !pVia->IsSecondary)
+	pVia->mainPool->takeDown(pVia->mainPool);
+
     return (*pScreen->CloseScreen) (scrnIndex, pScreen);
 }
 

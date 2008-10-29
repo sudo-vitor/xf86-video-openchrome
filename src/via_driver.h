@@ -201,6 +201,29 @@ typedef struct{
     int major, minor;
 } ViaVbeModeInfo;
 
+typedef struct
+{
+    Bool IsDRIEnabled;
+
+    Bool HasSecondary;
+    Bool BypassSecondary;
+    /*These two registers are used to make sure the CRTC2 is
+      retored before CRTC_EXT, otherwise it could lead to blank screen.*/
+    Bool IsSecondaryRestored;
+    Bool RestorePrimary;
+
+    ScrnInfoPtr pSecondaryScrn;
+    ScrnInfoPtr pPrimaryScrn;
+
+    struct _DriBufferPool *mainPool;
+
+#ifdef XF86DRI
+    Bool hasDrm;
+    int drmFD;
+#endif
+} VIAEntRec, *VIAEntPtr;
+
+
 typedef struct _VIA {
     VIARegRec           SavedReg;
     xf86CursorInfoPtr   CursorInfoRec;
@@ -396,6 +419,8 @@ typedef struct _VIA {
     
     ViaSharedPtr	sharedData;
     Bool                useDmaBlit;
+    struct _DriBufferPool *mainPool;
+
 #ifdef HAVE_DEBUG
     Bool                disableXvBWCheck;
     Bool                DumpVGAROM;
@@ -406,30 +431,6 @@ typedef struct _VIA {
 } VIARec, *VIAPtr;
 
 #define VIAPTR(p) ((VIAPtr)((p)->driverPrivate))
-
-typedef struct
-{
-    Bool IsDRIEnabled;
-
-    Bool HasSecondary;
-    Bool BypassSecondary;
-    /*These two registers are used to make sure the CRTC2 is
-      retored before CRTC_EXT, otherwise it could lead to blank screen.*/
-    Bool IsSecondaryRestored;
-    Bool RestorePrimary;
-
-    ScrnInfoPtr pSecondaryScrn;
-    ScrnInfoPtr pPrimaryScrn;
-
-    /*
-     * Try to open DRM at device detection.
-     */
-
-#ifdef XF86DRI
-    Bool hasDrm;
-    int drmFD;
-#endif
-} VIAEntRec, *VIAEntPtr;
 
 /* Prototypes. */
 
