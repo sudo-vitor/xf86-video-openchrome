@@ -72,9 +72,9 @@ XORG_DRIVER_CHECK_EXT(DPMSExtension, xextproto)
 # Checks for pkg-config packages
 PKG_CHECK_MODULES(XORG, [xorg-server xproto xvmc fontsproto libdrm $REQUIRED_MODULES])
 sdkdir=$(pkg-config --variable=sdkdir xorg-server)
-PKG_CHECK_MODULES(libwsdri, libwsdri >= 0.0.1)
-AC_SUBST(libwsdri_CFLAGS)
-AC_SUBST(libwsdri_LIBS)
+PKG_CHECK_MODULES(libwsbm, libwsbm >= 0.0.1)
+AC_SUBST(libwsbm_CFLAGS)
+AC_SUBST(libwsbm_LIBS)
 AC_SYS_LARGEFILE
 
 # Checks for libraries.

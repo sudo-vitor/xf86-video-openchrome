@@ -14,7 +14,7 @@
  */
 
 static struct _ValidateNode *
-vn_alloc(struct _WSDriVNodeFuncs *func, int type_id)
+vn_alloc(struct _WsbmVNodeFuncs *func, int type_id)
 {
     if (type_id == 0) {
 	struct _ViaDrmValidateNode *vNode = malloc(sizeof(*vNode));
@@ -63,13 +63,13 @@ vn_clear(struct _ValidateNode *node)
     }
 }
 
-static struct _WSDriVNodeFuncs viaVNode = {
+static struct _WsbmVNodeFuncs viaVNode = {
     .alloc = vn_alloc,
     .free = vn_free,
     .clear = vn_clear,
 };
 
-struct _WSDriVNodeFuncs *
+struct _WsbmVNodeFuncs *
 ochrVNodeFuncs(void)
 {
     return &viaVNode;

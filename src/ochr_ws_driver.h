@@ -1,8 +1,8 @@
 #ifndef _OCHR_WS_DRIVER_H_
 #define _OCHR_WS_DRIVER_H_
 
-#include "ws_dri_util.h"
-#include "ws_dri_driver.h"
+#include "wsbm_util.h"
+#include "wsbm_driver.h"
 #include "via_drm.h"
 
 struct _ViaDrmValidateNode
@@ -11,7 +11,7 @@ struct _ViaDrmValidateNode
     struct via_validate_arg val_arg;
 };
 
-extern struct _WSDriVNodeFuncs *ochrVNodeFuncs(void);
+extern struct _WsbmVNodeFuncs *ochrVNodeFuncs(void);
 
 static inline struct via_validate_req *
 ochrValReq(struct _ValidateNode *node)

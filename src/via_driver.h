@@ -34,7 +34,7 @@
 #define DEBUG(x)
 #endif
 
-#include <ws_dri_util.h>
+#include <wsbm_util.h>
 #include "vgaHW.h"
 #include "xf86.h"
 #include "xf86Resources.h"
@@ -210,7 +210,7 @@ typedef struct
     ScrnInfoPtr pSecondaryScrn;
     ScrnInfoPtr pPrimaryScrn;
 
-    struct _DriBufferPool *mainPool;
+    struct _WsbmBufferPool *mainPool;
 
 #ifdef XF86DRI
     Bool hasDrm;
@@ -227,12 +227,12 @@ enum _ViaScanoutTypes {
 };
 
 struct _ViaScanouts {
-    struct _DriBufferObject *bufs[VIA_SCANOUT_NUM];
+    struct _WsbmBufferObject *bufs[VIA_SCANOUT_NUM];
 };
 
 struct _ViaOffscreenBuffer {
-    struct _WSDriListHead head;
-    struct _DriBufferObject *buf;
+    struct _WsbmListHead head;
+    struct _WsbmBufferObject *buf;
     char *virtual;
     unsigned long size;
     Bool scratch;
@@ -304,7 +304,7 @@ typedef struct _VIA {
 
     struct _ViaOffscreenBuffer front;
     struct _ViaOffscreenBuffer exaMem;
-    struct _WSDriListHead offscreen;
+    struct _WsbmListHead offscreen;
  
     ExaDriverPtr        exaDriverPtr;
     Bool                useEXA;
@@ -408,7 +408,7 @@ typedef struct _VIA {
     ViaSharedPtr	sharedData;
     Bool                useDmaBlit;
 
-    struct _DriBufferPool *mainPool;
+    struct _WsbmBufferPool *mainPool;
     struct _ViaScanouts scanout;
 
     void                *displayMap;
@@ -457,7 +457,7 @@ void viaAccelTextureBlit(ScrnInfoPtr, unsigned long, unsigned, unsigned,
 			 unsigned long, unsigned, unsigned,
 			 unsigned, unsigned, int);
 struct _ViaOffscreenBuffer *
-viaInBuffer(struct _WSDriListHead *head, void *ptr);
+viaInBuffer(struct _WsbmListHead *head, void *ptr);
 
 
 

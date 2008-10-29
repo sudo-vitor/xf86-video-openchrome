@@ -27,7 +27,7 @@
 #include "config.h"
 #endif
 
-#include <ws_dri_bufmgr.h>
+#include <wsbm_manager.h>
 
 #include "xf86.h"
 #include "xf86_OSproc.h"
@@ -951,19 +951,19 @@ AddHQVSurface(ScrnInfoPtr pScrn, unsigned int numbuf, CARD32 fourcc)
 
     fbsize = pitch * height * (isplanar ? 2 : 1);
 
-    retCode = driBOData(pVia->scanout.bufs[VIA_SCANOUT_OVERLAY], fbsize * numbuf, 
+    retCode = wsbmBOData(pVia->scanout.bufs[VIA_SCANOUT_OVERLAY], fbsize * numbuf, 
 			NULL, NULL, 0);
     if (retCode)
 	return BadAlloc;
 
-    hqvMap = driBOMap(pVia->scanout.bufs[VIA_SCANOUT_OVERLAY], 1, WSBM_SYNCCPU_WRITE);
+    hqvMap = wsbmBOMap(pVia->scanout.bufs[VIA_SCANOUT_OVERLAY], 1, WSBM_SYNCCPU_WRITE);
     if (hqvMap == NULL)
 	return BadAlloc;
 
     ViaYUVFillBlack(pVia, hqvMap, fbsize);
-    driBOUnmap(pVia->scanout.bufs[VIA_SCANOUT_OVERLAY]);
+    wsbmBOUnmap(pVia->scanout.bufs[VIA_SCANOUT_OVERLAY]);
 
-    addr = driBOOffset(pVia->scanout.bufs[VIA_SCANOUT_OVERLAY]);
+    addr = wsbmBOOffset(pVia->scanout.bufs[VIA_SCANOUT_OVERLAY]);
 
     for (i = 0; i < numbuf; i++) {
         pVia->swov.overlayRecordV1.dwHQVAddr[i] = addr;
@@ -1021,7 +1021,7 @@ CreateSurface(ScrnInfoPtr pScrn, CARD32 FourCC, CARD16 Width,
 	    struct _HQVBuffer *hqvBuf = &pVia->swov.SWDevice.hqvBuf[i];
 
 	    if (!hqvBuf->buf) {
-		retCode = driGenBuffers(pVia->mainPool, 1, 
+		retCode = wsbmGenBuffers(pVia->mainPool, 1, 
 					&hqvBuf->buf, 0, 
 					WSBM_PL_FLAG_VRAM |
 					hqvFlag);
@@ -1031,16 +1031,16 @@ CreateSurface(ScrnInfoPtr pScrn, CARD32 FourCC, CARD16 Width,
 		}
 	    }
 
-	    retCode = driBOData(hqvBuf->buf, fbsize, NULL, NULL, 0);
+	    retCode = wsbmBOData(hqvBuf->buf, fbsize, NULL, NULL, 0);
 	    if (retCode)
 		goto out_err;
 
-	    hqvBuf->virtual = driBOMap(hqvBuf->buf, 1, WSBM_SYNCCPU_WRITE);
+	    hqvBuf->virtual = wsbmBOMap(hqvBuf->buf, 1, WSBM_SYNCCPU_WRITE);
 	    if (hqvBuf->virtual == NULL)
 		goto out_err;
 	 
 
-	    hqvBuf->pinnedOffset = driBOOffset(hqvBuf->buf);
+	    hqvBuf->pinnedOffset = wsbmBOOffset(hqvBuf->buf);
 	    hqvBuf->deltaY = 0;
 	    if (isplanar) {
 		hqvBuf->deltaU = hqvBuf->deltaY + pitch*Height;
@@ -1048,7 +1048,7 @@ CreateSurface(ScrnInfoPtr pScrn, CARD32 FourCC, CARD16 Width,
 	    }
 
 	    memset(hqvBuf->virtual, 0xff, pitch*Height);
-	    driBOUnmap(hqvBuf->buf);
+	    wsbmBOUnmap(hqvBuf->buf);
 	}
     }
 
@@ -1066,7 +1066,7 @@ CreateSurface(ScrnInfoPtr pScrn, CARD32 FourCC, CARD16 Width,
 	struct _HQVBuffer *hqvBuf = &pVia->swov.SWDevice.hqvBuf[i];
 
 	if (hqvBuf->buf)
-	    (void) driBOData(hqvBuf->buf, 0, NULL, NULL, 0);
+	    (void) wsbmBOData(hqvBuf->buf, 0, NULL, NULL, 0);
     }
     return BadAlloc;
 }
@@ -1151,7 +1151,7 @@ ViaSwovSurfaceDestroy(ScrnInfoPtr pScrn, viaPortPrivPtr pPriv)
                 pVia->swov.SrcFourCC = 0;
 		
 		if ((pVia->swov.gdwVideoFlagSW & SW_USE_HQV))
-		    (void) driBOData(pVia->scanout.bufs[VIA_SCANOUT_OVERLAY], 0, 
+		    (void) wsbmBOData(pVia->scanout.bufs[VIA_SCANOUT_OVERLAY], 0, 
 				     NULL, NULL, 0);
                 pVia->swov.gdwVideoFlagSW = 0;
                 break;
@@ -1159,7 +1159,7 @@ ViaSwovSurfaceDestroy(ScrnInfoPtr pScrn, viaPortPrivPtr pPriv)
             case FOURCC_YV12:
             case FOURCC_XVMC:
                 pVia->swov.SrcFourCC = 0;
-		(void) driBOData(pVia->scanout.bufs[VIA_SCANOUT_OVERLAY], 0, 
+		(void) wsbmBOData(pVia->scanout.bufs[VIA_SCANOUT_OVERLAY], 0, 
 				 NULL, NULL, 0);
                 pVia->swov.gdwVideoFlagSW = 0;
                 break;
@@ -1169,7 +1169,7 @@ ViaSwovSurfaceDestroy(ScrnInfoPtr pScrn, viaPortPrivPtr pPriv)
 	    struct _HQVBuffer *hqvBuf = &pVia->swov.SWDevice.hqvBuf[i];
 
 	    if (hqvBuf->buf) {
-		driDeleteBuffers(1, &hqvBuf->buf);
+		wsbmDeleteBuffers(1, &hqvBuf->buf);
 		hqvBuf->buf = 0;
 	    }
 	}
@@ -1870,8 +1870,8 @@ Upd_Video(ScrnInfoPtr pScrn, unsigned long videoFlag,
 	     * initialization done.
 	     */
 
-	    ret = driBOSetStatus(hqvBuf->buf, WSBM_PL_FLAG_NO_EVICT, 0);
-	    hqvBuf->pinnedOffset = driBOOffset(hqvBuf->buf);
+	    ret = wsbmBOSetStatus(hqvBuf->buf, WSBM_PL_FLAG_NO_EVICT, 0);
+	    hqvBuf->pinnedOffset = wsbmBOOffset(hqvBuf->buf);
 
 	    viaSetHqvSrc(pScrn, pVia->swov.SrcFourCC, hqvBuf);	    
             FlushVidRegBuffer(pVia);
@@ -1923,7 +1923,7 @@ Upd_Video(ScrnInfoPtr pScrn, unsigned long videoFlag,
                 DBG_DD(ErrorF(" Wait flips6"));
             }
 
-	    ret = driBOSetStatus(hqvBuf->buf, 0, WSBM_PL_FLAG_NO_EVICT);
+	    ret = wsbmBOSetStatus(hqvBuf->buf, 0, WSBM_PL_FLAG_NO_EVICT);
 
             if (videoFlag & VIDEO_1_INUSE) {
                 VIDOutD(V1_CONTROL, vidCtl);

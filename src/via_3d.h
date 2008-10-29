@@ -28,7 +28,7 @@
 #include "via_dmabuffer.h"
 #include "ochr_ioctl.h"
 
-#include <ws_dri_bufmgr.h>
+#include <wsbm_manager.h>
 
 #define VIA_NUM_TEXUNITS 2
 
@@ -79,7 +79,7 @@ typedef struct _Via3DState
     CARD32 planeMask;
     CARD32 solidColor;
     CARD32 solidAlpha;
-    struct _DriBufferObject *destBuf;
+    struct _WsbmBufferObject *destBuf;
     CARD32 destDelta;
     CARD32 destPitch;
     CARD32 destFormat;
@@ -95,7 +95,7 @@ typedef struct _Via3DState
     Bool useDestAlpha;
     ViaTextureUnit tex[VIA_NUM_TEXUNITS];
     void (*setDestination) (struct _Via3DState * v3d, 
-			    struct _DriBufferObject *destBuf,
+			    struct _WsbmBufferObject *destBuf,
 			    CARD32 delta,
 			    CARD32 pitch, int format);
     void (*setDrawing) (struct _Via3DState * v3d, int rop,
@@ -103,7 +103,7 @@ typedef struct _Via3DState
     void (*setFlags) (struct _Via3DState * v3d, int numTextures,
 	Bool writeAlpha, Bool writeColor, Bool blend);
         Bool(*setTexture) (struct _Via3DState * v3d, 
-			   struct _DriBufferObject *buf, 
+			   struct _WsbmBufferObject *buf, 
 			   CARD32 delta, int tex,
 			   CARD32 pitch, Bool nPot, CARD32 width, 
 			   CARD32 height, int format,

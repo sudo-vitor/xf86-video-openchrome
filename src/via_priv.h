@@ -52,7 +52,7 @@
  */
 
 struct _HQVBuffer {
-    struct _DriBufferObject *buf;
+    struct _WsbmBufferObject *buf;
     unsigned char *virtual;
     unsigned long pinnedOffset;
     unsigned long deltaY;

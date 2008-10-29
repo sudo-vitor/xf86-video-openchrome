@@ -44,8 +44,8 @@
 #include "via_video.h"
 #include "via.h"
 #include "ochr_ws_driver.h"
-#include <ws_dri_bufpool.h>
-#include <ws_dri_bufmgr.h>
+#include <wsbm_pool.h>
+#include <wsbm_manager.h>
 
 #ifdef XF86DRI
 #include "dri.h"
@@ -916,7 +916,7 @@ VIAPreInit(ScrnInfoPtr pScrn, int flags)
             pVIAEnt->HasSecondary = FALSE;
             pVIAEnt->RestorePrimary = FALSE;
             pVIAEnt->IsSecondaryRestored = FALSE;
-	    ret = wsDriInit(wsDriNullThreadFuncs(), ochrVNodeFuncs());
+	    ret = wsbmInit(wsbmNullThreadFuncs(), ochrVNodeFuncs());
 	    if (ret) {
 		xfree(pEnt);
 		VIAFreeRec(pScrn);
@@ -925,7 +925,7 @@ VIAPreInit(ScrnInfoPtr pScrn, int flags)
         }
     } else {
         pVia->sharedData = xnfcalloc(sizeof(ViaSharedRec), 1);
-	ret = wsDriInit(wsDriNullThreadFuncs(), ochrVNodeFuncs());
+	ret = wsbmInit(wsbmNullThreadFuncs(), ochrVNodeFuncs());
 	if (ret) {
 	    xfree(pEnt);
 	    VIAFreeRec(pScrn);
@@ -1795,7 +1795,7 @@ VIAEnterVT(int scrnIndex, int flags)
     }
 #endif 
 
-    retVal = driBOData(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY],
+    retVal = wsbmBOData(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY],
 		       pVia->Bpl * pScrn->virtualY , NULL, NULL, 
 		       WSBM_PL_FLAG_VRAM |
 		       WSBM_PL_FLAG_NO_EVICT |
@@ -1805,7 +1805,7 @@ VIAEnterVT(int scrnIndex, int flags)
 		   "Failed reallocating the display buffer.");
 	return FALSE;
     }
-    pVia->displayMap = driBOMap(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY], 1,
+    pVia->displayMap = wsbmBOMap(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY], 1,
 				WSBM_SYNCCPU_READ | WSBM_SYNCCPU_WRITE);
     if (!pVia->displayMap) {
 	xf86DrvMsg(pScrn->scrnIndex, X_ERROR, 
@@ -1813,13 +1813,13 @@ VIAEnterVT(int scrnIndex, int flags)
 		   strerror(-ret));
 	return FALSE;
     }
-    driBOUnmap(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY]);
+    wsbmBOUnmap(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY]);
 
     pVia->front.virtual = pVia->displayMap;
-    pVia->front.size = driBOSize(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY]);
+    pVia->front.size = wsbmBOSize(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY]);
     viaNewRootPixmap(pScrn);
 
-    retVal = driBOSetStatus(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY],
+    retVal = wsbmBOSetStatus(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY],
 			 WSBM_PL_FLAG_VRAM | WSBM_PL_FLAG_NO_EVICT,
 			 WSBM_PL_FLAG_SYSTEM);
     if (retVal) {
@@ -1828,10 +1828,10 @@ VIAEnterVT(int scrnIndex, int flags)
 	return FALSE;
     }
 
-    pVia->displayOffset = driBOOffset(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY]);
+    pVia->displayOffset = wsbmBOOffset(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY]);
     pScrn->AdjustFrame(scrnIndex, pScrn->frameX0, pScrn->frameY0, 0);
 
-    retVal = driBOSetStatus(pVia->scanout.bufs[VIA_SCANOUT_CURSOR],
+    retVal = wsbmBOSetStatus(pVia->scanout.bufs[VIA_SCANOUT_CURSOR],
 			 WSBM_PL_FLAG_VRAM | WSBM_PL_FLAG_NO_EVICT,
 			 WSBM_PL_FLAG_SYSTEM);
 
@@ -1841,7 +1841,7 @@ VIAEnterVT(int scrnIndex, int flags)
 	return FALSE;
     }
 
-    pVia->cursorOffset = driBOOffset(pVia->scanout.bufs[VIA_SCANOUT_CURSOR]);
+    pVia->cursorOffset = wsbmBOOffset(pVia->scanout.bufs[VIA_SCANOUT_CURSOR]);
 
     /* A Patch for APM suspend/resume, when HWCursor has garbage. */
     if (pVia->hwcursor)
@@ -1919,15 +1919,15 @@ VIALeaveVT(int scrnIndex, int flags)
      * First move out all buffers so any DRI references won't keep them
      * in VRAM.
      */
-    (void) driBOSetStatus(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY],
+    (void) wsbmBOSetStatus(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY],
 			  0,
 			  WSBM_PL_FLAG_NO_EVICT);
 
-    (void) driBOSetStatus(pVia->scanout.bufs[VIA_SCANOUT_CURSOR],
+    (void) wsbmBOSetStatus(pVia->scanout.bufs[VIA_SCANOUT_CURSOR],
 			  0,
 			  WSBM_PL_FLAG_NO_EVICT);
 
-    (void) driBOData(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY],
+    (void) wsbmBOData(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY],
 		     0, NULL, NULL, 0);
 
 #ifdef XF86DRI
@@ -2504,7 +2504,7 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
     pVia->directRenderingEnabled = VIADRIScreenInit(pScreen);
     pVia->vtNotified = FALSE;
     if (pVia->directRenderingEnabled && !pVia->IsSecondary) {
-	pVia->mainPool = driDRMPoolInit(pVia->drmFD, DRM_VIA_TTM_OFFSET);
+	pVia->mainPool = wsbmTTMPoolInit(pVia->drmFD, DRM_VIA_PLACEMENT_OFFSET);
     }
 #else
     /*
@@ -2518,7 +2518,7 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
 		   "This driver currently requires DRM to operate.\n");
 	goto out_err1;
     }	
-    ret = driGenBuffers(pVia->mainPool, VIA_SCANOUT_NUM,
+    ret = wsbmGenBuffers(pVia->mainPool, VIA_SCANOUT_NUM,
 			pVia->scanout.bufs, 0,
 			WSBM_PL_FLAG_VRAM |
 			WSBM_PL_FLAG_NO_EVICT);
@@ -2541,7 +2541,7 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
     }
 
     displaySize = pVia->Bpl*pScrn->virtualY;
-    ret = driBOData(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY], 
+    ret = wsbmBOData(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY], 
 		    displaySize, NULL, NULL, 
 		    WSBM_PL_FLAG_VRAM |
 		    WSBM_PL_FLAG_NO_EVICT |
@@ -2553,9 +2553,9 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
 	goto out_err3;
     }
 
-    pVia->front.buf = driBOReference(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY]);
+    pVia->front.buf = wsbmBOReference(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY]);
     pVia->displayMap = NULL;
-    pVia->displayMap = driBOMap(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY], 1,
+    pVia->displayMap = wsbmBOMap(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY], 1,
 				WSBM_SYNCCPU_READ | WSBM_SYNCCPU_WRITE);
     if (!pVia->displayMap) {
 	xf86DrvMsg(pScrn->scrnIndex, X_ERROR, 
@@ -2564,11 +2564,11 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
 	goto out_err3;
     }
     
-    driBOUnmap(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY]);
+    wsbmBOUnmap(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY]);
     pVia->front.virtual = pVia->displayMap;
-    pVia->front.size = driBOSize(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY]);
+    pVia->front.size = wsbmBOSize(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY]);
 
-    pVia->displayOffset = driBOOffset(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY]);
+    pVia->displayOffset = wsbmBOOffset(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY]);
 
     pScrn->AdjustFrame(scrnIndex, pScrn->frameX0, pScrn->frameY0, 0);
 
@@ -2734,9 +2734,9 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
 	xfree(pVia->ShadowPtr);
     pVia->ShadowPtr = NULL;
   out_err3:
-    driBOUnReference(pVia->front.buf);
+    wsbmBOUnReference(pVia->front.buf);
     pVia->front.buf = NULL;
-    driDeleteBuffers(VIA_SCANOUT_NUM, pVia->scanout.bufs);
+    wsbmDeleteBuffers(VIA_SCANOUT_NUM, pVia->scanout.bufs);
   out_err2:
     if (!pVia->IsSecondary) {
 	pVia->mainPool->takeDown(pVia->mainPool);
@@ -2944,9 +2944,9 @@ VIACloseScreen(int scrnIndex, ScreenPtr pScreen)
 	xfree(pVia->ShadowPtr);
     pVia->ShadowPtr = NULL;
     
-    driBOUnReference(pVia->front.buf);
+    wsbmBOUnReference(pVia->front.buf);
     pVia->front.buf = NULL;
-    driDeleteBuffers(VIA_SCANOUT_NUM, pVia->scanout.bufs);
+    wsbmDeleteBuffers(VIA_SCANOUT_NUM, pVia->scanout.bufs);
 
     if (pVia->mainPool && !pVia->IsSecondary) {
 	pVia->mainPool->takeDown(pVia->mainPool);

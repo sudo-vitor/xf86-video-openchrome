@@ -170,7 +170,7 @@ ochr_reset_cmdlists(struct _ViaCommandBuffer *cBuf)
     if (ret)
 	return ret;
 
-    ret = driBOUnrefUserList(cBuf->validate_list);
+    ret = wsbmBOUnrefUserList(cBuf->validate_list);
     if (ret)
 	return ret;
 
@@ -218,7 +218,7 @@ ochr_apply_yuv_reloc(uint32_t *cmdbuf,
 
 int
 ochr_yuv_relocation(struct _ViaCommandBuffer *cBuf,
-		   struct _DriBufferObject *buffer,
+		   struct _WsbmBufferObject *buffer,
 		   uint32_t delta, 
 		   int planes, uint32_t plane_0, uint32_t plane_1,
 		    uint32_t plane_2,
@@ -233,7 +233,7 @@ ochr_yuv_relocation(struct _ViaCommandBuffer *cBuf,
     uint32_t tmp;
     uint32_t *cmdbuf = (uint32_t *) cBuf->buf + (cBuf->pos - planes * 2);
 
-    ret = driBOAddListItem(cBuf->validate_list, buffer,
+    ret = wsbmBOAddListItem(cBuf->validate_list, buffer,
 			   flags, mask, &itemLoc, &node);
     if (ret)
 	return ret;
@@ -241,8 +241,8 @@ ochr_yuv_relocation(struct _ViaCommandBuffer *cBuf,
     val_req = ochrValReq(node);
 
     if (!(val_req->presumed_flags & VIA_USE_PRESUMED)) {
-	val_req->presumed_gpu_offset = (uint64_t) driBOOffset(buffer) - 
-	    driBOPoolOffset(buffer);
+	val_req->presumed_gpu_offset = (uint64_t) wsbmBOOffset(buffer) - 
+	    wsbmBOPoolOffset(buffer);
 	val_req->presumed_flags |= VIA_USE_PRESUMED;
     }
 
@@ -251,7 +251,7 @@ ochr_yuv_relocation(struct _ViaCommandBuffer *cBuf,
     reloc.base.type = VIA_RELOC_YUV;
     reloc.base.offset = 1;
     reloc.addr.index = 0;
-    reloc.addr.delta = delta + driBOPoolOffset(buffer);
+    reloc.addr.delta = delta + wsbmBOPoolOffset(buffer);
     reloc.planes = planes;
     reloc.plane_offs[0] = plane_0;
     reloc.plane_offs[1] = plane_1;
@@ -306,7 +306,7 @@ ochr_apply_2d_reloc(uint32_t * cmdbuf,
 
 int
 ochr_2d_relocation(struct _ViaCommandBuffer *cBuf,
-		   struct _DriBufferObject *buffer,
+		   struct _WsbmBufferObject *buffer,
 		   uint32_t delta, uint32_t bpp, uint32_t pos,
 		   uint64_t flags, uint64_t mask)
 {
@@ -319,7 +319,7 @@ ochr_2d_relocation(struct _ViaCommandBuffer *cBuf,
     uint32_t tmp;
     uint32_t *cmdbuf = (uint32_t *) cBuf->buf + (cBuf->pos - 4);
 
-    ret = driBOAddListItem(cBuf->validate_list, buffer,
+    ret = wsbmBOAddListItem(cBuf->validate_list, buffer,
 			   flags, mask, &itemLoc, &node);
     if (ret)
 	return ret;
@@ -327,7 +327,7 @@ ochr_2d_relocation(struct _ViaCommandBuffer *cBuf,
     val_req = ochrValReq(node);
 
     if (!(val_req->presumed_flags & VIA_USE_PRESUMED)) {
-	val_req->presumed_gpu_offset = (uint64_t) driBOOffset(buffer);
+	val_req->presumed_gpu_offset = (uint64_t) wsbmBOOffset(buffer);
 	val_req->presumed_flags |= VIA_USE_PRESUMED;
     }
 
@@ -433,9 +433,9 @@ ochr_tex_relocation(struct _ViaCommandBuffer *cBuf,
     size_t size;
     uint32_t *cmdBuf = (uint32_t *) cBuf->buf + cBuf->pos;
 
-    driReadLockKernelBO();
+    wsbmReadLockKernelBO();
     for (i = 0; i <= (hi_mip - low_mip); ++i) {
-	ret = driBOAddListItem(cBuf->validate_list, addr[i].buf,
+	ret = wsbmBOAddListItem(cBuf->validate_list, addr[i].buf,
 			       flags, mask, &itemLoc, &node);
 	if (ret)
 	    return ret;
@@ -445,8 +445,8 @@ ochr_tex_relocation(struct _ViaCommandBuffer *cBuf,
 	if (!(val_req->presumed_flags & VIA_USE_PRESUMED)) {
 	    val_req->presumed_flags = VIA_USE_PRESUMED;
 	    val_req->presumed_gpu_offset =
-		(uint64_t) driBOOffset(addr[i].buf);
-	    if (driBOPlacement(addr[i].buf) &
+		(uint64_t) wsbmBOOffset(addr[i].buf);
+	    if (wsbmBOPlacement(addr[i].buf) &
 		(WSBM_PL_FLAG_TT | VIA_PL_FLAG_AGP))
 		val_req->presumed_flags |= VIA_PRESUMED_AGP;	    
 	}
@@ -462,7 +462,7 @@ ochr_tex_relocation(struct _ViaCommandBuffer *cBuf,
 	fake_addr[count].delta = addr[i].delta;
 	count++;
     }
-    driReadUnlockKernelBO();
+    wsbmReadUnlockKernelBO();
 
     reloc.type = VIA_RELOC_TEX;
     reloc.offset = 0;
@@ -515,7 +515,7 @@ ochr_apply_dest_reloc(uint32_t ** cmdbuf,
 
 int
 ochr_dest_relocation(struct _ViaCommandBuffer *cBuf,
-		     struct _DriBufferObject *dstBuffer,
+		     struct _WsbmBufferObject *dstBuffer,
 		     uint32_t delta, uint64_t flags, uint64_t mask)
 {
     struct via_zbuf_reloc reloc;
@@ -527,7 +527,7 @@ ochr_dest_relocation(struct _ViaCommandBuffer *cBuf,
     uint32_t tmp;
     uint32_t *cmdbuf = (uint32_t *) cBuf->buf + cBuf->pos;
 
-    ret = driBOAddListItem(cBuf->validate_list, dstBuffer,
+    ret = wsbmBOAddListItem(cBuf->validate_list, dstBuffer,
 			   flags, mask, &itemLoc, &node);
     if (ret)
 	return ret;
@@ -535,9 +535,9 @@ ochr_dest_relocation(struct _ViaCommandBuffer *cBuf,
     val_req = ochrValReq(node);
 
     if (!(val_req->presumed_flags & VIA_USE_PRESUMED)) {
-	driReadLockKernelBO();
-	val_req->presumed_gpu_offset = (uint64_t) driBOOffset(dstBuffer);
-	driReadUnlockKernelBO();
+        wsbmReadLockKernelBO();
+	val_req->presumed_gpu_offset = (uint64_t) wsbmBOOffset(dstBuffer);
+	wsbmReadUnlockKernelBO();
 	val_req->presumed_flags |= VIA_USE_PRESUMED;
     }
 
@@ -582,7 +582,7 @@ ochr_execbuf(int fd, struct _ViaCommandBuffer *cBuf)
      * prior to the command submission.
      */
 
-    valList = driGetDRMValidateList(cBuf->validate_list);
+    valList = wsbmGetKernelValidateList(cBuf->validate_list);
     iterator = validateListIterator(valList);
     while (iterator) {
 	node = validateListNode(iterator);
@@ -599,7 +599,7 @@ ochr_execbuf(int fd, struct _ViaCommandBuffer *cBuf)
 	    *prevNext = (uint64_t) (unsigned long)val_arg;
 	prevNext = &req->next;
 
-	req->buffer_handle = wsDriKbufHandle((struct _DriKernelBuf *)
+	req->buffer_handle = wsbmKbufHandle((struct _WsbmKernelBuf *)
 					     node->buf);
 	req->group = 0;
 	req->set_flags = node->set_flags;
@@ -667,7 +667,7 @@ ochr_execbuf(int fd, struct _ViaCommandBuffer *cBuf)
 	}
 
 	rep = &val_arg->d.rep;
-	wsDriUpdateKbuf((struct _DriKernelBuf *)node->buf,
+	wsbmUpdateKbuf((struct _WsbmKernelBuf *)node->buf,
 			rep->gpu_offset, rep->placement, rep->fence_type_mask);
 
 	iterator = validateListNext(valList, iterator);

@@ -25,7 +25,7 @@
 #include "config.h"
 #endif
 
-#include <ws_dri_bufmgr.h>
+#include <wsbm_manager.h>
 #include "via.h"
 #include "via_driver.h"
 #include "via_memcpy.h"
@@ -534,7 +534,7 @@ viaVidCopyInit(char *copyType, ScreenPtr pScreen)
     char *tmpBuf, *endBuf;
     int count, j, bestSoFar;
     unsigned best, tmp, testSize, alignSize, tmp2;
-    struct _DriBufferObject *tmpFbBuffer;
+    struct _WsbmBufferObject *tmpFbBuffer;
     McFuncData *curData;
     FILE *cpuInfoFile;
     double cpuFreq;
@@ -580,36 +580,36 @@ viaVidCopyInit(char *copyType, ScreenPtr pScreen)
      * player buffer (buf2) and a pool of uninitialized "video" data (buf3). 
      */
 
-    ret = driGenBuffers(pVia->mainPool, 1,
+    ret = wsbmGenBuffers(pVia->mainPool, 1,
 			&tmpFbBuffer, 0, 
 			WSBM_PL_FLAG_VRAM |
 			WSBM_PL_FLAG_NO_EVICT);
     if (ret) 
 	return libc_YUV42X;
 
-    ret = driBOData(tmpFbBuffer, alignSize + 31, NULL, NULL, 0);
+    ret = wsbmBOData(tmpFbBuffer, alignSize + 31, NULL, NULL, 0);
 
     if (ret) {
-	driDeleteBuffers(1, &tmpFbBuffer);
+	wsbmDeleteBuffers(1, &tmpFbBuffer);
 	return libc_YUV42X;
     }
     
-    buf1 = driBOMap(tmpFbBuffer, 1, WSBM_SYNCCPU_WRITE);
+    buf1 = wsbmBOMap(tmpFbBuffer, 1, WSBM_SYNCCPU_WRITE);
 
     if (!buf1) {
-	driDeleteBuffers(1, &tmpFbBuffer);
+	wsbmDeleteBuffers(1, &tmpFbBuffer);
 	return libc_YUV42X;
     }
 
     if (NULL == (buf2 = (unsigned char *)xalloc(testSize))) {
-	driBOUnmap(tmpFbBuffer);
-	driDeleteBuffers(1, &tmpFbBuffer);
+	wsbmBOUnmap(tmpFbBuffer);
+	wsbmDeleteBuffers(1, &tmpFbBuffer);
         return libc_YUV42X;
     }
     if (NULL == (buf3 = (unsigned char *)xalloc(testSize))) {
         xfree(buf2);
-	driBOUnmap(tmpFbBuffer);
-	driDeleteBuffers(1, &tmpFbBuffer);
+	wsbmBOUnmap(tmpFbBuffer);
+	wsbmDeleteBuffers(1, &tmpFbBuffer);
         return libc_YUV42X;
     }
 
@@ -665,8 +665,8 @@ viaVidCopyInit(char *copyType, ScreenPtr pScreen)
     }
     xfree(buf3);
     xfree(buf2);
-    driBOUnmap(tmpFbBuffer);
-    driDeleteBuffers(1, &tmpFbBuffer);
+    wsbmBOUnmap(tmpFbBuffer);
+    wsbmDeleteBuffers(1, &tmpFbBuffer);
 
     xf86DrvMsg(pScrn->scrnIndex, X_PROBED,
                "Using %s YUV42X copy for %s.\n",

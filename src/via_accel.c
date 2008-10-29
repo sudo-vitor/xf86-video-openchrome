@@ -33,7 +33,7 @@
 #include "config.h"
 #endif
 
-#include <ws_dri_bufmgr.h>
+#include <wsbm_manager.h>
 #include <X11/Xarch.h>
 #include "xaalocal.h"
 #include "xaarop.h"
@@ -169,7 +169,7 @@ viaSetupCBuffer(ScrnInfoPtr pScrn, ViaCommandBuffer * buf, unsigned size)
     if (!buf->reloc_info)
 	goto out_err0;
     
-    buf->validate_list = driBOCreateList(30);
+    buf->validate_list = wsbmBOCreateList(30);
     if (!buf->validate_list)
 	goto out_err1;
 
@@ -188,8 +188,8 @@ void
 viaTearDownCBuffer(ViaCommandBuffer * buf)
 {
     if (buf->validate_list) {
-	driBOUnrefUserList(buf->validate_list);
-	driBOFreeList(buf->validate_list);
+	wsbmBOUnrefUserList(buf->validate_list);
+	wsbmBOFreeList(buf->validate_list);
 	buf->validate_list = NULL;
     }
     if (buf->reloc_info) {
@@ -272,7 +272,7 @@ viaAccelSync(ScrnInfoPtr pScrn)
 
 static unsigned long
 viaExaSuperPixmapOffset(PixmapPtr p, 
-			struct _DriBufferObject **driBuf)
+			struct _WsbmBufferObject **driBuf)
 {
     ScreenPtr pScreen = p->drawable.pScreen;
     ScrnInfoPtr pScrn = xf86Screens[pScreen->myNum];
@@ -290,7 +290,7 @@ viaExaSuperPixmapOffset(PixmapPtr p,
 
     *driBuf = buf->buf;
     return (unsigned long)ptr - (unsigned long) buf->virtual + 
-	driBOPoolOffset(buf->buf);
+	wsbmBOPoolOffset(buf->buf);
 }
 
 
@@ -299,7 +299,7 @@ viaEmitPixmap(ViaCommandBuffer *cb,
 	      PixmapPtr pDstPix,
 	      PixmapPtr pSrcPix)
 {
-    struct _DriBufferObject *buf;
+    struct _WsbmBufferObject *buf;
     unsigned long delta;
     int ret;
 
@@ -334,7 +334,7 @@ viaEmitPixmap(ViaCommandBuffer *cb,
  */
 static void
 viaAccelSolidHelper(ViaCommandBuffer * cb, int x, int y, int w, int h,
-                    struct _DriBufferObject *buf, 
+                    struct _WsbmBufferObject *buf, 
 		    unsigned delta, unsigned bpp, 
 		    CARD32 mode, unsigned pitch,
                     CARD32 fg, CARD32 cmd)
@@ -474,7 +474,7 @@ viaAccelCopyPixmapHelper(ViaCommandBuffer * cb, int xs, int ys, int xd, int yd,
 static void
 viaAccelCopyHelper(ViaCommandBuffer * cb, int xs, int ys, int xd, int yd,
 		   int w, int h, 
-		   struct _DriBufferObject *buf,
+		   struct _WsbmBufferObject *buf,
 		   unsigned long delta,
 		   unsigned int bpp,
 		   CARD32 mode, unsigned srcPitch, unsigned dstPitch,
@@ -572,14 +572,14 @@ viaOrder(CARD32 val, CARD32 * shift)
  */
 
 struct _ViaOffscreenBuffer *
-viaInBuffer(struct _WSDriListHead *head, void *ptr)
+viaInBuffer(struct _WsbmListHead *head, void *ptr)
 {
     struct _ViaOffscreenBuffer *entry;
-    struct _WSDriListHead *list;
+    struct _WsbmListHead *list;
     unsigned long offset;
 
-    WSDRILISTFOREACH(list, head) {
-	entry = WSDRILISTENTRY(list, struct _ViaOffscreenBuffer, head);
+    WSBMLISTFOREACH(list, head) {
+	entry = WSBMLISTENTRY(list, struct _ViaOffscreenBuffer, head);
 	offset = (unsigned long)ptr - (unsigned long)entry->virtual;
 	if (offset < entry->size)
 	    return entry;
@@ -631,7 +631,7 @@ viaExaSolid(PixmapPtr pPixmap, int x1, int y1, int x2, int y2)
     ViaTwodContext *tdc = &pVia->td;
     CARD32 dstPitch, dstOffset;
     int w = x2 - x1, h = y2 - y1;
-    struct _DriBufferObject *buf;
+    struct _WsbmBufferObject *buf;
     RING_VARS;
 
     dstPitch = exaGetPixmapPitch(pPixmap);
@@ -659,14 +659,14 @@ static void
 viaFreeScratchBuffers(VIAPtr pVia)
 {
     struct _ViaOffscreenBuffer *entry;
-    struct _WSDriListHead *list;
-    struct _WSDriListHead *prev;
+    struct _WsbmListHead *list;
+    struct _WsbmListHead *prev;
 
-    WSDRILISTFOREACHPREVSAFE(list, prev, &pVia->offscreen) {
-	entry = WSDRILISTENTRY(list, struct _ViaOffscreenBuffer, head);
+    WSBMLISTFOREACHPREVSAFE(list, prev, &pVia->offscreen) {
+	entry = WSBMLISTENTRY(list, struct _ViaOffscreenBuffer, head);
 	if (entry->scratch) {
-	    WSDRILISTDEL(list);
-	    driBOUnReference(entry->buf);
+	    WSBMLISTDEL(list);
+	    wsbmBOUnReference(entry->buf);
 	    free(entry);
 	}
     }
@@ -1062,7 +1062,7 @@ viaExaUploadToScratch(PixmapPtr pSrc, PixmapPtr pDst)
     if (!entry)
 	return FALSE;
 
-    ret = driGenBuffers(pVia->mainPool, 1, 
+    ret = wsbmGenBuffers(pVia->mainPool, 1, 
 			&entry->buf, 0, 
 			VIA_PL_FLAG_AGP |
 			WSBM_PL_FLAG_VRAM);
@@ -1075,11 +1075,11 @@ viaExaUploadToScratch(PixmapPtr pSrc, PixmapPtr pDst)
     dstPitch = (wBytes + 31) & ~31;
     size = dstPitch * h;
 
-    ret = driBOData(entry->buf, size, NULL, NULL, 0);
+    ret = wsbmBOData(entry->buf, size, NULL, NULL, 0);
     if (ret)
 	goto out_err1;
 
-    dst = driBOMap(entry->buf, 1, WSBM_SYNCCPU_WRITE);
+    dst = wsbmBOMap(entry->buf, 1, WSBM_SYNCCPU_WRITE);
     if (dst == NULL)
 	goto out_err1;
 
@@ -1096,17 +1096,17 @@ viaExaUploadToScratch(PixmapPtr pSrc, PixmapPtr pDst)
         src += srcPitch;
     }
 
-    (void) driBOUnmap(entry->buf);
+    (void) wsbmBOUnmap(entry->buf);
     entry->size = size;
     entry->virtual = pDst->devPrivate.ptr;
     entry->scratch = TRUE;
 
-    WSDRILISTADDTAIL(&entry->head, &pVia->offscreen);
+    WSBMLISTADDTAIL(&entry->head, &pVia->offscreen);
 
     return TRUE;
 
   out_err1:
-    driBOUnReference(entry->buf);
+    wsbmBOUnReference(entry->buf);
   out_err0:
     free(entry);
     return FALSE;
@@ -1207,7 +1207,7 @@ viaExaPrepareComposite(int op, PicturePtr pSrcPicture,
     int curTex = 0;
     ViaTexBlendingModes srcMode;
     CARD32 col;
-    struct _DriBufferObject *buf;
+    struct _WsbmBufferObject *buf;
     unsigned long delta;
 
     delta = viaExaSuperPixmapOffset(pDst, &buf);
@@ -1352,7 +1352,7 @@ viaExaPrepareAccess(PixmapPtr pPix, int index)
     if (buf) {
 	flags = (index == EXA_PREPARE_DEST) ?
 	    WSBM_SYNCCPU_WRITE : WSBM_SYNCCPU_READ;
-	virtual = driBOMap(buf->buf, 1, flags);
+	virtual = wsbmBOMap(buf->buf, 1, flags);
     }
     return TRUE;
 }
@@ -1371,7 +1371,7 @@ viaExaFinishAccess(PixmapPtr pPix, int index)
     buf = viaInBuffer(&pVia->offscreen, ptr);
 
     if (buf) {
-	(void) driBOUnmap(buf->buf);
+	(void) wsbmBOUnmap(buf->buf);
     }
 }
 
@@ -1478,7 +1478,7 @@ viaInitAccel(ScreenPtr pScreen)
      * Pixmap cache.
      */
 
-    ret = driGenBuffers(pVia->mainPool, 1,
+    ret = wsbmGenBuffers(pVia->mainPool, 1,
 			&pVia->exaMem.buf, 0, 
 			WSBM_PL_FLAG_VRAM);
     if (ret) {
@@ -1487,28 +1487,28 @@ viaInitAccel(ScreenPtr pScreen)
 	return FALSE;
     }
 
-    ret = driBOData(pVia->exaMem.buf, exaMemSize, NULL, NULL, 0);
+    ret = wsbmBOData(pVia->exaMem.buf, exaMemSize, NULL, NULL, 0);
     if (ret) {
 	xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
 	       "[Accel] Failed allocating offscreen pixmap space.\n");	
 	goto out_err0;
     }
 
-    pVia->exaMem.virtual = driBOMap(pVia->exaMem.buf, 1, 
+    pVia->exaMem.virtual = wsbmBOMap(pVia->exaMem.buf, 1, 
 				    WSBM_SYNCCPU_READ | WSBM_SYNCCPU_WRITE);
     if (pVia->exaMem.virtual == NULL) {
 	xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
 	       "[Accel] Failed mapping offscreen pixmap space.\n");	
 	goto out_err0;
     }	
-    driBOUnmap(pVia->exaMem.buf);
-    pVia->exaMem.size = driBOSize(pVia->exaMem.buf);
+    wsbmBOUnmap(pVia->exaMem.buf);
+    pVia->exaMem.size = wsbmBOSize(pVia->exaMem.buf);
     pVia->exaMem.scratch = FALSE;
     pVia->front.scratch = FALSE;
 
-    WSDRIINITLISTHEAD(&pVia->offscreen);
-    WSDRILISTADDTAIL(&pVia->front.head, &pVia->offscreen);
-    WSDRILISTADDTAIL(&pVia->exaMem.head, &pVia->offscreen);
+    WSBMINITLISTHEAD(&pVia->offscreen);
+    WSBMLISTADDTAIL(&pVia->front.head, &pVia->offscreen);
+    WSBMLISTADDTAIL(&pVia->exaMem.head, &pVia->offscreen);
 
     /*
      * nPOT textures. DRM versions below 2.11.0 don't allow them.
@@ -1547,7 +1547,7 @@ viaInitAccel(ScreenPtr pScreen)
  out_err0:
 
     pVia->NoAccel = TRUE;
-    driDeleteBuffers(1, &pVia->exaMem.buf);
+    wsbmDeleteBuffers(1, &pVia->exaMem.buf);
     return FALSE;
 
 }
@@ -1574,9 +1574,9 @@ viaExitAccel(ScreenPtr pScreen)
     pVia->exaDriverPtr = NULL;
     viaTearDownCBuffer(&pVia->cb);
     viaFreeScratchBuffers(pVia);
-    WSDRILISTDELINIT(&pVia->front.head);
-    WSDRILISTDELINIT(&pVia->exaMem.head);
-    driDeleteBuffers(1, &pVia->exaMem.buf);
+    WSBMLISTDELINIT(&pVia->front.head);
+    WSBMLISTDELINIT(&pVia->exaMem.head);
+    wsbmDeleteBuffers(1, &pVia->exaMem.buf);
     return;
 }
 
@@ -1617,7 +1617,7 @@ viaAccelBlitRect(ScrnInfoPtr pScrn, int srcx, int srcy, int w, int h,
 {
     VIAPtr pVia = VIAPTR(pScrn);
     ViaTwodContext *tdc = &pVia->td;
-    struct _DriBufferObject *buf;
+    struct _WsbmBufferObject *buf;
     unsigned long delta;
 
     RING_VARS;
@@ -1626,7 +1626,7 @@ viaAccelBlitRect(ScrnInfoPtr pScrn, int srcx, int srcy, int w, int h,
         return;
 
     buf = pVia->scanout.bufs[VIA_SCANOUT_DISPLAY];
-    delta = driBOPoolOffset(buf);
+    delta = wsbmBOPoolOffset(buf);
 
     if (!pVia->NoAccel) {
 
@@ -1656,7 +1656,7 @@ viaAccelFillRect(ScrnInfoPtr pScrn, int x, int y, int w, int h,
     ViaTwodContext *tdc = &pVia->td;
     CARD32 cmd = VIA_GEC_BLT | VIA_GEC_FIXCOLOR_PAT |
             VIAACCELPATTERNROP(GXcopy);
-    struct _DriBufferObject *buf;
+    struct _WsbmBufferObject *buf;
     unsigned long delta;
     
     RING_VARS;
@@ -1665,7 +1665,7 @@ viaAccelFillRect(ScrnInfoPtr pScrn, int x, int y, int w, int h,
         return;
 
     buf = pVia->scanout.bufs[VIA_SCANOUT_DISPLAY];
-    delta = driBOPoolOffset(buf);
+    delta = wsbmBOPoolOffset(buf);
     
     if (!pVia->NoAccel) {
         viaAccelSetMode(pScrn->bitsPerPixel, tdc);

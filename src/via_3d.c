@@ -127,7 +127,7 @@ via3DTexSupported(int format)
 }
 
 static void
-viaSet3DDestination(Via3DState * v3d, struct _DriBufferObject *destBuf,
+viaSet3DDestination(Via3DState * v3d, struct _WsbmBufferObject *destBuf,
 		    CARD32 destDelta, CARD32 pitch, int format)
 {
     v3d->drawingDirty = TRUE;  /* Affects planemask format. */
@@ -173,7 +173,7 @@ viaOrder(CARD32 val, CARD32 * shift)
 }
 
 static Bool
-viaSet3DTexture(Via3DState * v3d, struct _DriBufferObject *buf,
+viaSet3DTexture(Via3DState * v3d, struct _WsbmBufferObject *buf,
 		CARD32 delta, int tex, 
                 CARD32 pitch, Bool npot, CARD32 width, CARD32 height,
                 int format, ViaTextureModes sMode, ViaTextureModes tMode,

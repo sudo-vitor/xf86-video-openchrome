@@ -41,7 +41,7 @@ typedef struct _ViaCommandBuffer
     Bool has3dState;
     void (*flushFunc) (struct _ViaCommandBuffer * cb);
     struct via_reloc_bufinfo *reloc_info;
-    struct _DriBufferList *validate_list;
+    struct _WsbmBufferList *validate_list;
 
     PixmapPtr srcPixmap;
     PixmapPtr dstPixmap;

@@ -1352,7 +1352,7 @@ viaPutImage(ScrnInfoPtr pScrn,
             }
 
 	    hqvBuf = &pVia->swov.SWDevice.hqvBuf[pVia->dwFrameNum & 1];
-	    virtual = driBOMap(hqvBuf->buf, 1, WSBM_SYNCCPU_WRITE);
+	    virtual = wsbmBOMap(hqvBuf->buf, 1, WSBM_SYNCCPU_WRITE);
 
 	    if (virtual == NULL) {
 		viaXvError(pScrn, pPriv, xve_mem);
@@ -1406,7 +1406,7 @@ viaPutImage(ScrnInfoPtr pScrn,
                 }
             }
 
-	    driBOUnmap(hqvBuf->buf);
+	    wsbmBOUnmap(hqvBuf->buf);
             /* If there is bandwidth issue, block the H/W overlay */
 
             if (!pVia->OverlaySupported &&

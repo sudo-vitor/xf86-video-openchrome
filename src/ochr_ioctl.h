@@ -2,13 +2,13 @@
 #define _OCHR_IOCTL_H_
 
 #include <stdint.h>
-#include <ws_dri_bufmgr.h>
+#include <wsbm_manager.h>
 #include "via_dmabuffer.h"
 
 struct via_reloc_bufinfo;
 struct via_reloc_texlist
 {
-    struct _DriBufferObject *buf;
+    struct _WsbmBufferObject *buf;
     uint32_t delta;
 };
 
@@ -24,7 +24,7 @@ extern int ochr_reset_cmdlists(struct _ViaCommandBuffer *cBuf);
 
 extern int
 ochr_2d_relocation(struct _ViaCommandBuffer *cBuf,
-		   struct _DriBufferObject *buffer,
+		   struct _WsbmBufferObject *buffer,
 		   uint32_t delta, uint32_t bpp, uint32_t pos,
 		   uint64_t flags, uint64_t mask);
 extern int
@@ -35,11 +35,11 @@ ochr_tex_relocation(struct _ViaCommandBuffer *cBuf,
 		    uint32_t reg_tex_fm, uint64_t flags, uint64_t mask);
 extern int
 ochr_dest_relocation(struct _ViaCommandBuffer *cBuf,
-		     struct _DriBufferObject *dstBuffer,
+		     struct _WsbmBufferObject *dstBuffer,
 		     uint32_t delta, uint64_t flags, uint64_t mask);
 extern int
 ochr_yuv_relocation(struct _ViaCommandBuffer *cBuf,
-		    struct _DriBufferObject *buffer,
+		    struct _WsbmBufferObject *buffer,
 		    uint32_t delta, int planes, 
 		    uint32_t plane_0, uint32_t plane_1,
 		    uint32_t plane_2,

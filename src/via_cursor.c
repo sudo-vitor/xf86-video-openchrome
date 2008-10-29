@@ -33,7 +33,7 @@
 #include "config.h"
 #endif
 
-#include <ws_dri_bufmgr.h>
+#include <wsbm_manager.h>
 #include "via.h"
 #include "via_driver.h"
 #include "via_id.h"
@@ -66,19 +66,19 @@ VIAHWCursorInit(ScreenPtr pScreen)
     xf86CursorInfoPtr infoPtr;
     int ret;
 
-    ret = driBOData(pVia->scanout.bufs[VIA_SCANOUT_CURSOR], 
+    ret = wsbmBOData(pVia->scanout.bufs[VIA_SCANOUT_CURSOR], 
 		    VIA_CURSOR_SIZE, NULL, NULL, 0);
     if (ret)
 	return FALSE;
 
-    pVia->cursorMap = driBOMap(pVia->scanout.bufs[VIA_SCANOUT_CURSOR], 1,
+    pVia->cursorMap = wsbmBOMap(pVia->scanout.bufs[VIA_SCANOUT_CURSOR], 1,
 			       WSBM_SYNCCPU_READ |
 			       WSBM_SYNCCPU_WRITE);
 
     if (pVia->cursorMap == NULL)
 	return FALSE;
-    driBOUnmap(pVia->scanout.bufs[VIA_SCANOUT_CURSOR]);
-    pVia->cursorOffset = driBOOffset(pVia->scanout.bufs[VIA_SCANOUT_CURSOR]);
+    wsbmBOUnmap(pVia->scanout.bufs[VIA_SCANOUT_CURSOR]);
+    pVia->cursorOffset = wsbmBOOffset(pVia->scanout.bufs[VIA_SCANOUT_CURSOR]);
     memset(pVia->cursorMap, 0x00, VIA_CURSOR_SIZE);
 
     if (pVia->Chipset == VIA_CX700) {
