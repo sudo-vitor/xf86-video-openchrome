@@ -49,7 +49,7 @@
 #define VIA_XVMC_COMMAND_UNDISPLAY 2
 #define VIA_XVMC_COMMAND_ATTRIBUTES 3
 
-typedef drm_via_sarea_t ViaXvMCSAreaPriv;
+typedef struct drm_via_sarea ViaXvMCSAreaPriv;
 
 typedef struct
 {

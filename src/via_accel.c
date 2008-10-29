@@ -143,7 +143,7 @@ viaFlushDRIEnabled(ViaCommandBuffer * cb)
     VIAPtr pVia = VIAPTR(pScrn);
     char *tmp = (char *)cb->buf;
     int tmpSize;
-    drm_via_cmdbuffer_t b;
+    struct drm_via_cmdbuffer b;
 
     /* Align end of command buffer for AGP DMA. */
     if (pVia->agpDMA && cb->mode == 2 && cb->rindex != HC_ParaType_CmdVdata
@@ -1087,7 +1087,7 @@ viaCheckUpload(ScrnInfoPtr pScrn, Via3DState * v3d)
 
 #ifdef XF86DRI
     if (pVia->directRenderingEnabled) {
-        volatile drm_via_sarea_t *saPriv = (drm_via_sarea_t *)
+        volatile struct drm_via_sarea *saPriv = (struct drm_via_sarea *)
                 DRIGetSAREAPrivate(pScrn->pScreen);
         int myContext = DRIGetContext(pScrn->pScreen);
 
@@ -1390,7 +1390,7 @@ viaAccelDMADownload(ScrnInfoPtr pScrn, unsigned long fbOffset,
                     unsigned dstPitch, unsigned w, unsigned h)
 {
     VIAPtr pVia = VIAPTR(pScrn);
-    drm_via_dmablit_t blit[2], *curBlit;
+    struct drm_via_dmablit blit[2], *curBlit;
     unsigned char *sysAligned = NULL;
     Bool doSync[2], useBounceBuffer;
     unsigned pitch, numLines[2];
@@ -1654,7 +1654,7 @@ viaExaUploadToScreen(PixmapPtr pDst, int x, int y, int w, int h, char *src,
 {
     ScrnInfoPtr pScrn = xf86Screens[pDst->drawable.pScreen->myNum];
     VIAPtr pVia = VIAPTR(pScrn);
-    drm_via_dmablit_t blit;
+    struct drm_via_dmablit blit;
     unsigned dstPitch = exaGetPixmapPitch(pDst);
     unsigned wBytes = (w * pDst->drawable.bitsPerPixel + 7) >> 3;
     unsigned dstOffset;
@@ -2305,14 +2305,16 @@ viaExitAccel(ScreenPtr pScreen)
         if (pVia->directRenderingEnabled) {
             if (pVia->texAddr) {
                 drmCommandWrite(pVia->drmFD, DRM_VIA_FREEMEM,
-                                &pVia->texAGPBuffer, sizeof(drm_via_mem_t));
+                                &pVia->texAGPBuffer, 
+				sizeof(struct drm_via_mem));
                 pVia->texAddr = NULL;
             }
             if (pVia->scratchAddr && !pVia->IsPCI &&
                 ((unsigned long)pVia->scratchAddr -
                  (unsigned long)pVia->agpMappedAddr == pVia->scratchOffset)) {
                 drmCommandWrite(pVia->drmFD, DRM_VIA_FREEMEM,
-                                &pVia->scratchAGPBuffer, sizeof(drm_via_mem_t));
+                                &pVia->scratchAGPBuffer, 
+				sizeof(struct drm_via_mem));
                 pVia->scratchAddr = NULL;
             }
         }
@@ -2371,7 +2373,7 @@ viaFinishInitAccel(ScreenPtr pScreen)
                 pVia->texAGPBuffer.type = VIA_MEM_AGP;
                 ret = drmCommandWriteRead(pVia->drmFD, DRM_VIA_ALLOCMEM,
                                           &pVia->texAGPBuffer,
-                                          sizeof(drm_via_mem_t));
+                                          sizeof(struct drm_via_mem));
 
                 if (ret || size != pVia->texAGPBuffer.size) {
                     pVia->texAGPBuffer.size = 0;
@@ -2392,7 +2394,7 @@ viaFinishInitAccel(ScreenPtr pScreen)
             pVia->scratchAGPBuffer.type = VIA_MEM_AGP;
             ret = drmCommandWriteRead(pVia->drmFD, DRM_VIA_ALLOCMEM,
                                       &pVia->scratchAGPBuffer,
-                                      sizeof(drm_via_mem_t));
+                                      sizeof(struct drm_via_mem));
             if (ret || size != pVia->scratchAGPBuffer.size) {
                 pVia->scratchAGPBuffer.size = 0;
             } else {

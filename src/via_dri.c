@@ -66,8 +66,8 @@ typedef struct
 
 static char VIAKernelDriverName[] = "via";
 static char VIAClientDriverName[] = "unichrome";
-static const ViaDRMVersion drmExpected = { 3, 0, 0 };
-static const ViaDRMVersion drmCompat = { 3, 0, 0 };
+static const ViaDRMVersion drmExpected = { 4, 0, 0 };
+static const ViaDRMVersion drmCompat = { 4, 0, 0 };
 
 static Bool VIAInitVisualConfigs(ScreenPtr pScreen);
 static Bool VIADRIFBInit(ScreenPtr pScreen, VIAPtr pVia);
@@ -169,13 +169,13 @@ VIADRIFBInit(ScreenPtr pScreen, VIAPtr pVia)
     pVIADRI->fbSize = FBSize;
 
     {
-        drm_via_fb_t fb;
+        struct drm_via_fb fb;
 
         fb.offset = FBOffset;
         fb.size = FBSize;
 
         if (drmCommandWrite(pVia->drmFD, DRM_VIA_FB_INIT, &fb,
-                            sizeof(drm_via_fb_t)) < 0) {
+                            sizeof(struct drm_via_fb)) < 0) {
             xf86DrvMsg(pScreen->myNum, X_ERROR,
                        "[drm] Failed to initialize frame buffer area.\n");
             return FALSE;
@@ -397,7 +397,7 @@ VIADRIScreenInit(ScreenPtr pScreen)
 #else
     /* For now the mapping works by using a fixed size defined
      * in the SAREA header. */
-    if (sizeof(XF86DRISAREARec) + sizeof(drm_via_sarea_t) > SAREA_MAX) {
+    if (sizeof(XF86DRISAREARec) + sizeof(struct drm_via_sarea) > SAREA_MAX) {
         xf86DrvMsg(pScrn->scrnIndex, X_ERROR, "Data does not fit in SAREA\n");
         DRIDestroyInfoRec(pVia->pDRIInfo);
         pVia->pDRIInfo = NULL;
@@ -562,9 +562,9 @@ VIADRIFinishScreenInit(ScreenPtr pScreen)
 
     /* Set SAREA value. */
     {
-        drm_via_sarea_t *saPriv;
+        struct drm_via_sarea *saPriv;
 
-        saPriv = (drm_via_sarea_t *) DRIGetSAREAPrivate(pScreen);
+        saPriv = (struct drm_via_sarea *) DRIGetSAREAPrivate(pScreen);
         assert(saPriv);
         memset(saPriv, 0, sizeof(*saPriv));
         saPriv->ctxOwner = -1;
@@ -631,17 +631,17 @@ VIADRIMoveBuffers(WindowPtr pParent, DDXPointRec ptOldOrg,
 static Bool
 VIADRIKernelInit(ScreenPtr pScreen, VIAPtr pVia)
 {
-    drm_via_init_t drmInfo;
+    struct drm_via_init drmInfo;
 
-    memset(&drmInfo, 0, sizeof(drm_via_init_t));
-    drmInfo.func = VIA_INIT_MAP;
+    memset(&drmInfo, 0, sizeof(drmInfo));
+    drmInfo.op= VIA_INIT_MAP;
     drmInfo.sarea_priv_offset = sizeof(XF86DRISAREARec);
     drmInfo.fb_offset = pVia->frameBufferHandle;
     drmInfo.mmio_offset = pVia->registerHandle;
     drmInfo.agpAddr = (CARD32) NULL;
 
     if ((drmCommandWrite(pVia->drmFD, DRM_VIA_MAP_INIT, &drmInfo,
-                         sizeof(drm_via_init_t))) < 0)
+                         sizeof(drmInfo))) < 0)
         return FALSE;
 
     return TRUE;
@@ -676,7 +676,7 @@ viaDRIFBMemcpy(int fd, unsigned long fbOffset, unsigned char *addr,
                unsigned long size, Bool toFB)
 {
     int err;
-    drm_via_dmablit_t blit;
+    struct drm_via_dmablit blit;
     unsigned long curSize;
 
     do {

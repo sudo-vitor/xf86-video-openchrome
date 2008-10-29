@@ -294,8 +294,8 @@ typedef struct _VIA {
     char *              scratchAddr;
     Bool                noComposite;
 #ifdef XF86DRI
-    drm_via_mem_t       scratchAGPBuffer;
-    drm_via_mem_t       texAGPBuffer;
+    struct drm_via_mem  scratchAGPBuffer;
+    struct drm_via_mem  texAGPBuffer;
     unsigned            texOffset;
     char *              texAddr;
     char *              dBounce;

@@ -1892,7 +1892,7 @@ VIALeaveVT(int scrnIndex, int flags)
 
 #ifdef XF86DRI
     if (pVia->directRenderingEnabled) {
-        volatile drm_via_sarea_t *saPriv = (drm_via_sarea_t *)
+	volatile struct drm_via_sarea *saPriv = (struct drm_via_sarea *)
                 DRIGetSAREAPrivate(pScrn->pScreen);
 
         DRILock(screenInfo.screens[scrnIndex], 0);

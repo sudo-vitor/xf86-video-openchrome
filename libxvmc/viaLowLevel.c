@@ -60,7 +60,7 @@ typedef struct
     unsigned curWaitFlags;
     int performLocking;
     unsigned errors;
-    drm_via_mem_t tsMem;
+    struct drm_via_mem tsMem;
     CARD32 tsOffset;
     volatile CARD32 *tsP;
     CARD32 curTimeStamp;
@@ -475,7 +475,7 @@ static void
 pciFlush(XvMCLowLevel * xl)
 {
     int ret;
-    drm_via_cmdbuffer_t b;
+    struct drm_via_cmdbuffer b;
     unsigned mode = xl->curWaitFlags;
 
     b.buf = (char *)xl->pci_buffer;
@@ -503,7 +503,7 @@ pciFlush(XvMCLowLevel * xl)
 static void
 agpFlush(XvMCLowLevel * xl)
 {
-    drm_via_cmdbuffer_t b;
+    struct drm_via_cmdbuffer b;
     int ret;
 
     if (xl->use_agp) {

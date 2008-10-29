@@ -143,7 +143,7 @@ typedef struct {
     int    pool;			/* Pool we drew from */
 #ifdef XF86DRI
     int    drm_fd;			/* Fd in DRM mode */
-    drm_via_mem_t drm;			/* DRM management object */
+    struct drm_via_mem drm;			/* DRM management object */
 #endif
     void  *pVia;			/* VIA driver pointer */
     FBLinearPtr linear;			/* X linear pool info ptr */

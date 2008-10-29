@@ -1132,9 +1132,9 @@ viaDmaBlitImage(VIAPtr pVia,
     CARD32 dst, unsigned width, unsigned height, unsigned lumaStride, int id)
 {
     Bool bounceBuffer;
-    drm_via_dmablit_t blit;
-    drm_via_blitsync_t *chromaSync = &blit.sync;
-    drm_via_blitsync_t lumaSync;
+    struct drm_via_dmablit blit;
+    struct drm_via_blitsync *chromaSync = &blit.sync;
+    struct drm_via_blitsync lumaSync;
     unsigned char *base;
     unsigned char *bounceBase;
     unsigned bounceStride;

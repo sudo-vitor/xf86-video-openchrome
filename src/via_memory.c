@@ -90,7 +90,7 @@ VIAFreeLinear(VIAMemPtr mem)
         case 2:
 #ifdef XF86DRI
             if (drmCommandWrite(mem->drm_fd, DRM_VIA_FREEMEM,
-                                &mem->drm, sizeof(drm_via_mem_t)) < 0)
+                                &mem->drm, sizeof(struct drm_via_mem)) < 0)
                 ErrorF("DRM module failed free.\n");
 #endif
             mem->pool = 0;
@@ -148,7 +148,7 @@ VIAAllocLinear(VIAMemPtr mem, ScrnInfoPtr pScrn, unsigned long size)
         mem->drm.size = size;
         mem->drm.type = VIA_MEM_VIDEO;
         ret = drmCommandWriteRead(mem->drm_fd, DRM_VIA_ALLOCMEM,
-                                  &mem->drm, sizeof(drm_via_mem_t));
+                                  &mem->drm, sizeof(struct drm_via_mem));
         if (ret || (size != mem->drm.size)) {
             /* Try X Offsceen fallback before failing. */
             if (Success == viaOffScreenLinear(mem, pScrn, size))

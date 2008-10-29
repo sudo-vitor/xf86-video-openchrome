@@ -42,7 +42,7 @@
 	lockVal = lockPtr->lock & ~(DRM_LOCK_HELD | DRM_LOCK_CONT);	\
 	DRM_CAS(lockPtr, lockVal, (context) | DRM_LOCK_HELD, __ret);	\
 	if (__ret) {							\
-	    drm_via_futex_t fx;						\
+	    struct drm_via_futex fx;   					\
 									\
             lockVal = lockPtr->lock;					\
 	    if (! (lockVal & DRM_LOCK_HELD)) continue;			\
@@ -55,7 +55,7 @@
 	    DRM_CAS( lockPtr, lockVal, fx.val, __ret);			\
 	    lockVal = lockPtr->lock;					\
 	    if (__ret) continue;					\
-	    fx.func = VIA_FUTEX_WAIT;					\
+	    fx.op = VIA_FUTEX_WAIT;					\
 	    fx.lock = (lockNo);						\
 	    fx.ms = 10;							\
 	    ret = drmCommandWrite((fd), DRM_VIA_DEC_FUTEX,		\
@@ -78,8 +78,8 @@
 	  DRM_CAS_RESULT(__ret);					\
 	    DRM_CAS(lockPtr,(context) | DRM_LOCK_HELD, context, __ret); \
 	    if (__ret) {						\
-		drm_via_futex_t fx;					\
-		fx.func = VIA_FUTEX_WAKE;				\
+		struct drm_via_futex fx;       				\
+		fx.op = VIA_FUTEX_WAKE;				\
 		fx.lock = lockNo;					\
 		DRM_CAS(lockPtr, (context) | DRM_LOCK_HELD |		\
 			DRM_LOCK_CONT,					\

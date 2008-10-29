@@ -58,7 +58,7 @@ LLState;
 
 typedef struct
 {
-    drm_via_mem_t mem;
+    struct drm_via_mem mem;
     unsigned offset;
     unsigned stride;
     unsigned height;
@@ -94,7 +94,7 @@ typedef struct _XvMCLowLevel
     unsigned height;
     int performLocking;
     unsigned errors;
-    drm_via_mem_t tsMem;
+    struct drm_via_mem tsMem;
     CARD32 tsOffset;
     volatile CARD32 *tsP;
     CARD32 curTimeStamp;
@@ -842,7 +842,7 @@ static void
 pciFlush(ViaCommandBuffer * cb, XvMCLowLevel * xl)
 {
     int ret;
-    drm_via_cmdbuffer_t b;
+    struct drm_via_cmdbuffer b;
     unsigned mode = cb->waitFlags;
 
     finish_header_agp(cb);
@@ -875,7 +875,7 @@ pciFlush(ViaCommandBuffer * cb, XvMCLowLevel * xl)
 static void
 agpFlush(ViaCommandBuffer * cb, XvMCLowLevel * xl)
 {
-    drm_via_cmdbuffer_t b;
+    struct drm_via_cmdbuffer b;
     int ret;
     int i;
 
@@ -1452,7 +1452,7 @@ updateLowLevelBuf(XvMCLowLevel * xl, LowLevelBuffer * buf,
     unsigned width, unsigned height)
 {
     unsigned stride, size;
-    drm_via_mem_t *mem = &buf->mem;
+    struct drm_via_mem *mem = &buf->mem;
     int ret;
 
     stride = (width + 31) & ~31;
@@ -1481,7 +1481,7 @@ updateLowLevelBuf(XvMCLowLevel * xl, LowLevelBuffer * buf,
 static void
 cleanupLowLevelBuf(XvMCLowLevel * xl, LowLevelBuffer * buf)
 {
-    drm_via_mem_t *mem = &buf->mem;
+    struct drm_via_mem *mem = &buf->mem;
 
     if (mem->size)
 	drmCommandWrite(xl->fd, DRM_VIA_FREEMEM, mem, sizeof(mem));
