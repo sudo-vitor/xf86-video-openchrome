@@ -53,18 +53,6 @@
 #endif
 
 #define VIDEO  0
-#define AGP    1
-#define AGP_CMDBUF_PAGES 512
-#define AGP_CMDBUF_SIZE (AGP_PAGE_SIZE * AGP_CMDBUF_PAGES)
-#define VIA_AGP_MODE_MASK 0x17
-#define VIA_AGPv3_MODE    0x08
-#define VIA_AGPv3_8X_MODE 0x02
-#define VIA_AGPv3_4X_MODE 0x01
-#define VIA_AGP_4X_MODE 0x04
-#define VIA_AGP_2X_MODE 0x02
-#define VIA_AGP_1X_MODE 0x01
-#define VIA_AGP_FW_MODE 0x10
-
 extern void GlxSetVisualConfigs(int nconfigs,
                                 __GLXvisualConfig * configs,
                                 void **configprivs);
@@ -81,11 +69,7 @@ static char VIAClientDriverName[] = "unichrome";
 static const ViaDRMVersion drmExpected = { 3, 0, 0 };
 static const ViaDRMVersion drmCompat = { 3, 0, 0 };
 
-int test_alloc_FB(ScreenPtr pScreen, VIAPtr pVia, int Size);
-int test_alloc_AGP(ScreenPtr pScreen, VIAPtr pVia, int Size);
 static Bool VIAInitVisualConfigs(ScreenPtr pScreen);
-static Bool VIADRIAgpInit(ScreenPtr pScreen, VIAPtr pVia);
-static Bool VIADRIPciInit(ScreenPtr pScreen, VIAPtr pVia);
 static Bool VIADRIFBInit(ScreenPtr pScreen, VIAPtr pVia);
 static Bool VIADRIKernelInit(ScreenPtr pScreen, VIAPtr pVia);
 static Bool VIADRIMapInit(ScreenPtr pScreen, VIAPtr pVia);
@@ -151,112 +135,6 @@ VIADRIIrqExit(ScrnInfoPtr pScrn, VIADRIPtr pVIADRI)
 }
 
 static Bool
-VIADRIAgpInit(ScreenPtr pScreen, VIAPtr pVia)
-{
-    int agpPages;
-    unsigned long agpCmdSize;
-    unsigned long agp_phys;
-    drmAddress agpaddr;
-    VIADRIPtr pVIADRI;
-    DRIInfoPtr pDRIInfo;
-
-    pDRIInfo = pVia->pDRIInfo;
-    pVIADRI = pDRIInfo->devPrivate;
-    pVia->agpSize = 0;
-
-#if 0
-    if (drmAgpAcquire(pVia->drmFD) < 0) {
-        xf86DrvMsg(pScreen->myNum, X_ERROR, "[drm] drmAgpAcquire failed %d\n",
-                   errno);
-        return FALSE;
-    }
-
-    if (!VIASetAgpMode(xf86Screens[pScreen->myNum])) {
-        xf86DrvMsg(pScreen->myNum, X_ERROR, "[drm] VIASetAgpMode failed\n");
-        drmAgpRelease(pVia->drmFD);
-        return FALSE;
-    }
-#endif
-    xf86DrvMsg(pScreen->myNum, X_INFO, "[drm] drmAgpEnabled succeeded\n");
-
-    agpCmdSize = (pVia->agpEnable) ? AGP_CMDBUF_SIZE : 0;
-
-    if (pVia->agpMem * 1024 < agpCmdSize + AGP_PAGE_SIZE) {
-        pVia->agpMem = (agpCmdSize + AGP_PAGE_SIZE) / 1024;
-        xf86DrvMsg(pScreen->myNum, X_INFO,
-                   "[drm] Forcing AGP size to %d kB\n", pVia->agpMem);
-    }
-
-    agpPages = (pVia->agpMem * 1024 + AGP_PAGE_SIZE - 1) / AGP_PAGE_SIZE;
-
-    if (drmAgpAlloc(pVia->drmFD, agpPages * AGP_PAGE_SIZE,
-                    0, &agp_phys, &pVia->agpHandle) < 0) {
-        xf86DrvMsg(pScreen->myNum, X_ERROR, "[drm] drmAgpAlloc failed\n");
-	//        drmAgpRelease(pVia->drmFD);
-        return FALSE;
-    }
-
-    if (drmAgpBind(pVia->drmFD, pVia->agpHandle, 0) < 0) {
-        xf86DrvMsg(pScreen->myNum, X_ERROR, "[drm] drmAgpBind failed\n");
-        drmAgpFree(pVia->drmFD, pVia->agpHandle);
-	//        drmAgpRelease(pVia->drmFD);
-        return FALSE;
-    }
-
-    /*
-     * Place the ring-buffer last in the AGP region, and restrict the
-     * public map not to include the buffer for security reasons.
-     */
-
-    pVia->agpSize = agpPages * AGP_PAGE_SIZE - agpCmdSize;
-    pVia->agpAddr = drmAgpBase(pVia->drmFD);
-    xf86DrvMsg(pScreen->myNum, X_INFO,
-               "[drm] agpAddr = 0x%08lx\n", pVia->agpAddr);
-
-    pVIADRI->agp.size = pVia->agpSize;
-    if (drmAddMap(pVia->drmFD, (drm_handle_t) 0, pVIADRI->agp.size,
-                  DRM_AGP, 0, &pVIADRI->agp.handle) < 0) {
-        xf86DrvMsg(pScreen->myNum, X_ERROR,
-                   "[drm] Failed to map public agp area.\n");
-        pVIADRI->agp.size = 0;
-        drmAgpUnbind(pVia->drmFD, pVia->agpHandle);
-        drmAgpFree(pVia->drmFD, pVia->agpHandle);
-	//        drmAgpRelease(pVia->drmFD);
-        return FALSE;
-    }
-
-    drmMap(pVia->drmFD, pVIADRI->agp.handle, pVIADRI->agp.size, &agpaddr);
-    pVia->agpMappedAddr = agpaddr;
-
-    xf86DrvMsg(pScreen->myNum, X_INFO,
-               "[drm] agpBase = %p\n", pVia->agpBase);
-    xf86DrvMsg(pScreen->myNum, X_INFO,
-               "[drm] agpAddr = 0x%08lx\n", pVia->agpAddr);
-    xf86DrvMsg(pScreen->myNum, X_INFO,
-               "[drm] agpSize = 0x%08x\n", pVia->agpSize);
-    xf86DrvMsg(pScreen->myNum, X_INFO,
-               "[drm] agp physical addr = 0x%08lx\n", agp_phys);
-
-    {
-        drm_via_agp_t agp;
-
-        agp.offset = 0;
-        agp.size = pVia->agpSize;
-        if (drmCommandWrite(pVia->drmFD, DRM_VIA_AGP_INIT, &agp,
-                            sizeof(drm_via_agp_t)) < 0) {
-            drmUnmap(agpaddr, pVia->agpSize);
-            drmRmMap(pVia->drmFD, pVIADRI->agp.handle);
-            drmAgpUnbind(pVia->drmFD, pVia->agpHandle);
-            drmAgpFree(pVia->drmFD, pVia->agpHandle);
-	    //            drmAgpRelease(pVia->drmFD);
-            return FALSE;
-        }
-    }
-
-    return TRUE;
-}
-
-static Bool
 VIADRIFBInit(ScreenPtr pScreen, VIAPtr pVia)
 {
     ScrnInfoPtr pScrn = xf86Screens[pScreen->myNum];
@@ -307,12 +185,6 @@ VIADRIFBInit(ScreenPtr pScreen, VIAPtr pVia)
             return TRUE;
         }
     }
-}
-
-static Bool
-VIADRIPciInit(ScreenPtr pScreen, VIAPtr pVia)
-{
-    return TRUE;
 }
 
 static Bool
@@ -619,16 +491,6 @@ VIADRICloseScreen(ScreenPtr pScreen)
     VIAPtr pVia = VIAPTR(pScrn);
     VIADRIPtr pVIADRI;
 
-    //    VIADRIRingBufferCleanup(pScrn);
-    if (pVia->agpSize) {
-        drmUnmap(pVia->agpMappedAddr, pVia->agpSize);
-        drmRmMap(pVia->drmFD, pVia->agpHandle);
-        drmAgpUnbind(pVia->drmFD, pVia->agpHandle);
-        xf86DrvMsg(pScreen->myNum, X_INFO, "[drm] Freeing agp memory\n");
-        drmAgpFree(pVia->drmFD, pVia->agpHandle);
-        xf86DrvMsg(pScreen->myNum, X_INFO, "[drm] Releasing agp module\n");
-	//        drmAgpRelease(pVia->drmFD);
-    }
 
     DRICloseScreen(pScreen);
     VIAFreeLinear(&pVia->driOffScreenMem);
@@ -679,13 +541,7 @@ VIADRIFinishScreenInit(ScreenPtr pScreen)
 
     pVia->pDRIInfo->driverSwapMethod = DRI_HIDE_X_CONTEXT;
 
-    pVia->IsPCI = !VIADRIAgpInit(pScreen, pVia);
-
-    if (pVia->IsPCI) {
-        VIADRIPciInit(pScreen, pVia);
-        xf86DrvMsg(pScrn->scrnIndex, X_INFO, "[dri] Using PCI.\n");
-    } else
-        xf86DrvMsg(pScrn->scrnIndex, X_INFO, "[dri] Using AGP.\n");
+    pVia->IsPCI = TRUE;;
 
     if (!(VIADRIFBInit(pScreen, pVia))) {
         VIADRICloseScreen(pScreen);
@@ -782,10 +638,7 @@ VIADRIKernelInit(ScreenPtr pScreen, VIAPtr pVia)
     drmInfo.sarea_priv_offset = sizeof(XF86DRISAREARec);
     drmInfo.fb_offset = pVia->frameBufferHandle;
     drmInfo.mmio_offset = pVia->registerHandle;
-    if (pVia->IsPCI)
-        drmInfo.agpAddr = (CARD32) NULL;
-    else
-        drmInfo.agpAddr = (CARD32) pVia->agpAddr;
+    drmInfo.agpAddr = (CARD32) NULL;
 
     if ((drmCommandWrite(pVia->drmFD, DRM_VIA_MAP_INIT, &drmInfo,
                          sizeof(drm_via_init_t))) < 0)

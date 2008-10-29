@@ -218,121 +218,6 @@ viaTearDownCBuffer(ViaCommandBuffer * buf)
 }
 
 /*
- * Leftover from VIA's code.
- */
-static void
-viaInitPCIe(VIAPtr pVia)
-{
-    VIASETREG(0x41c, 0x00100000);
-    VIASETREG(0x420, 0x680A0000);
-    VIASETREG(0x420, 0x02000000);
-}
-
-static void
-viaInitAgp(VIAPtr pVia)
-{
-    VIASETREG(VIA_REG_TRANSET, 0x00100000);
-    VIASETREG(VIA_REG_TRANSPACE, 0x00000000);
-    VIASETREG(VIA_REG_TRANSPACE, 0x00333004);
-    VIASETREG(VIA_REG_TRANSPACE, 0x60000000);
-    VIASETREG(VIA_REG_TRANSPACE, 0x61000000);
-    VIASETREG(VIA_REG_TRANSPACE, 0x62000000);
-    VIASETREG(VIA_REG_TRANSPACE, 0x63000000);
-    VIASETREG(VIA_REG_TRANSPACE, 0x64000000);
-    VIASETREG(VIA_REG_TRANSPACE, 0x7D000000);
-
-    VIASETREG(VIA_REG_TRANSET, 0xfe020000);
-    VIASETREG(VIA_REG_TRANSPACE, 0x00000000);
-}
-
-/*
- * Initialize the virtual command queue. Header-2 commands can be put
- * in this queue for buffering. AFAIK it doesn't handle Header-1 
- * commands, which is really a pity, since it has to be idled before
- * issuing a Header-1 command.
- */
-static void
-viaEnableAgpVQ(VIAPtr pVia)
-{
-   CARD32
-       vqStartAddr = pVia->VQStart,
-       vqEndAddr = pVia->VQEnd,
-       vqStartL = 0x50000000 | (vqStartAddr & 0xFFFFFF),
-       vqEndL = 0x51000000 | (vqEndAddr & 0xFFFFFF),
-       vqStartEndH = 0x52000000 | ((vqStartAddr & 0xFF000000) >> 24) |
-       ((vqEndAddr & 0xFF000000) >> 16),
-       vqLen = 0x53000000 | (VIA_VQ_SIZE >> 3);
-
-    VIASETREG(VIA_REG_TRANSET, 0x00fe0000);
-    VIASETREG(VIA_REG_TRANSPACE, 0x080003fe);
-    VIASETREG(VIA_REG_TRANSPACE, 0x0a00027c);
-    VIASETREG(VIA_REG_TRANSPACE, 0x0b000260);
-    VIASETREG(VIA_REG_TRANSPACE, 0x0c000274);
-    VIASETREG(VIA_REG_TRANSPACE, 0x0d000264);
-    VIASETREG(VIA_REG_TRANSPACE, 0x0e000000);
-    VIASETREG(VIA_REG_TRANSPACE, 0x0f000020);
-    VIASETREG(VIA_REG_TRANSPACE, 0x1000027e);
-    VIASETREG(VIA_REG_TRANSPACE, 0x110002fe);
-    VIASETREG(VIA_REG_TRANSPACE, 0x200f0060);
-    VIASETREG(VIA_REG_TRANSPACE, 0x00000006);
-    VIASETREG(VIA_REG_TRANSPACE, 0x40008c0f);
-    VIASETREG(VIA_REG_TRANSPACE, 0x44000000);
-    VIASETREG(VIA_REG_TRANSPACE, 0x45080c04);
-    VIASETREG(VIA_REG_TRANSPACE, 0x46800408);
-
-    VIASETREG(VIA_REG_TRANSPACE, vqStartEndH);
-    VIASETREG(VIA_REG_TRANSPACE, vqStartL);
-    VIASETREG(VIA_REG_TRANSPACE, vqEndL);
-    VIASETREG(VIA_REG_TRANSPACE, vqLen);
-}
-
-static void
-viaEnablePCIeVQ(VIAPtr pVia)
-{
-   CARD32
-       vqStartAddr = pVia->VQStart,
-       vqEndAddr = pVia->VQEnd,
-       vqStartL = 0x70000000 | (vqStartAddr & 0xFFFFFF),
-       vqEndL = 0x71000000 | (vqEndAddr & 0xFFFFFF),
-       vqStartEndH = 0x72000000 | ((vqStartAddr & 0xFF000000) >> 24) |
-       ((vqEndAddr & 0xFF000000) >> 16),
-       vqLen = 0x73000000 | (VIA_VQ_SIZE >> 3);
-
-    VIASETREG(0x41c, 0x00100000);
-    VIASETREG(0x420, vqStartEndH);
-    VIASETREG(0x420, vqStartL);
-    VIASETREG(0x420, vqEndL);
-    VIASETREG(0x420, vqLen);
-    VIASETREG(0x420, 0x74301001);
-    VIASETREG(0x420, 0x00000000);
-}
-
-/*
- * Disable the virtual command queue.
- */
-void
-viaDisableVQ(ScrnInfoPtr pScrn)
-{
-    VIAPtr pVia = VIAPTR(pScrn);
-
-    switch (pVia->Chipset) {
-        case VIA_P4M890:
-        case VIA_K8M890:
-            VIASETREG(0x41c, 0x00100000);
-            VIASETREG(0x420, 0x74301000);
-            break;
-        default:
-            VIASETREG(VIA_REG_TRANSET, 0x00fe0000);
-            VIASETREG(VIA_REG_TRANSPACE, 0x00000004);
-            VIASETREG(VIA_REG_TRANSPACE, 0x40008c0f);
-            VIASETREG(VIA_REG_TRANSPACE, 0x44000000);
-            VIASETREG(VIA_REG_TRANSPACE, 0x45080c04);
-            VIASETREG(VIA_REG_TRANSPACE, 0x46800408);
-            break;
-    }
-}
-
-/*
  * Update our 2D state (TwoDContext) with a new mode.
  */
 static Bool
@@ -366,34 +251,6 @@ viaInitialize2DEngine(ScrnInfoPtr pScrn)
 {
     VIAPtr pVia = VIAPTR(pScrn);
     ViaTwodContext *tdc = &pVia->td;
-    int i;
-
-    /* Initialize the 2D engine registers to reset the 2D engine. */
-    for (i = 0x04; i < 0x44; i += 4) {
-        VIASETREG(i, 0x0);
-    }
-
-    switch (pVia->Chipset) {
-        case VIA_K8M890:
-            viaInitPCIe(pVia);
-            break;
-        default:
-            viaInitAgp(pVia);
-            break;
-    }
-
-    if (pVia->VQStart != 0) {
-        switch (pVia->Chipset) {
-            case VIA_K8M890:
-                viaEnablePCIeVQ(pVia);
-                break;
-            default:
-                viaEnableAgpVQ(pVia);
-                break;
-        }
-    } else {
-        viaDisableVQ(pScrn);
-    }
 
     viaAccelSetMode(pScrn->bitsPerPixel, tdc);
 }
@@ -2331,7 +2188,7 @@ viaInitAccel(ScreenPtr pScreen)
         pVia->CursorStart = pVia->FBFreeEnd;
     }
 
-    //    viaInitialize2DEngine(pScrn);
+    viaInitialize2DEngine(pScrn);
 
     /* Sync marker space. */
     pVia->FBFreeEnd -= 32;
