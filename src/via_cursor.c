@@ -65,7 +65,7 @@ VIAHWCursorInit(ScreenPtr pScreen)
     CARD32 temp;
 
     if (pVia->Chipset == VIA_CX700) {
-	if (!pVia->IsSecondary) {
+	if (!pVia->pBIOSInfo->PanelActive) {
 	    pVia->CursorRegControl  = VIA_REG_HI_CONTROL0;
 	    pVia->CursorRegBase     = VIA_REG_HI_BASE0;
 	    pVia->CursorRegPos      = VIA_REG_HI_POS0;
@@ -122,7 +122,7 @@ VIAHWCursorInit(ScreenPtr pScreen)
     /* Set cursor location in frame buffer. */
     VIASETREG(VIA_REG_CURSOR_MODE, pVia->CursorStart);
 
-    pVia->CursorPipe = pVia->IsSecondary;
+    pVia->CursorPipe = pVia->pBIOSInfo->PanelActive;
 
     /* Init HI_X0 */
     VIASETREG(pVia->CursorRegControl, 0);
@@ -130,7 +130,7 @@ VIAHWCursorInit(ScreenPtr pScreen)
     VIASETREG(pVia->CursorRegTransKey, 0);
 
     if (pVia->Chipset == VIA_CX700) {
-	if (!pVia->IsSecondary) {
+	if (!pVia->pBIOSInfo->PanelActive) {
 	    VIASETREG(VIA_REG_PRIM_HI_INVTCOLOR, 0x00FFFFFF);
 	    VIASETREG(VIA_REG_V327_HI_INVTCOLOR, 0x00FFFFFF);
 	    VIASETREG(pVia->CursorRegFifo, 0x0D000D0F);
@@ -169,7 +169,7 @@ ViaCursorStore(ScrnInfoPtr pScrn)
     pVia->CursorTransparentKey = VIAGETREG(pVia->CursorRegTransKey);
 
     if (pVia->Chipset == VIA_CX700) {
-	if (!pVia->IsSecondary) {
+	if (!pVia->pBIOSInfo->PanelActive) {
 	    pVia->CursorPrimHiInvtColor = VIAGETREG(VIA_REG_PRIM_HI_INVTCOLOR);
 	    pVia->CursorV327HiInvtColor = VIAGETREG(VIA_REG_V327_HI_INVTCOLOR);
 	} else {
@@ -199,7 +199,7 @@ ViaCursorRestore(ScrnInfoPtr pScrn)
     VIASETREG(pVia->CursorRegTransKey, pVia->CursorTransparentKey);
 
     if (pVia->Chipset == VIA_CX700) {
-	if (!pVia->IsSecondary) {
+	if (!pVia->pBIOSInfo->PanelActive) {
 	    VIASETREG(VIA_REG_PRIM_HI_INVTCOLOR, pVia->CursorPrimHiInvtColor);
 	    VIASETREG(VIA_REG_V327_HI_INVTCOLOR, pVia->CursorV327HiInvtColor);
 	} else {

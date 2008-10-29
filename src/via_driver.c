@@ -2614,7 +2614,8 @@ VIAWriteMode(ScrnInfoPtr pScrn, DisplayModePtr mode)
 	 * TODO: This should be enabled for others 
 	 * chipsets as well
          */
-        if (pVia->Chipset == VIA_P4M900 &&
+        if (((pVia->Chipset == VIA_P4M900) ||
+	     (pVia->Chipset == VIA_CX700)) &&
 	    pVia->pBIOSInfo->PanelActive) {
             /*
              * Since we are using virtual, we need to adjust
