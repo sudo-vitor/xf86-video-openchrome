@@ -114,9 +114,9 @@ VIAHWCursorInit(ScreenPtr pScreen)
     infoPtr->LoadCursorARGB = VIALoadCursorARGB;
 
     if (!pVia->CursorStart) {
-	pVia->CursorStart = pVia->FBFreeEnd - VIA_CURSOR_SIZE;
-	pVia->FBFreeEnd -= VIA_CURSOR_SIZE;
-	memset((pVia->FBBase + pVia->CursorStart), 0, VIA_CURSOR_SIZE);
+	pVia->CursorStart = (pVia->FBFreeEnd - VIA_CURSOR_SIZE) & ~63; 
+	pVia->FBFreeEnd = pVia->CursorStart;
+	memset((pVia->FBBase + pVia->CursorStart), 0x00, VIA_CURSOR_SIZE);
     }
 
     /* Set cursor location in frame buffer. */
