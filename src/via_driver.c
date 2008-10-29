@@ -1839,6 +1839,10 @@ VIAEnterVT(int scrnIndex, int flags)
 	return FALSE;
     }
     driBOUnmap(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY]);
+
+    pVia->front.virtual = pVia->displayMap;
+    pVia->front.size = driBOSize(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY]);
+
     pVia->displayOffset = driBOOffset(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY]);
 
 
@@ -2688,6 +2692,7 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
 	return FALSE;
     }
 
+    pVia->front.buf = driBOReference(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY]);
     pVia->displayMap = NULL;
     pVia->displayMap = driBOMap(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY], 
 				WS_DRI_MAP_READ | WS_DRI_MAP_WRITE);
@@ -2699,6 +2704,9 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
     }
     
     driBOUnmap(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY]);
+    pVia->front.virtual = pVia->displayMap;
+    pVia->front.size = driBOSize(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY]);
+
     pVia->displayOffset = driBOOffset(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY]);
 
     pScrn->AdjustFrame(scrnIndex, pScrn->frameX0, pScrn->frameY0, 0);
@@ -3013,6 +3021,7 @@ VIACloseScreen(int scrnIndex, ScreenPtr pScreen)
 
     }
 
+    driBOUnreference(&pVia->front.buf);
     driDeleteBuffers(VIA_SCANOUT_NUM, pVia->scanout.bufs);
 
     if (pVia->mainPool && !pVia->IsSecondary)

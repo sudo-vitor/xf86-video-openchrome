@@ -34,6 +34,7 @@
 #define DEBUG(x)
 #endif
 
+#include <ws_dri_util.h>
 #include "vgaHW.h"
 #include "xf86.h"
 #include "xf86Resources.h"
@@ -235,6 +236,14 @@ struct _ViaScanouts {
     struct _DriBufferObject *bufs[VIA_SCANOUT_NUM];
 };
 
+struct _ViaOffscreenBuffer {
+    struct _WSDriListHead head;
+    struct _DriBufferObject *buf;
+    char *virtual;
+    unsigned long size;
+};
+
+
 typedef struct _VIA {
     VIARegRec           SavedReg;
     xf86CursorInfoPtr   CursorInfoRec;
@@ -309,9 +318,12 @@ typedef struct _VIA {
     CARD32              lastMarkerRead;
     Bool                agpDMA;
     Bool                nPOT[VIA_NUM_TEXUNITS];
-#ifdef VIA_HAVE_EXA
+
+    struct _ViaOffscreenBuffer front;
+    struct _ViaOffscreenBuffer exaMem;
+    struct _WSDriListHead offscreen;
+ 
     ExaDriverPtr        exaDriverPtr;
-    //    ExaOffscreenArea   *exa_scratch;
     Bool                useEXA;
     void               *maskP;
     CARD32              maskFormat;
@@ -321,7 +333,6 @@ typedef struct _VIA {
     Bool                noComposite;
 #ifdef XF86DRI
     char *              dBounce;
-#endif
 #endif
 
     /* BIOS Info Ptr */
