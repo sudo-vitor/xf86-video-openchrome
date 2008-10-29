@@ -27,6 +27,8 @@
 #include "config.h"
 #endif
 
+#include <ws_dri_bufmgr.h>
+
 #include "xf86.h"
 #include "xf86_OSproc.h"
 #include "xf86fbman.h"
@@ -995,9 +997,10 @@ ViaSetVidCtl(VIAPtr pVia, unsigned int videoFlag)
  * Fill the buffer with 0x8000 (YUV2 black).
  */
 static void
-ViaYUVFillBlack(VIAPtr pVia, int offset, int num)
+ViaYUVFillBlack(VIAPtr pVia, void *addr, int num)
 {
-    CARD16 *ptr = (CARD16 *) (pVia->FBBase + offset);
+
+    CARD16 *ptr = (CARD16 *) addr;
 
     while (num-- > 0)
 #if X_BYTE_ORDER == X_LITTLE_ENDIAN
@@ -1041,7 +1044,7 @@ AddHQVSurface(ScrnInfoPtr pScrn, unsigned int numbuf, CARD32 fourcc)
         return retCode;
     addr = pVia->swov.HQVMem.base;
 
-    ViaYUVFillBlack(pVia, addr, fbsize);
+    ViaYUVFillBlack(pVia, pVia->FBBase + addr, fbsize);
 
     for (i = 0; i < numbuf; i++) {
         pVia->swov.overlayRecordV1.dwHQVAddr[i] = addr;
@@ -1087,17 +1090,24 @@ CreateSurface(ScrnInfoPtr pScrn, CARD32 FourCC, CARD16 Width,
     }
 
     if (doalloc) {
-        VIAFreeLinear(&pVia->swov.SWfbMem);
-        retCode = VIAAllocLinear(&pVia->swov.SWfbMem, pScrn, fbsize * 2);
-        if (retCode != Success)
-            return retCode;
-        addr = pVia->swov.SWfbMem.base;
+	void *virtual;
+	retCode = driBOData(pVia->scanout.bufs[VIA_SCANOUT_OVERLAY], 
+			    fbsize * 2, NULL, NULL, 0);
+        if (retCode)
+            return BadAlloc;
+	addr = driBOOffset(pVia->scanout.bufs[VIA_SCANOUT_OVERLAY]);
+	virtual = driBOMap(pVia->scanout.bufs[VIA_SCANOUT_OVERLAY],
+			   WS_DRI_MAP_READ | WS_DRI_MAP_WRITE);
+	if (!virtual)
+	    return BadAlloc;
 
-        ViaYUVFillBlack(pVia, addr, fbsize);
+	driBOUnmap(pVia->scanout.bufs[VIA_SCANOUT_OVERLAY]);
+        ViaYUVFillBlack(pVia, virtual, fbsize);
 
         pVia->swov.SWDevice.dwSWPhysicalAddr[0] = addr;
         pVia->swov.SWDevice.dwSWPhysicalAddr[1] = addr + fbsize;
-        pVia->swov.SWDevice.lpSWOverlaySurface[0] = pVia->FBBase + addr;
+        pVia->swov.SWDevice.lpSWOverlaySurface[0] = virtual;
+	    
         pVia->swov.SWDevice.lpSWOverlaySurface[1] =
                 pVia->swov.SWDevice.lpSWOverlaySurface[0] + fbsize;
 
@@ -1215,7 +1225,6 @@ ViaSwovSurfaceDestroy(ScrnInfoPtr pScrn, viaPortPrivPtr pPriv)
             case FOURCC_RV15:
                 pVia->swov.SrcFourCC = 0;
 
-                VIAFreeLinear(&pVia->swov.SWfbMem);
                 if ((pVia->swov.gdwVideoFlagSW & SW_USE_HQV))
                     VIAFreeLinear(&pVia->swov.HQVMem);
                 pVia->swov.gdwVideoFlagSW = 0;
@@ -1227,7 +1236,6 @@ ViaSwovSurfaceDestroy(ScrnInfoPtr pScrn, viaPortPrivPtr pPriv)
                 break;
 
             case FOURCC_YV12:
-                VIAFreeLinear(&pVia->swov.SWfbMem);
             case FOURCC_XVMC:
                 pVia->swov.SrcFourCC = 0;
 

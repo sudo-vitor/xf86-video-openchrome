@@ -162,9 +162,7 @@ typedef struct  {
     unsigned long   gdwVideoFlagMPEG;
     unsigned long   gdwAlphaEnabled;		/* For Alpha blending use*/
 
-    VIAMem SWOVMem;
     VIAMem HQVMem;
-    VIAMem SWfbMem;
 
     CARD32 SrcFourCC;
     DDUPDATEOVERLAY UpdateOverlayBackup;    /* For HQVcontrol func use
