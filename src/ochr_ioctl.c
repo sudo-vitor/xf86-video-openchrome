@@ -529,14 +529,14 @@ ochr_execbuf(int fd, struct _ViaCommandBuffer *cBuf)
     exec_req->cmd_buffer = (uint64_t) (unsigned long)
 	cBuf->buf;
     exec_req->cmd_buffer_size = cBuf->pos << 2;
-    exec_req->engine = VIA_ENGINE_AGP;
+    exec_req->engine = VIA_ENGINE_PCI;
     exec_req->exec_flags = DRM_VIA_FENCE_NO_USER;
     exec_req->cliprect_offset = 0;
     exec_req->num_cliprects = 0;
 
     do {
 	ret = drmCommandWriteRead(fd, DRM_VIA_TTM_EXECBUF, &arg, sizeof(arg));
-    } while (ret == EAGAIN || ret == EINTR);
+    } while (ret == -EAGAIN || ret == -EINTR);
 
     iterator = validateListIterator(valList);
 
