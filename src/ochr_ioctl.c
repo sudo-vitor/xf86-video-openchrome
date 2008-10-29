@@ -4,7 +4,6 @@
 #include "via_drm.h"
 #include "ochr_ws_driver.h"
 
-
 struct via_reloc_bufinfo
 {
     struct via_reloc_header *first_header;
@@ -13,7 +12,6 @@ struct via_reloc_bufinfo
     struct via_reloc_header *save_cur_header;
     struct via_reloc_header save_old_header;
 };
-
 
 /*
  * Save reloc state for subsequent restoring.
@@ -54,7 +52,7 @@ ochr_reloc_state_restore(struct via_reloc_bufinfo *info)
 
     assert(info->save_old_header.next_header == 0ULL);
 
-    added_chain = (struct via_reloc_header *) (unsigned long) 
+    added_chain = (struct via_reloc_header *)(unsigned long)
 	info->cur_header->next_header;
 
     if (added_chain)
@@ -102,7 +100,7 @@ ochr_reset_reloc_buffer(struct via_reloc_bufinfo *info)
     } else {
 	header = info->first_header;
 	ochr_free_reloc_header((struct via_reloc_header *)(unsigned long)
-			      header->next_header);
+			       header->next_header);
     }
     header->next_header = 0ULL;
     header->used = sizeof(*header);
@@ -187,7 +185,7 @@ struct via_validate_buffer
 };
 
 static int
-ochr_apply_2d_reloc(uint32_t *cmdbuf,
+ochr_apply_2d_reloc(uint32_t * cmdbuf,
 		    uint32_t num_buffers,
 		    const struct via_validate_buffer *buffers,
 		    const struct via_2d_reloc *reloc)
@@ -223,7 +221,7 @@ ochr_apply_2d_reloc(uint32_t *cmdbuf,
 int
 ochr_2d_relocation(struct _ViaCommandBuffer *cBuf,
 		   struct _DriBufferObject *buffer,
-		   uint32_t delta, uint32_t bpp, uint32_t pos, 
+		   uint32_t delta, uint32_t bpp, uint32_t pos,
 		   uint64_t flags, uint64_t mask)
 {
     struct via_2d_reloc reloc;
@@ -238,7 +236,7 @@ ochr_2d_relocation(struct _ViaCommandBuffer *cBuf,
     ret = driBOAddListItem(cBuf->validate_list, buffer,
 			   flags, mask, &itemLoc, &node);
     if (ret)
-	    return ret;
+	return ret;
 
     val_req = ochrValReq(node);
 
@@ -270,9 +268,9 @@ ochr_2d_relocation(struct _ViaCommandBuffer *cBuf,
 
 static int
 ochr_apply_texture_reloc(uint32_t ** cmdbuf,
-			uint32_t num_buffers,
-			struct via_validate_buffer *buffers,
-			const struct via_texture_reloc *reloc)
+			 uint32_t num_buffers,
+			 struct via_validate_buffer *buffers,
+			 const struct via_texture_reloc *reloc)
 {
     const struct via_reloc_bufaddr *baddr = reloc->addr;
     uint32_t baseh[4];
@@ -293,7 +291,7 @@ ochr_apply_texture_reloc(uint32_t ** cmdbuf,
 	}
 
 	val = buffers[baddr->index].offset + baddr->delta;
-	if (i == 0) 
+	if (i == 0)
 	    flags = buffers[baddr->index].flags;
 
 	*buf++ = ((HC_SubA_HTXnL0BasL + i) << 24) | (val & 0x00FFFFFF);
@@ -316,9 +314,9 @@ ochr_apply_texture_reloc(uint32_t ** cmdbuf,
     reg_tex_fm = reloc->reg_tex_fm & ~HC_HTXnLoc_MASK;
 
     if (flags & DRM_BO_FLAG_MEM_VRAM) {
-	reg_tex_fm |=  HC_HTXnLoc_Local;
+	reg_tex_fm |= HC_HTXnLoc_Local;
     } else if (flags & (DRM_BO_FLAG_MEM_TT | VIA_BO_FLAG_MEM_AGP)) {
-	reg_tex_fm |=  HC_HTXnLoc_AGP;
+	reg_tex_fm |= HC_HTXnLoc_AGP;
     } else
 	abort();
 
@@ -349,18 +347,18 @@ ochr_tex_relocation(struct _ViaCommandBuffer *cBuf,
     size_t size;
     uint32_t *cmdBuf = (uint32_t *) cBuf->buf + cBuf->pos;
 
-
     driReadLockKernelBO();
     for (i = 0; i <= (hi_mip - low_mip); ++i) {
 	ret = driBOAddListItem(cBuf->validate_list, addr[i].buf,
 			       flags, mask, &itemLoc, &node);
 	if (ret)
-		return ret;
+	    return ret;
 
 	val_req = ochrValReq(node);
 
 	if (!(val_req->presumed_flags & VIA_USE_PRESUMED)) {
-	    val_req->presumed_gpu_offset = (uint64_t) driBOOffset(addr[i].buf);
+	    val_req->presumed_gpu_offset =
+		(uint64_t) driBOOffset(addr[i].buf);
 	    val_req->presumed_flags |= VIA_USE_PRESUMED;
 	}
 
@@ -384,7 +382,7 @@ ochr_tex_relocation(struct _ViaCommandBuffer *cBuf,
     tmp = cBuf->pos;
 
     ret = ochr_apply_texture_reloc(&cmdBuf, count, fake, &reloc);
-    cBuf->pos = cmdBuf - (uint32_t *)cBuf->buf;
+    cBuf->pos = cmdBuf - (uint32_t *) cBuf->buf;
 
     memcpy(reloc.addr, real_addr, count * sizeof(struct via_reloc_bufaddr));
     reloc.offset = tmp;
@@ -397,7 +395,6 @@ ochr_tex_relocation(struct _ViaCommandBuffer *cBuf,
 
     return ochr_add_reloc(cBuf->reloc_info, &reloc, size);
 }
-
 
 static int
 ochr_apply_dest_reloc(uint32_t ** cmdbuf,
@@ -425,12 +422,10 @@ ochr_apply_dest_reloc(uint32_t ** cmdbuf,
     return 0;
 }
 
-
 int
 ochr_dest_relocation(struct _ViaCommandBuffer *cBuf,
 		     struct _DriBufferObject *dstBuffer,
-		     uint32_t delta,
-		     uint64_t flags, uint64_t mask)
+		     uint32_t delta, uint64_t flags, uint64_t mask)
 {
     struct via_zbuf_reloc reloc;
     struct via_validate_buffer fake;
@@ -439,7 +434,7 @@ ochr_dest_relocation(struct _ViaCommandBuffer *cBuf,
     struct via_validate_req *val_req;
     int ret;
     uint32_t tmp;
-    uint32_t *cmdbuf = (uint32_t *)cBuf->buf + cBuf->pos;
+    uint32_t *cmdbuf = (uint32_t *) cBuf->buf + cBuf->pos;
 
     ret = driBOAddListItem(cBuf->validate_list, dstBuffer,
 			   flags, mask, &itemLoc, &node);
@@ -464,17 +459,17 @@ ochr_dest_relocation(struct _ViaCommandBuffer *cBuf,
     reloc.addr.delta = delta;
 
     tmp = cBuf->pos;
-    (void) ochr_apply_dest_reloc(&cmdbuf, 1, &fake, &reloc);
+    (void)ochr_apply_dest_reloc(&cmdbuf, 1, &fake, &reloc);
 
     reloc.addr.index = itemLoc;
     reloc.offset = tmp;
-    cBuf->pos = cmdbuf - (uint32_t *)cBuf->buf;
+    cBuf->pos = cmdbuf - (uint32_t *) cBuf->buf;
 
     return ochr_add_reloc(cBuf->reloc_info, &reloc, sizeof(reloc));
 }
 
-
-int ochr_execbuf(int fd, struct _ViaCommandBuffer *cBuf)
+int
+ochr_execbuf(int fd, struct _ViaCommandBuffer *cBuf)
 {
     union via_ttm_execbuf_arg arg;
     struct via_ttm_execbuf_req *exec_req = &arg.req;
@@ -490,7 +485,7 @@ int ochr_execbuf(int fd, struct _ViaCommandBuffer *cBuf)
     void *iterator;
     uint32_t count = 0;
     int ret;
-    
+
     /*
      * Prepare arguments for all buffers that need validation
      * prior to the command submission.
@@ -501,17 +496,18 @@ int ochr_execbuf(int fd, struct _ViaCommandBuffer *cBuf)
     while (iterator) {
 	node = validateListNode(iterator);
 	viaNode = containerOf(node, struct _ViaDrmValidateNode, base);
+
 	val_arg = &viaNode->val_arg;
 	val_arg->handled = 0;
 	val_arg->ret = 0;
 	req = &val_arg->d.req;
 
-	if (!first) 
-	    first = (uint64_t) (unsigned long) val_arg;
+	if (!first)
+	    first = (uint64_t) (unsigned long)val_arg;
 	if (prevNext)
-	    *prevNext = (uint64_t) (unsigned long) val_arg;
+	    *prevNext = (uint64_t) (unsigned long)val_arg;
 	prevNext = &req->next;
-	
+
 	req->buffer_handle = wsDriKbufHandle((struct _DriKernelBuf *)
 					     node->buf);
 	req->group = 0;
@@ -528,9 +524,9 @@ int ochr_execbuf(int fd, struct _ViaCommandBuffer *cBuf)
 
     exec_req->buffer_list = first;
     exec_req->num_buffers = count;
-    exec_req->reloc_list = (uint64_t) (unsigned long) 
+    exec_req->reloc_list = (uint64_t) (unsigned long)
 	cBuf->reloc_info->first_header;
-    exec_req->cmd_buffer = (uint64_t) (unsigned long) 
+    exec_req->cmd_buffer = (uint64_t) (unsigned long)
 	cBuf->buf;
     exec_req->cmd_buffer_size = cBuf->pos << 2;
     exec_req->engine = VIA_ENGINE_AGP;
@@ -539,10 +535,9 @@ int ochr_execbuf(int fd, struct _ViaCommandBuffer *cBuf)
     exec_req->num_cliprects = 0;
 
     do {
-	ret = drmCommandWriteRead(fd, DRM_VIA_TTM_EXECBUF, 
-				  &arg, sizeof(arg));
-    }while(ret == EAGAIN || ret == EINTR);
-    
+	ret = drmCommandWriteRead(fd, DRM_VIA_TTM_EXECBUF, &arg, sizeof(arg));
+    } while (ret == EAGAIN || ret == EINTR);
+
     iterator = validateListIterator(valList);
 
     /*
@@ -553,11 +548,12 @@ int ochr_execbuf(int fd, struct _ViaCommandBuffer *cBuf)
     while (iterator) {
 	node = validateListNode(iterator);
 	viaNode = containerOf(node, struct _ViaDrmValidateNode, base);
+
 	val_arg = &viaNode->val_arg;
 
 	if (!val_arg->handled)
 	    break;
-	
+
 	if (val_arg->ret != 0) {
 	    xf86DrvMsg(cBuf->pScrn->scrnIndex, X_ERROR,
 		       "Failed a buffer validation: \"%s\".\n",
@@ -567,7 +563,7 @@ int ochr_execbuf(int fd, struct _ViaCommandBuffer *cBuf)
 	}
 
 	rep = &val_arg->d.rep;
-	wsDriUpdateKbuf((struct _DriKernelBuf *) node->buf,
+	wsDriUpdateKbuf((struct _DriKernelBuf *)node->buf,
 			rep->gpu_offset, rep->flags);
 
 	iterator = validateListNext(valList, iterator);

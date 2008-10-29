@@ -5,8 +5,8 @@
 #include "ws_dri_driver.h"
 #include "via_drm.h"
 
-
-struct _ViaDrmValidateNode {
+struct _ViaDrmValidateNode
+{
     struct _ValidateNode base;
     struct via_validate_arg val_arg;
 };

@@ -6,16 +6,15 @@
 #include <string.h>
 #include "ochr_ws_driver.h"
 
-
 /*
  * Allocate a validate list node. On the list of drm buffers, which is
- * identified by type_id == 0, we allocate a derived item which 
+ * identified by type_id == 0, we allocate a derived item which
  * also contains a drm validate arg, which means we can start to fill
  * this in immediately.
  */
 
-static struct _ValidateNode *vn_alloc(struct _WSDriVNodeFuncs *func,
-				      int type_id)
+static struct _ValidateNode *
+vn_alloc(struct _WSDriVNodeFuncs *func, int type_id)
 {
     if (type_id == 0) {
 	struct _ViaDrmValidateNode *vNode = malloc(sizeof(*vNode));
@@ -33,13 +32,15 @@ static struct _ValidateNode *vn_alloc(struct _WSDriVNodeFuncs *func,
 }
 
 /*
- * Free an allocated validate list node. 
+ * Free an allocated validate list node.
  */
 
-static void vn_free(struct _ValidateNode *node) 
+static void
+vn_free(struct _ValidateNode *node)
 {
-    if (node->type_id == 0) 
+    if (node->type_id == 0)
 	free(containerOf(node, struct _ViaDrmValidateNode, base));
+
     else
 	free(node);
 }
@@ -51,23 +52,25 @@ static void vn_free(struct _ValidateNode *node)
  * case. We want to clear the drm ioctl argument.
  */
 
-static void vn_clear(struct _ValidateNode *node) {
+static void
+vn_clear(struct _ValidateNode *node)
+{
     if (node->type_id == 0) {
-	struct _ViaDrmValidateNode *vNode = 
+	struct _ViaDrmValidateNode *vNode =
 	    containerOf(node, struct _ViaDrmValidateNode, base);
-	
+
 	memset(&vNode->val_arg.d.req, 0, sizeof(vNode->val_arg.d.req));
     }
 }
 
-    
 static struct _WSDriVNodeFuncs viaVNode = {
     .alloc = vn_alloc,
     .free = vn_free,
     .clear = vn_clear,
 };
 
-struct _WSDriVNodeFuncs *ochrVNodeFuncs(void)
+struct _WSDriVNodeFuncs *
+ochrVNodeFuncs(void)
 {
     return &viaVNode;
 }
