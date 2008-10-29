@@ -286,6 +286,7 @@ via3DEmitQuad(Via3DState * v3d, ViaCommandBuffer * cb, int dstX, int dstY,
               int src0X, int src0Y, int src1X, int src1Y, int w, int h)
 {
     CARD32 acmd;
+    CARD32 bcmd;
     float dx1, dx2, dy1, dy2, sx1[2], sx2[2], sy1[2], sy2[2], wf;
     double scalex, scaley;
     int i, numTex;
@@ -327,14 +328,24 @@ via3DEmitQuad(Via3DState * v3d, ViaCommandBuffer * cb, int dstX, int dstY,
     BEGIN_H2(HC_ParaType_NotTex, 2);
     OUT_RING( 0xCCCCCCCC );
     OUT_RING( 0xDDDDDDDD );
+    ADVANCE_RING;
 
-    BEGIN_H2(HC_ParaType_CmdVdata, 22 + numTex * 12);
-    acmd = ((1 << 14) | (1 << 13) | (1 << 11));
+    BEGIN_H2(HC_ParaType_CmdVdata, 16 + numTex * 8);
+    bcmd = (HC_HVPMSK_X | HC_HVPMSK_Y | HC_HVPMSK_W);
     if (numTex)
-        acmd |= ((1 << 7) | (1 << 8));
-    OUT_RING_SubA(0xEC, acmd);
+        bcmd |= (HC_HVPMSK_S | HC_HVPMSK_T);
 
-    acmd = 2 << 16;
+    /*
+     * Emit a Tri strip. 
+     * New a vertex is the old c vertex.
+     * New b vertex is the old b vertex.
+     * New c vertex is emitted.
+     */
+
+    acmd =  HC_HPMType_Tri | HC_HVCycle_AFP | HC_HVCycle_AC | 
+	HC_HVCycle_BB | HC_HVCycle_NewC;
+
+    OUT_RING_SubA(0xEC, bcmd);
     OUT_RING_SubA(0xEE, acmd);
 
     OUT_RING(*((CARD32 *) (&dx1)));
@@ -345,22 +356,6 @@ via3DEmitQuad(Via3DState * v3d, ViaCommandBuffer * cb, int dstX, int dstY,
         OUT_RING(*((CARD32 *) (sy1 + i)));
     }
 
-    OUT_RING(*((CARD32 *) (&dx2)));
-    OUT_RING(*((CARD32 *) (&dy1)));
-    OUT_RING(*((CARD32 *) (&wf)));
-    for (i = 0; i < numTex; ++i) {
-        OUT_RING(*((CARD32 *) (sx2 + i)));
-        OUT_RING(*((CARD32 *) (sy1 + i)));
-    }
-
-    OUT_RING(*((CARD32 *) (&dx1)));
-    OUT_RING(*((CARD32 *) (&dy2)));
-    OUT_RING(*((CARD32 *) (&wf)));
-    for (i = 0; i < numTex; ++i) {
-        OUT_RING(*((CARD32 *) (sx1 + i)));
-        OUT_RING(*((CARD32 *) (sy2 + i)));
-    }
-
     OUT_RING(*((CARD32 *) (&dx1)));
     OUT_RING(*((CARD32 *) (&dy2)));
     OUT_RING(*((CARD32 *) (&wf)));
@@ -384,6 +379,7 @@ via3DEmitQuad(Via3DState * v3d, ViaCommandBuffer * cb, int dstX, int dstY,
         OUT_RING(*((CARD32 *) (sx2 + i)));
         OUT_RING(*((CARD32 *) (sy2 + i)));
     }
+
     OUT_RING_SubA(0xEE,
                   acmd | HC_HPLEND_MASK | HC_HPMValidN_MASK | HC_HE3Fire_MASK);
     if (cb->pos & 1) {
@@ -466,24 +462,30 @@ via3DEmitState(Via3DState * v3d, ViaCommandBuffer * cb, Bool forceUpload)
 	QWORD_PAD_RING;
     }
 
-    if (forceUpload || v3d->enableDirty) {
+    if (1 || v3d->enableDirty ) {
         v3d->enableDirty = FALSE;
         BEGIN_H2(HC_ParaType_NotTex, 1);
 
         OUT_RING_SubA(HC_SubA_HEnable,
                       ((v3d->writeColor) ? HC_HenCW_MASK : 0) |
                       ((v3d->blend) ? HC_HenABL_MASK : 0) |
-                      ((v3d->numTextures) ? HC_HenTXMP_MASK : 0) |
+                      ((v3d->numTextures) ? HC_HenTXMP_MASK | HC_HenTXCH_MASK: 0) |
                       ((v3d->writeAlpha) ? HC_HenAW_MASK : 0));
 	ADVANCE_RING;
 	QWORD_PAD_RING;
 
         if (v3d->numTextures) {
+	    CARD32 texSetting = 
+		(5 << 8) | /* Max texture fifo */
+		(((v3d->numTextures - 1) & 0x01) << HC_HTXNum_SHIFT);
+		
             BEGIN_H2((HC_ParaType_Tex | (HC_SubType_TexGeneral << 8)), 2);
-            OUT_RING_SubA(HC_SubA_HTXSMD, (0 << 7) | (0 << 6) |
-                          (((v3d->numTextures - 1) & 0x1) << 3) | (0 << 1) | 1);
-            OUT_RING_SubA(HC_SubA_HTXSMD, (0 << 7) | (0 << 6) |
-                          (((v3d->numTextures - 1) & 0x1) << 3) | (0 << 1) | 0);
+	    /*
+	     * Clear texture cache.
+	     */
+            OUT_RING_SubA(HC_SubA_HTXSMD, texSetting | HC_HTXCHCLR_MASK);
+            OUT_RING_SubA(HC_SubA_HTXSMD, texSetting);
+	    ADVANCE_RING;
         }
     }
 
