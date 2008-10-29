@@ -3021,7 +3021,7 @@ VIACloseScreen(int scrnIndex, ScreenPtr pScreen)
 
     }
 
-    driBOUnreference(&pVia->front.buf);
+    driBOUnReference(pVia->front.buf);
     driDeleteBuffers(VIA_SCANOUT_NUM, pVia->scanout.bufs);
 
     if (pVia->mainPool && !pVia->IsSecondary)

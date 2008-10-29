@@ -33,7 +33,7 @@
 #include "config.h"
 #endif
 
-
+#include <ws_dri_bufmgr.h>
 #include <X11/Xarch.h>
 #include "xaalocal.h"
 #include "xaarop.h"
@@ -1326,8 +1326,35 @@ viaInitAccel(ScreenPtr pScreen)
     BoxRec AvailFBArea;
     int maxY;
     Bool nPOTSupported;
+    int ret;
 
     viaInitialize2DEngine(pScrn);
+
+    /*
+     * Pixmap cache.
+     */
+
+    ret = driGenBuffers(pVia->mainPool, "Pixmap cache", 1,
+			&pVia->exaMem.buf, 0, 
+			DRM_BO_FLAG_MEM_VRAM |
+			DRM_BO_FLAG_READ |
+			DRM_BO_FLAG_WRITE, 0);
+    if (ret) {
+	xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
+	       "[Accel] Failed allocating offscreen pixmap space.\n");
+	return FALSE;
+    }
+
+    ret = driBOData(pVia->exaMem.buf, 1*1024*1024, NULL, NULL, 0);
+    if (ret) {
+	xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
+	       "[Accel] Failed allocating offscreen pixmap space.\n");	
+	goto out_err0;
+    }
+
+    WSDRIINITLISTHEAD(&pVia->offscreen);
+    WSDRILISTADDTAIL(&pVia->front.head, &pVia->offscreen);
+    WSDRILISTADDTAIL(&pVia->exaMem.head, &pVia->offscreen);
 
     /* Sync marker space. */
     pVia->FBFreeEnd -= 32;
@@ -1365,7 +1392,7 @@ viaInitAccel(ScreenPtr pScreen)
 	 */
 	
 	pVia->NoAccel = TRUE;
-	return FALSE;
+	goto out_err0;
     }
     
     xf86DrvMsg(pScrn->scrnIndex, X_INFO,
@@ -1379,7 +1406,13 @@ viaInitAccel(ScreenPtr pScreen)
     
     xf86DrvMsg(pScrn->scrnIndex, X_INFO,
 	       "[EXA] Enabled EXA acceleration.\n");
+
     return TRUE;
+ out_err0:
+
+    driDeleteBuffers(1, &pVia->exaMem.buf);
+    return FALSE;
+
 }
 
 /*
@@ -1393,6 +1426,7 @@ viaExitAccel(ScreenPtr pScreen)
 
     viaAccelSync(pScrn);
     viaTearDownCBuffer(&pVia->cb);
+    driDeleteBuffers(1, &pVia->exaMem.buf);
 
     if (pVia->useEXA) {
 #ifdef XF86DRI
