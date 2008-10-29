@@ -71,9 +71,9 @@ VIAHWCursorInit(ScreenPtr pScreen)
     if (ret)
 	return FALSE;
 
-    pVia->cursorMap = driBOMap(pVia->scanout.bufs[VIA_SCANOUT_CURSOR],
-			       WS_DRI_MAP_READ |
-			       WS_DRI_MAP_WRITE);
+    pVia->cursorMap = driBOMap(pVia->scanout.bufs[VIA_SCANOUT_CURSOR], 1,
+			       WSBM_SYNCCPU_READ |
+			       WSBM_SYNCCPU_WRITE);
 
     if (pVia->cursorMap == NULL)
 	return FALSE;

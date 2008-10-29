@@ -32,7 +32,6 @@ typedef struct _ViaCommandBuffer
 {
     ScrnInfoPtr pScrn;
     CARD32 *buf;
-    CARD32 waitFlags;
     unsigned pos;
     unsigned reserved;
     unsigned bufSize;
@@ -50,6 +49,10 @@ typedef struct _ViaCommandBuffer
     Bool inComposite;
     unsigned int compWidth;
     unsigned int compHeight;
+
+    Bool needsPCI;
+    CARD32 execFlags;
+
 } ViaCommandBuffer;
 
 #define VIA_DMASIZE 16384

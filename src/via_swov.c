@@ -34,16 +34,10 @@
 #include "xf86fbman.h"
 
 #include "via.h"
-#ifdef XF86DRI
-#include "xf86drm.h"
-#endif
 
 #include "via_driver.h"
 #include "via_priv.h"
 #include "via_swov.h"
-#ifdef XF86DRI
-#include "via_drm.h"
-#endif
 #include "via_vgahw.h"
 #include "via_id.h"
 
@@ -962,7 +956,7 @@ AddHQVSurface(ScrnInfoPtr pScrn, unsigned int numbuf, CARD32 fourcc)
     if (retCode)
 	return BadAlloc;
 
-    hqvMap = driBOMap(pVia->scanout.bufs[VIA_SCANOUT_OVERLAY], WS_DRI_MAP_WRITE);
+    hqvMap = driBOMap(pVia->scanout.bufs[VIA_SCANOUT_OVERLAY], 1, WSBM_SYNCCPU_WRITE);
     if (hqvMap == NULL)
 	return BadAlloc;
 
@@ -1016,22 +1010,21 @@ CreateSurface(ScrnInfoPtr pScrn, CARD32 FourCC, CARD16 Width,
     }
 
     if (doalloc) {
-	uint64_t hqvFlag = VIA_BO_FLAG_HQV0;
+	uint64_t hqvFlag = VIA_VAL_FLAG_HQV0;
 
 	if (pVia->ChipId == PCI_CHIP_VT3259
 	    && !(pVia->swov.gdwVideoFlagSW & VIDEO_1_INUSE))
-	    hqvFlag = VIA_BO_FLAG_HQV1;
+	    hqvFlag = VIA_VAL_FLAG_HQV1;
 
 
 	for (i=0; i<2; ++i) {
 	    struct _HQVBuffer *hqvBuf = &pVia->swov.SWDevice.hqvBuf[i];
 
 	    if (!hqvBuf->buf) {
-		retCode = driGenBuffers(pVia->mainPool, "HQV source", 1, 
+		retCode = driGenBuffers(pVia->mainPool, 1, 
 					&hqvBuf->buf, 0, 
-					DRM_BO_FLAG_MEM_VRAM |
-					DRM_BO_FLAG_READ |
-					hqvFlag, 0);
+					WSBM_PL_FLAG_VRAM |
+					hqvFlag);
 		if (retCode) {
 		    hqvBuf->buf = NULL;
 		    goto out_err;
@@ -1042,7 +1035,7 @@ CreateSurface(ScrnInfoPtr pScrn, CARD32 FourCC, CARD16 Width,
 	    if (retCode)
 		goto out_err;
 
-	    hqvBuf->virtual = driBOMap(hqvBuf->buf, WS_DRI_MAP_WRITE);
+	    hqvBuf->virtual = driBOMap(hqvBuf->buf, 1, WSBM_SYNCCPU_WRITE);
 	    if (hqvBuf->virtual == NULL)
 		goto out_err;
 	 
@@ -1877,7 +1870,7 @@ Upd_Video(ScrnInfoPtr pScrn, unsigned long videoFlag,
 	     * initialization done.
 	     */
 
-	    ret = driBOSetStatus(hqvBuf->buf, DRM_BO_FLAG_NO_EVICT, 0);
+	    ret = driBOSetStatus(hqvBuf->buf, WSBM_PL_FLAG_NO_EVICT, 0);
 	    hqvBuf->pinnedOffset = driBOOffset(hqvBuf->buf);
 
 	    viaSetHqvSrc(pScrn, pVia->swov.SrcFourCC, hqvBuf);	    
@@ -1930,7 +1923,7 @@ Upd_Video(ScrnInfoPtr pScrn, unsigned long videoFlag,
                 DBG_DD(ErrorF(" Wait flips6"));
             }
 
-	    ret = driBOSetStatus(hqvBuf->buf, 0, DRM_BO_FLAG_NO_EVICT);
+	    ret = driBOSetStatus(hqvBuf->buf, 0, WSBM_PL_FLAG_NO_EVICT);
 
             if (videoFlag & VIDEO_1_INUSE) {
                 VIDOutD(V1_CONTROL, vidCtl);

@@ -1797,18 +1797,16 @@ VIAEnterVT(int scrnIndex, int flags)
 
     retVal = driBOData(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY],
 		       pVia->Bpl * pScrn->virtualY , NULL, NULL, 
-		       DRM_BO_FLAG_MEM_VRAM |
-		       DRM_BO_FLAG_READ |
-		       DRM_BO_FLAG_WRITE |
-		       DRM_BO_FLAG_NO_EVICT |
-		       DRM_BO_FLAG_SHAREABLE);
+		       WSBM_PL_FLAG_VRAM |
+		       WSBM_PL_FLAG_NO_EVICT |
+		       WSBM_PL_FLAG_SHARED);
     if (retVal) {
 	xf86DrvMsg(scrnIndex, X_ERROR, 
 		   "Failed reallocating the display buffer.");
 	return FALSE;
     }
-    pVia->displayMap = driBOMap(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY], 
-				WS_DRI_MAP_READ | WS_DRI_MAP_WRITE);
+    pVia->displayMap = driBOMap(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY], 1,
+				WSBM_SYNCCPU_READ | WSBM_SYNCCPU_WRITE);
     if (!pVia->displayMap) {
 	xf86DrvMsg(pScrn->scrnIndex, X_ERROR, 
 		   "Failed mapping display video RAM: \"%s\".\n",
@@ -1822,8 +1820,8 @@ VIAEnterVT(int scrnIndex, int flags)
     viaNewRootPixmap(pScrn);
 
     retVal = driBOSetStatus(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY],
-			 DRM_BO_FLAG_MEM_VRAM | DRM_BO_FLAG_NO_EVICT,
-			 DRM_BO_FLAG_MEM_LOCAL);
+			 WSBM_PL_FLAG_VRAM | WSBM_PL_FLAG_NO_EVICT,
+			 WSBM_PL_FLAG_SYSTEM);
     if (retVal) {
 	xf86DrvMsg(scrnIndex, X_ERROR, 
 		   "Failed moving in the display buffer.");
@@ -1834,8 +1832,8 @@ VIAEnterVT(int scrnIndex, int flags)
     pScrn->AdjustFrame(scrnIndex, pScrn->frameX0, pScrn->frameY0, 0);
 
     retVal = driBOSetStatus(pVia->scanout.bufs[VIA_SCANOUT_CURSOR],
-			 DRM_BO_FLAG_MEM_VRAM | DRM_BO_FLAG_NO_EVICT,
-			 DRM_BO_FLAG_MEM_LOCAL);
+			 WSBM_PL_FLAG_VRAM | WSBM_PL_FLAG_NO_EVICT,
+			 WSBM_PL_FLAG_SYSTEM);
 
     if (retVal) {
 	xf86DrvMsg(scrnIndex, X_ERROR, 
@@ -1923,11 +1921,11 @@ VIALeaveVT(int scrnIndex, int flags)
      */
     (void) driBOSetStatus(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY],
 			  0,
-			  DRM_BO_FLAG_NO_EVICT);
+			  WSBM_PL_FLAG_NO_EVICT);
 
     (void) driBOSetStatus(pVia->scanout.bufs[VIA_SCANOUT_CURSOR],
 			  0,
-			  DRM_BO_FLAG_NO_EVICT);
+			  WSBM_PL_FLAG_NO_EVICT);
 
     (void) driBOData(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY],
 		     0, NULL, NULL, 0);
@@ -2520,12 +2518,10 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
 		   "This driver currently requires DRM to operate.\n");
 	goto out_err1;
     }	
-    ret = driGenBuffers(pVia->mainPool, "Scanouts", VIA_SCANOUT_NUM,
+    ret = driGenBuffers(pVia->mainPool, VIA_SCANOUT_NUM,
 			pVia->scanout.bufs, 0,
-			DRM_BO_FLAG_MEM_VRAM |
-			DRM_BO_FLAG_READ |
-			DRM_BO_FLAG_WRITE |
-			DRM_BO_FLAG_NO_EVICT, 0);
+			WSBM_PL_FLAG_VRAM |
+			WSBM_PL_FLAG_NO_EVICT);
     if (ret) {
 	xf86DrvMsg(pScrn->scrnIndex, X_ERROR, 
 		   "Failed allocating scanout buffers.\n");
@@ -2547,11 +2543,9 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
     displaySize = pVia->Bpl*pScrn->virtualY;
     ret = driBOData(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY], 
 		    displaySize, NULL, NULL, 
-		    DRM_BO_FLAG_MEM_VRAM |
-		    DRM_BO_FLAG_WRITE |
-		    DRM_BO_FLAG_READ |
-		    DRM_BO_FLAG_NO_EVICT |
-		    DRM_BO_FLAG_SHAREABLE);
+		    WSBM_PL_FLAG_VRAM |
+		    WSBM_PL_FLAG_NO_EVICT |
+		    WSBM_PL_FLAG_SHARED);
     if (ret) {
 	xf86DrvMsg(pScrn->scrnIndex, X_ERROR, 
 		   "Failed allocating display video RAM: \"%s\".\n",
@@ -2561,8 +2555,8 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
 
     pVia->front.buf = driBOReference(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY]);
     pVia->displayMap = NULL;
-    pVia->displayMap = driBOMap(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY], 
-				WS_DRI_MAP_READ | WS_DRI_MAP_WRITE);
+    pVia->displayMap = driBOMap(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY], 1,
+				WSBM_SYNCCPU_READ | WSBM_SYNCCPU_WRITE);
     if (!pVia->displayMap) {
 	xf86DrvMsg(pScrn->scrnIndex, X_ERROR, 
 		   "Failed mapping display video RAM: \"%s\".\n",

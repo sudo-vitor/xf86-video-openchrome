@@ -1061,7 +1061,7 @@ viaVideoFlip(VIAPtr pVia, int fourcc,
 	     unsigned long DisplayBufferIndex)
 {
     unsigned long proReg = 0x200;
-    uint64_t hqvFlag = VIA_BO_FLAG_HQV0;
+    uint64_t hqvFlag = VIA_VAL_FLAG_HQV0;
     struct _HQVBuffer *hqvBuf = &pVia->swov.SWDevice.hqvBuf[DisplayBufferIndex];
     int ret;
     RING_VARS;
@@ -1070,7 +1070,7 @@ viaVideoFlip(VIAPtr pVia, int fourcc,
     if (pVia->ChipId == PCI_CHIP_VT3259
         && !(pVia->swov.gdwVideoFlagSW & VIDEO_1_INUSE)) {
         proReg += PRO_HQV1_OFFSET;
-	hqvFlag = VIA_BO_FLAG_HQV1;
+	hqvFlag = VIA_VAL_FLAG_HQV1;
     }
 
     switch (fourcc) {
@@ -1082,9 +1082,9 @@ viaVideoFlip(VIAPtr pVia, int fourcc,
             OUT_RING_QW(HQV_SRC_STARTADDR_Y + proReg, 0);
 	    ret = ochr_yuv_relocation(cb, hqvBuf->buf, 0, 1,
 				      hqvBuf->deltaY, 0, 0, 
-				      DRM_BO_FLAG_MEM_VRAM |
+				      WSBM_PL_FLAG_VRAM |
 				      hqvFlag,
-				      DRM_BO_MASK_MEM |
+				      WSBM_PL_MASK_MEM |
 				      hqvFlag);
             break;
         case FOURCC_YV12:
@@ -1094,9 +1094,9 @@ viaVideoFlip(VIAPtr pVia, int fourcc,
 		OUT_RING_QW(HQV_SRC_STARTADDR_U + proReg, 0);
 		ret = ochr_yuv_relocation(cb, hqvBuf->buf, 0, 2,
 					  hqvBuf->deltaY, hqvBuf->deltaU, 0, 
-					  DRM_BO_FLAG_MEM_VRAM |
+					  WSBM_PL_FLAG_VRAM |
 					  hqvFlag,
-					  DRM_BO_MASK_MEM |
+					  WSBM_PL_MASK_MEM |
 					  hqvFlag);
             } else {
 		OUT_RING_QW(HQV_SRC_STARTADDR_U + proReg, 0);
@@ -1104,18 +1104,31 @@ viaVideoFlip(VIAPtr pVia, int fourcc,
 		ret = ochr_yuv_relocation(cb, hqvBuf->buf, 0, 3,
 					  hqvBuf->deltaY, hqvBuf->deltaV, 
 					  hqvBuf->deltaU,
-					  DRM_BO_FLAG_MEM_VRAM |
+					  WSBM_PL_FLAG_VRAM |
 					  hqvFlag,
-					  DRM_BO_MASK_MEM |
+					  WSBM_PL_MASK_MEM |
 					  hqvFlag);
             }
 
         break;
     }
 
-    if (pVia->VideoEngine == VIDEO_ENGINE_CME) 
+    if (pVia->VideoEngine == VIDEO_ENGINE_CME) {
 	pVia->swov.hqvCtl |= HQV_GEN_IRQ;
-    
+    } else {
+	/*
+	 * Only CME supports the Header 6 (H6) commands
+	 * with the AGP command reader.
+	 */
+	cb->needsPCI = TRUE;
+    }
+
+    /*
+     * Tell DRM to wait on HQV idle before submitting this.
+     */
+
+    cb->execFlags = DRM_VIA_WAIT_BARRIER;
+
     OUT_RING_QW(HQV_CONTROL + proReg, 
 		(pVia->swov.hqvCtl & ~HQV_FLIP_ODD) | 
 		HQV_SW_FLIP | HQV_FLIP_STATUS);
@@ -1339,7 +1352,7 @@ viaPutImage(ScrnInfoPtr pScrn,
             }
 
 	    hqvBuf = &pVia->swov.SWDevice.hqvBuf[pVia->dwFrameNum & 1];
-	    virtual = driBOMap(hqvBuf->buf, WS_DRI_MAP_WRITE);
+	    virtual = driBOMap(hqvBuf->buf, 1, WSBM_SYNCCPU_WRITE);
 
 	    if (virtual == NULL) {
 		viaXvError(pScrn, pPriv, xve_mem);

@@ -320,7 +320,7 @@ via3DEmitQuad(Via3DState * v3d, ViaCommandBuffer * cb, int dstX, int dstY,
         }
     }
 
-    wf = 0.05;
+    wf = 1.;
 
     /*
      * Vertex buffer. Emit two 3-point triangles. The W or Z coordinate
@@ -411,8 +411,8 @@ via3DEmitState(Via3DState * v3d, ViaCommandBuffer * cb, Bool forceUpload)
         BEGIN_H2(HC_ParaType_NotTex, 3);
 	ret = ochr_dest_relocation(cb, v3d->destBuf, 
 				   v3d->destDelta,
-				   DRM_BO_FLAG_MEM_VRAM,
-				   DRM_BO_MASK_MEM);
+				   WSBM_PL_FLAG_VRAM,
+				   WSBM_PL_MASK_MEM);
         OUT_RING_SubA(HC_SubA_HDBFM, v3d->destFormat |
                       (v3d->destPitch & HC_HDBPit_MASK) | HC_HDBLoc_Local);
 	ADVANCE_RING;
@@ -511,10 +511,10 @@ via3DEmitState(Via3DState * v3d, ViaCommandBuffer * cb, Bool forceUpload)
 		vTex->textureFormat;
 	    
 	    ret = ochr_tex_relocation(cb, &vTex->list, 0, 0, regTexFM,
-				      DRM_BO_FLAG_MEM_VRAM |
-				      DRM_BO_FLAG_MEM_TT |
-				      VIA_BO_FLAG_MEM_AGP,
-				      DRM_BO_MASK_MEM);
+				      WSBM_PL_FLAG_VRAM |
+				      WSBM_PL_FLAG_TT |
+				      VIA_PL_FLAG_AGP,
+				      WSBM_PL_MASK_MEM);
 	    
             if (vTex->npot) {
                 OUT_RING_SubA(HC_SubA_HTXnL0Pit,

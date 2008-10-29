@@ -399,9 +399,9 @@ ochr_apply_texture_reloc(uint32_t ** cmdbuf,
 
     reg_tex_fm = reloc->reg_tex_fm & ~HC_HTXnLoc_MASK;
 
-    if (flags & DRM_BO_FLAG_MEM_VRAM) {
+    if (flags & WSBM_PL_FLAG_VRAM) {
 	reg_tex_fm |= HC_HTXnLoc_Local;
-    } else if (flags & (DRM_BO_FLAG_MEM_TT | VIA_BO_FLAG_MEM_AGP)) {
+    } else if (flags & (WSBM_PL_FLAG_TT | VIA_PL_FLAG_AGP)) {
 	reg_tex_fm |= HC_HTXnLoc_AGP;
     } else
 	abort();
@@ -446,8 +446,8 @@ ochr_tex_relocation(struct _ViaCommandBuffer *cBuf,
 	    val_req->presumed_flags = VIA_USE_PRESUMED;
 	    val_req->presumed_gpu_offset =
 		(uint64_t) driBOOffset(addr[i].buf);
-	    if (driBOFlags(addr[i].buf) &
-		(DRM_BO_FLAG_MEM_TT | VIA_BO_FLAG_MEM_AGP))
+	    if (driBOPlacement(addr[i].buf) &
+		(WSBM_PL_FLAG_TT | VIA_PL_FLAG_AGP))
 		val_req->presumed_flags |= VIA_PRESUMED_AGP;	    
 	}
 
@@ -455,7 +455,7 @@ ochr_tex_relocation(struct _ViaCommandBuffer *cBuf,
 	fake[count].offset = val_req->presumed_gpu_offset;
 	fake[count].flags =
 	    fake[count].flags = (val_req->presumed_flags & VIA_PRESUMED_AGP) ?
-	    DRM_BO_FLAG_MEM_TT : DRM_BO_FLAG_MEM_VRAM;
+	    WSBM_PL_FLAG_TT : WSBM_PL_FLAG_VRAM;
 	real_addr[count].index = itemLoc;
 	real_addr[count].delta = addr[i].delta;
 	fake_addr[count].index = count;
@@ -620,14 +620,27 @@ ochr_execbuf(int fd, struct _ViaCommandBuffer *cBuf)
     exec_req->cmd_buffer = (uint64_t) (unsigned long)
 	cBuf->buf;
     exec_req->cmd_buffer_size = cBuf->pos << 2;
-    exec_req->engine = VIA_ENGINE_PCI;
-    exec_req->exec_flags = DRM_VIA_FENCE_NO_USER;
+
+    /*
+     * FIXME: Use AGP when we've resolved the locks that happen
+     * when we run 3D DRI clients and X server AGP command submission.
+     */
+
+    /*    exec_req->mechanism = (cBuf->needsPCI) ? 
+	  _VIA_MECHANISM_PCI : _VIA_MECHANISM_AGP; */
+    exec_req->mechanism = (cBuf->needsPCI) ? _VIA_MECHANISM_PCI : 
+      _VIA_MECHANISM_AGP;
+    exec_req->exec_flags = DRM_VIA_FENCE_NO_USER | cBuf->execFlags;
     exec_req->cliprect_offset = 0;
     exec_req->num_cliprects = 0;
 
     do {
 	ret = drmCommandWriteRead(fd, DRM_VIA_TTM_EXECBUF, &arg, sizeof(arg));
     } while (ret == -EAGAIN || ret == -EINTR);
+
+
+    if (ret)
+      ErrorF("Execbuf error %d: \"%s\".\n", ret, strerror(-ret));
 
     iterator = validateListIterator(valList);
 
@@ -655,7 +668,7 @@ ochr_execbuf(int fd, struct _ViaCommandBuffer *cBuf)
 
 	rep = &val_arg->d.rep;
 	wsDriUpdateKbuf((struct _DriKernelBuf *)node->buf,
-			rep->gpu_offset, rep->flags);
+			rep->gpu_offset, rep->placement, rep->fence_type_mask);
 
 	iterator = validateListNext(valList, iterator);
     }

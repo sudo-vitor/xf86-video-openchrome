@@ -86,7 +86,7 @@ viaFlushDRIEnabled(ViaCommandBuffer * cb)
     ScrnInfoPtr pScrn = cb->pScrn;
     VIAPtr pVia = VIAPTR(pScrn);
     int tmpSize;
-    int ret;
+    int ret = 0;
     Via3DState *v3d = &pVia->v3d;
 
     /* Align end of command buffer for AGP DMA. */
@@ -98,7 +98,12 @@ viaFlushDRIEnabled(ViaCommandBuffer * cb)
     tmpSize = cb->pos * sizeof(CARD32);
     cb->mode = 0;
     cb->has3dState = FALSE;
-    ret = ochr_execbuf(pVia->drmFD, cb);
+    
+    if (cb->pos > 0)
+	ret = ochr_execbuf(pVia->drmFD, cb);
+
+    cb->needsPCI = FALSE;
+    cb->execFlags = 0x0;
 
     if (ret) {
 	xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
@@ -146,7 +151,6 @@ viaSetupCBuffer(ScrnInfoPtr pScrn, ViaCommandBuffer * buf, unsigned size)
     buf->buf = (CARD32 *) xcalloc(buf->bufSize, sizeof(CARD32));
     if (!buf->buf)
         return BadAlloc;
-    buf->waitFlags = 0;
     buf->pos = 0;
     buf->mode = 0;
     buf->header_start = 0;
@@ -154,6 +158,8 @@ viaSetupCBuffer(ScrnInfoPtr pScrn, ViaCommandBuffer * buf, unsigned size)
     buf->has3dState = FALSE;
     buf->flushFunc = NULL;
     buf->inComposite = FALSE;
+    buf->needsPCI = FALSE;
+    buf->execFlags = 0x0;
 #ifdef XF86DRI
     if (pVia->directRenderingEnabled) {
         buf->flushFunc = viaFlushDRIEnabled;
@@ -302,7 +308,7 @@ viaEmitPixmap(ViaCommandBuffer *cb,
 	OUT_RING_H1(VIA_REG_DSTBASE, 0);
 	OUT_RING_H1(VIA_REG_DSTPOS, 0);
 	ret = ochr_2d_relocation(cb, buf, delta, 32, 0,
-				 DRM_BO_FLAG_MEM_VRAM, DRM_BO_MASK_MEM);
+				 WSBM_PL_FLAG_VRAM, WSBM_PL_MASK_MEM);
 	if (ret)
 	    goto out_err;
 	cb->dstPixmap = pDstPix;
@@ -313,7 +319,7 @@ viaEmitPixmap(ViaCommandBuffer *cb,
 	OUT_RING_H1(VIA_REG_SRCBASE, 0);
 	OUT_RING_H1(VIA_REG_SRCPOS, 0);
 	ret = ochr_2d_relocation(cb, buf, delta, 32, 0,
-				 DRM_BO_FLAG_MEM_VRAM, DRM_BO_MASK_MEM);
+				 WSBM_PL_FLAG_VRAM, WSBM_PL_MASK_MEM);
 	if (ret)
 	    goto out_err;
 	cb->srcPixmap = pSrcPix;
@@ -342,7 +348,7 @@ viaAccelSolidHelper(ViaCommandBuffer * cb, int x, int y, int w, int h,
     OUT_RING_H1(VIA_REG_DSTBASE, 0);
     OUT_RING_H1(VIA_REG_DSTPOS, 0);
     ret = ochr_2d_relocation(cb, buf, delta, bpp, pos,
-			     DRM_BO_FLAG_MEM_VRAM, DRM_BO_MASK_MEM);
+			     WSBM_PL_FLAG_VRAM, WSBM_PL_MASK_MEM);
     OUT_RING_H1(VIA_REG_DIMENSION, ((h - 1) << 16) | (w - 1));
     OUT_RING_H1(VIA_REG_FGCOLOR, fg);
     OUT_RING_H1(VIA_REG_GECMD, cmd);
@@ -495,11 +501,11 @@ viaAccelCopyHelper(ViaCommandBuffer * cb, int xs, int ys, int xd, int yd,
     OUT_RING_H1(VIA_REG_SRCBASE, 0);
     OUT_RING_H1(VIA_REG_SRCPOS, 0);
     ret = ochr_2d_relocation(cb, buf, delta, bpp, srcPos,
-			     DRM_BO_FLAG_MEM_VRAM, DRM_BO_MASK_MEM);
+			     WSBM_PL_FLAG_VRAM, WSBM_PL_MASK_MEM);
     OUT_RING_H1(VIA_REG_DSTBASE, 0);
     OUT_RING_H1(VIA_REG_DSTPOS, 0);
     ret = ochr_2d_relocation(cb, buf, delta, bpp, dstPos,
-			     DRM_BO_FLAG_MEM_VRAM, DRM_BO_MASK_MEM);
+			     WSBM_PL_FLAG_VRAM, WSBM_PL_MASK_MEM);
     OUT_RING_H1(VIA_REG_PITCH, VIA_PITCH_ENABLE |
                 ((dstPitch >> 3) << 16) | (srcPitch >> 3));
     OUT_RING_H1(VIA_REG_DIMENSION, ((h - 1) << 16) | (w - 1));
@@ -601,8 +607,6 @@ viaExaPrepareSolid(PixmapPtr pPixmap, int alu, Pixel planeMask, Pixel fg)
     VIAPtr pVia = VIAPTR(pScrn);
     ViaTwodContext *tdc = &pVia->td;
 
-    RING_VARS;
-
     if (exaGetPixmapPitch(pPixmap) & 7)
         return FALSE;
 
@@ -611,7 +615,6 @@ viaExaPrepareSolid(PixmapPtr pPixmap, int alu, Pixel planeMask, Pixel fg)
 
     if (!viaAccelPlaneMaskHelper(tdc, planeMask))
         return FALSE;
-    viaAccelTransparentHelper(tdc, cb, 0x0, 0x0, TRUE);
 
     tdc->cmd = VIA_GEC_BLT | VIA_GEC_FIXCOLOR_PAT | VIAACCELPATTERNROP(alu);
 
@@ -634,6 +637,7 @@ viaExaSolid(PixmapPtr pPixmap, int x1, int y1, int x2, int y2)
     dstPitch = exaGetPixmapPitch(pPixmap);
     dstOffset = viaExaSuperPixmapOffset(pPixmap, &buf);
 
+    viaAccelTransparentHelper(tdc, cb, 0x0, 0x0, TRUE);
     viaAccelSolidPixmapHelper(cb, x1, y1, w, h, pPixmap,
 			      tdc->mode, dstPitch, tdc->fgColor, tdc->cmd);
 }
@@ -690,8 +694,6 @@ viaExaPrepareCopy(PixmapPtr pSrcPixmap, PixmapPtr pDstPixmap, int xdir,
     VIAPtr pVia = VIAPTR(pScrn);
     ViaTwodContext *tdc = &pVia->td;
 
-    RING_VARS;
-
     if (pSrcPixmap->drawable.bitsPerPixel != pDstPixmap->drawable.bitsPerPixel)
         return FALSE;
 
@@ -712,7 +714,7 @@ viaExaPrepareCopy(PixmapPtr pSrcPixmap, PixmapPtr pDstPixmap, int xdir,
 
     if (!viaAccelPlaneMaskHelper(tdc, planeMask))
         return FALSE;
-    viaAccelTransparentHelper(tdc, cb, 0x0, 0x0, TRUE);
+
     tdc->pSrcPixmap = pSrcPixmap;
 
     return TRUE;
@@ -730,6 +732,7 @@ viaExaCopy(PixmapPtr pDstPixmap, int srcX, int srcY, int dstX, int dstY,
     if (!width || !height)
         return;
 
+    viaAccelTransparentHelper(tdc, cb, 0x0, 0x0, TRUE);
     viaAccelCopyPixmapHelper(cb, srcX, srcY, dstX, dstY, width, height,
 			     tdc->pSrcPixmap, pDstPixmap, tdc->mode, tdc->srcPitch,
 			     exaGetPixmapPitch(pDstPixmap), tdc->cmd);
@@ -1059,11 +1062,10 @@ viaExaUploadToScratch(PixmapPtr pSrc, PixmapPtr pDst)
     if (!entry)
 	return FALSE;
 
-    ret = driGenBuffers(pVia->mainPool, "Scratch buffer", 1, 
+    ret = driGenBuffers(pVia->mainPool, 1, 
 			&entry->buf, 0, 
-			VIA_BO_FLAG_MEM_AGP |
-			DRM_BO_FLAG_MEM_VRAM |
-			DRM_BO_FLAG_READ, 0);
+			VIA_PL_FLAG_AGP |
+			WSBM_PL_FLAG_VRAM);
     if (ret)
 	goto out_err0;
 
@@ -1077,7 +1079,7 @@ viaExaUploadToScratch(PixmapPtr pSrc, PixmapPtr pDst)
     if (ret)
 	goto out_err1;
 
-    dst = driBOMap(entry->buf, WS_DRI_MAP_WRITE);
+    dst = driBOMap(entry->buf, 1, WSBM_SYNCCPU_WRITE);
     if (dst == NULL)
 	goto out_err1;
 
@@ -1349,8 +1351,8 @@ viaExaPrepareAccess(PixmapPtr pPix, int index)
     buf = viaInBuffer(&pVia->offscreen, ptr);
     if (buf) {
 	flags = (index == EXA_PREPARE_DEST) ?
-	    DRM_BO_FLAG_WRITE : DRM_BO_FLAG_READ;
-	virtual = driBOMap(buf->buf, flags);
+	    WSBM_SYNCCPU_WRITE : WSBM_SYNCCPU_READ;
+	virtual = driBOMap(buf->buf, 1, flags);
     }
     return TRUE;
 }
@@ -1476,11 +1478,9 @@ viaInitAccel(ScreenPtr pScreen)
      * Pixmap cache.
      */
 
-    ret = driGenBuffers(pVia->mainPool, "Pixmap cache", 1,
+    ret = driGenBuffers(pVia->mainPool, 1,
 			&pVia->exaMem.buf, 0, 
-			DRM_BO_FLAG_MEM_VRAM |
-			DRM_BO_FLAG_READ |
-			DRM_BO_FLAG_WRITE, 0);
+			WSBM_PL_FLAG_VRAM);
     if (ret) {
 	xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
 	       "[Accel] Failed allocating offscreen pixmap space.\n");
@@ -1494,7 +1494,8 @@ viaInitAccel(ScreenPtr pScreen)
 	goto out_err0;
     }
 
-    pVia->exaMem.virtual = driBOMap(pVia->exaMem.buf, WS_DRI_MAP_READ | WS_DRI_MAP_WRITE);
+    pVia->exaMem.virtual = driBOMap(pVia->exaMem.buf, 1, 
+				    WSBM_SYNCCPU_READ | WSBM_SYNCCPU_WRITE);
     if (pVia->exaMem.virtual == NULL) {
 	xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
 	       "[Accel] Failed mapping offscreen pixmap space.\n");	

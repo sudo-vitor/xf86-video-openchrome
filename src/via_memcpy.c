@@ -580,11 +580,10 @@ viaVidCopyInit(char *copyType, ScreenPtr pScreen)
      * player buffer (buf2) and a pool of uninitialized "video" data (buf3). 
      */
 
-    ret = driGenBuffers(pVia->mainPool, "video test buffer", 1,
+    ret = driGenBuffers(pVia->mainPool, 1,
 			&tmpFbBuffer, 0, 
-			DRM_BO_FLAG_MEM_VRAM |
-			DRM_BO_FLAG_READ |
-			DRM_BO_FLAG_NO_EVICT, 0);
+			WSBM_PL_FLAG_VRAM |
+			WSBM_PL_FLAG_NO_EVICT);
     if (ret) 
 	return libc_YUV42X;
 
@@ -595,7 +594,7 @@ viaVidCopyInit(char *copyType, ScreenPtr pScreen)
 	return libc_YUV42X;
     }
     
-    buf1 = driBOMap(tmpFbBuffer, WS_DRI_MAP_WRITE);
+    buf1 = driBOMap(tmpFbBuffer, 1, WSBM_SYNCCPU_WRITE);
 
     if (!buf1) {
 	driDeleteBuffers(1, &tmpFbBuffer);
