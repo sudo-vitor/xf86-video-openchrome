@@ -29,40 +29,16 @@
 #ifndef _VIA_DRI_H_
 #define _VIA_DRI_H_ 1
 
-#define VIA_MAX_DRAWABLES 256
-
-#define VIA_DRIDDX_VERSION_MAJOR  5
+#define VIA_DRIDDX_VERSION_MAJOR  6
 #define VIA_DRIDDX_VERSION_MINOR  0
 #define VIA_DRIDDX_VERSION_PATCH  0
 
-#if !defined(XFree86Server) && !defined(_XDEFS_H)
-typedef int Bool;
-#endif
+#define VIA_MAX_DRAWABLES 256
 
 typedef struct {
-    drm_handle_t handle;
-    drmSize size;
-} viaRegion, *viaRegionPtr;
-
-typedef struct {
-    viaRegion regs, agp;
     int deviceID;
-    int width;
-    int height;
-    int mem;
-    int bytesPerPixel;
-    int priv1;
-    int priv2;
-    int fbOffset;
-    int fbSize;
-    Bool drixinerama;
-    int backOffset;
-    int depthOffset;
-    int textureOffset;
-    int textureSize;
-    int irqEnabled;
-    unsigned int scrnX, scrnY;
     int sarea_priv_offset;
+    int bpp;
 } VIADRIRec, *VIADRIPtr;
 
 typedef struct {

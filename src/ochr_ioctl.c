@@ -483,6 +483,8 @@ int ochr_execbuf(int fd, struct _ViaCommandBuffer *cBuf)
     struct _ViaDrmValidateNode *viaNode;
     struct via_validate_arg *val_arg;
     struct via_validate_req *req;
+    struct via_validate_rep *rep;
+
     uint64_t first = 0ULL;
     uint64_t *prevNext = NULL;
     void *iterator;
@@ -490,16 +492,18 @@ int ochr_execbuf(int fd, struct _ViaCommandBuffer *cBuf)
     int ret;
     
     /*
-     * Build the validate list chain.
+     * Prepare arguments for all buffers that need validation
+     * prior to the command submission.
      */
 
     valList = driGetDRMValidateList(cBuf->validate_list);
     iterator = validateListIterator(valList);
-
     while (iterator) {
 	node = validateListNode(iterator);
 	viaNode = containerOf(node, struct _ViaDrmValidateNode, base);
 	val_arg = &viaNode->val_arg;
+	val_arg->handled = 0;
+	val_arg->ret = 0;
 	req = &val_arg->d.req;
 
 	if (!first) 
@@ -508,12 +512,17 @@ int ochr_execbuf(int fd, struct _ViaCommandBuffer *cBuf)
 	    *prevNext = (uint64_t) (unsigned long) val_arg;
 	prevNext = &req->next;
 	
-	req->buffer_handle = *(uint32_t *)node->buf;
+	req->buffer_handle = wsDriKbufHandle((struct _DriKernelBuf *)
+					     node->buf);
 	req->group = 0;
 
 	iterator = validateListNext(valList, iterator);
 	++count;
     }
+
+    /*
+     * Fill in the execbuf arg itself.
+     */
 
     exec_req->buffer_list = first;
     exec_req->num_buffers = count;
@@ -525,12 +534,42 @@ int ochr_execbuf(int fd, struct _ViaCommandBuffer *cBuf)
     exec_req->engine = 0;
     exec_req->exec_flags = 0x00000000;
     exec_req->cliprect_offset = 0;
+    exec_req->num_cliprects = 0;
 
     do {
 	ret = drmCommandWriteRead(fd, DRM_VIA_TTM_EXECBUF, 
 				  &arg, sizeof(arg));
     }while(ret == EAGAIN || ret == EINTR);
     
+    iterator = validateListIterator(valList);
 
-    return 0;
+    /*
+     * Update all user-space cached offsets and flags for kernel
+     * buffers involved in this commands.
+     */
+
+    while (iterator) {
+	node = validateListNode(iterator);
+	viaNode = containerOf(node, struct _ViaDrmValidateNode, base);
+	val_arg = &viaNode->val_arg;
+
+	if (!val_arg->handled)
+	    break;
+	
+	if (val_arg->ret != 0) {
+	    xf86DrvMsg(cBuf->pScrn->scrnIndex, X_ERROR,
+		       "Failed a buffer validation: \"%s\".\n",
+		       strerror(-val_arg->ret));
+	    iterator = validateListNext(valList, iterator);
+	    continue;
+	}
+
+	rep = &val_arg->d.rep;
+	wsDriUpdateKbuf((struct _DriKernelBuf *) node->buf,
+			rep->gpu_offset, rep->flags);
+
+	iterator = validateListNext(valList, iterator);
+    }
+
+    return ret;
 }

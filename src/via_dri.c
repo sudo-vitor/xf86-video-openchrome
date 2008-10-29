@@ -374,12 +374,6 @@ VIADRIScreenInit(ScreenPtr pScreen)
         VIADRICloseScreen(pScreen);
         return FALSE;
     }
-    pVIADRI->regs.size = VIA_MMIO_REGSIZE;
-    pVIADRI->regs.handle = pVia->registerHandle;
-    xf86DrvMsg(pScreen->myNum, X_INFO, "[drm] mmio Registers = 0x%08lx\n",
-               (unsigned long)pVIADRI->regs.handle);
-
-    pVIADRI->drixinerama = FALSE;
 
     xf86DrvMsg(pScrn->scrnIndex, X_INFO, "[dri] mmio mapped.\n");
 
@@ -465,16 +459,11 @@ VIADRIFinishScreenInit(ScreenPtr pScreen)
         memset(saPriv, 0, sizeof(*saPriv));
         saPriv->ctxOwner = -1;
     }
+
     pVIADRI = (VIADRIPtr) pVia->pDRIInfo->devPrivate;
     pVIADRI->deviceID = pVia->Chipset;
-    pVIADRI->width = pScrn->virtualX;
-    pVIADRI->height = pScrn->virtualY;
-    pVIADRI->mem = pScrn->videoRam * 1024;
-    pVIADRI->bytesPerPixel = (pScrn->bitsPerPixel + 7) / 8;
     pVIADRI->sarea_priv_offset = sizeof(XF86DRISAREARec);
-    /* TODO */
-    pVIADRI->scrnX = pVIADRI->width;
-    pVIADRI->scrnY = pVIADRI->height;
+    pVIADRI->bpp = pScrn->bitsPerPixel;
 
     return TRUE;
 }
@@ -527,3 +516,20 @@ VIADRIMapInit(ScreenPtr pScreen, VIAPtr pVia)
     return TRUE;
 }
 
+void
+viaDRIUpdateFront(ScreenPtr pScreen)
+{
+    ScrnInfoPtr pScrn = xf86Screens[pScreen->myNum];
+    volatile struct drm_via_sarea *saPriv = (struct drm_via_sarea *)
+	DRIGetSAREAPrivate(pScrn->pScreen);
+    volatile struct drm_via_scanout *front = &saPriv->scanouts[0];
+    VIAPtr pVia = VIAPTR(pScrn);
+    struct _DriKernelBuf *buf = wsDriKBuf(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY]);
+
+    ++front->stamp;
+    front->handle = wsDriKbufHandle(buf);
+    front->width = pScrn->virtualX;
+    front->height = pScrn->virtualY;
+    front->stride = pVia->Bpl;
+    front->depth = pScrn->depth;
+}

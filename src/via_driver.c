@@ -1794,7 +1794,12 @@ VIAEnterVT(int scrnIndex, int flags)
 #endif 
 
     retVal = driBOData(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY],
-		       pVia->Bpl * pScrn->virtualY , NULL, NULL, 0);
+		       pVia->Bpl * pScrn->virtualY , NULL, NULL, 
+		       DRM_BO_FLAG_MEM_VRAM |
+		       DRM_BO_FLAG_READ |
+		       DRM_BO_FLAG_WRITE |
+		       DRM_BO_FLAG_NO_EVICT |
+		       DRM_BO_FLAG_SHAREABLE);
     if (retVal) {
 	xf86DrvMsg(scrnIndex, X_ERROR, 
 		   "Failed reallocating the display buffer.");
@@ -1855,6 +1860,7 @@ VIAEnterVT(int scrnIndex, int flags)
 
 #ifdef XF86DRI
     if (pVia->directRenderingEnabled) {
+	viaDRIUpdateFront(pScrn->pScreen);
         DRIUnlock(screenInfo.screens[scrnIndex]);
     }
 #endif
@@ -2498,7 +2504,8 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
 			pVia->scanout.bufs, 0,
 			DRM_BO_FLAG_MEM_VRAM |
 			DRM_BO_FLAG_READ |
-			DRM_BO_FLAG_NO_EVICT , 0);
+			DRM_BO_FLAG_WRITE |
+			DRM_BO_FLAG_NO_EVICT, 0);
     if (ret) {
 	xf86DrvMsg(pScrn->scrnIndex, X_ERROR, 
 		   "Failed allocating scanout buffers.\n");
@@ -2519,7 +2526,12 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
 
     displaySize = pVia->Bpl*pScrn->virtualY;
     ret = driBOData(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY], 
-		    displaySize, NULL, NULL, 0);
+		    displaySize, NULL, NULL, 
+		    DRM_BO_FLAG_MEM_VRAM |
+		    DRM_BO_FLAG_WRITE |
+		    DRM_BO_FLAG_READ |
+		    DRM_BO_FLAG_NO_EVICT |
+		    DRM_BO_FLAG_SHAREABLE);
     if (ret) {
 	xf86DrvMsg(pScrn->scrnIndex, X_ERROR, 
 		   "Failed allocating display video RAM: \"%s\".\n",
@@ -2655,20 +2667,12 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
     if (!pVia->NoAccel)
         viaFinishInitAccel(pScreen);
 
-    if (1) {
+    if (!pVia->NoAccel) {
 	memset(pVia->displayMap, 0x00, pVia->Bpl * pScrn->virtualY);
     } else {
-#ifdef XF86DRI
-        if (pVia->directRenderingEnabled)
-            DRILock(screenInfo.screens[scrnIndex], 0);
-#endif
         viaAccelFillRect(pScrn, pScrn->frameX0, pScrn->frameY0,
                          pScrn->displayWidth, pScrn->virtualY, 0x00000000);
         viaAccelSyncMarker(pScrn);
-#ifdef XF86DRI
-        if (pVia->directRenderingEnabled)
-            DRIUnlock(screenInfo.screens[scrnIndex]);
-#endif
     }
     vgaHWBlankScreen(pScrn, TRUE);
 
@@ -2690,6 +2694,15 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
         ViaTVPrintRegs(pScrn);
     }
 #endif
+
+#ifdef XF86DRI
+    if (pVia->directRenderingEnabled) {
+	DRILock(screenInfo.screens[scrnIndex], 0);
+	viaDRIUpdateFront(pScreen);
+	DRIUnlock(screenInfo.screens[scrnIndex]);
+    }
+#endif
+
 
     DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "- Done\n"));
     return TRUE;

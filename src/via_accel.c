@@ -74,71 +74,6 @@ viaDumpDMA(ViaCommandBuffer * buf)
     ErrorF("\n");
 }
 
-void
-viaFlushPCI(ViaCommandBuffer * buf)
-{
-    register CARD32 *bp = buf->buf;
-    CARD32 transSetting;
-    CARD32 *endp = bp + buf->pos;
-    unsigned loop = 0;
-    register CARD32 offset = 0;
-    register CARD32 value;
-    VIAPtr pVia = VIAPTR(buf->pScrn);
-    int ret;
-
-    while (bp < endp) {
-        if (*bp == HALCYON_HEADER2) {
-            if (++bp == endp)
-                return;
-            VIASETREG(VIA_REG_TRANSET, transSetting = *bp++);
-            while (bp < endp) {
-                if ((transSetting != HC_ParaType_CmdVdata)
-                    && ((*bp == HALCYON_HEADER2)
-                        || (*bp & HALCYON_HEADER1MASK) == HALCYON_HEADER1))
-                    break;
-                VIASETREG(VIA_REG_TRANSPACE, *bp++);
-            }
-        } else if ((*bp & HALCYON_HEADER1MASK) == HALCYON_HEADER1) {
-
-            while (bp < endp) {
-                if (*bp == HALCYON_HEADER2)
-                    break;
-                if (offset == 0) {
-                    /*
-                     * Not doing this wait will probably stall the processor
-                     * for an unacceptable amount of time in VIASETREG while
-                     * other high priority interrupts may be pending.
-                     */
-                    if (pVia->Chipset != VIA_P4M890 &&
-                        pVia->Chipset != VIA_K8M890 &&
-                        pVia->Chipset != VIA_P4M900) {
-                        while (!(VIAGETREG(VIA_REG_STATUS) & VIA_VR_QUEUE_BUSY)
-                               && (loop++ < MAXLOOP)) ;
-                    }
-                    while ((VIAGETREG(VIA_REG_STATUS) &
-                            (VIA_CMD_RGTR_BUSY | VIA_2D_ENG_BUSY))
-                           && (loop++ < MAXLOOP)) ;
-                }
-                offset = (*bp++ & 0x0FFFFFFF) << 2;
-                value = *bp++;
-                VIASETREG(offset, value);
-            }
-        } else {
-            ErrorF("Command stream parser error.\n");
-        }
-    }
-    buf->pos = 0;
-    buf->mode = 0;
-    buf->has3dState = FALSE;
-    buf->srcPixmap = NULL;
-    buf->dstPixmap = NULL;
-    ret = ochr_reset_cmdlists(buf);
-    if (ret) {
-	FatalError("Failed trying to reset command buffer: \"%s\".\n",
-		   strerror(-ret));
-    }
-}
-
 #ifdef XF86DRI
 /*
  * Flush the command buffer using DRM. If in PCI mode, we can bypass DRM,
@@ -150,9 +85,7 @@ viaFlushDRIEnabled(ViaCommandBuffer * cb)
 {
     ScrnInfoPtr pScrn = cb->pScrn;
     VIAPtr pVia = VIAPTR(pScrn);
-    char *tmp = (char *)cb->buf;
     int tmpSize;
-    struct drm_via_cmdbuffer b;
     int ret;
 
     /* Align end of command buffer for AGP DMA. */
@@ -162,30 +95,16 @@ viaFlushDRIEnabled(ViaCommandBuffer * cb)
     }
 
     tmpSize = cb->pos * sizeof(CARD32);
-    if (pVia->agpDMA || (pVia->directRenderingEnabled && cb->has3dState)) {
-        cb->mode = 0;
-        cb->has3dState = FALSE;
-	ochr_execbuf(pVia->drmFD, cb);
-#if 0
-        while (tmpSize > 0) {
-            b.size = (tmpSize > VIA_DMASIZE) ? VIA_DMASIZE : tmpSize;
-            tmpSize -= b.size;
-            b.buf = tmp;
-            tmp += b.size;
-            if (drmCommandWrite(pVia->drmFD, ((pVia->agpDMA)
-                                              ? DRM_VIA_CMDBUFFER :
-                                              DRM_VIA_PCICMD), &b, sizeof(b))) {
-                ErrorF("DRM command buffer submission failed.\n");
-                viaDumpDMA(cb);
-                return;
-            }
-        }
-#endif
-
-        cb->pos = 0;
-    } else {
-        viaFlushPCI(cb);
-    }
+    cb->mode = 0;
+    cb->has3dState = FALSE;
+    ret = ochr_execbuf(pVia->drmFD, cb);
+    if (ret) {
+	xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
+		   "Command buffer submission failed: \"%s\".\n",
+		   strerror(-ret));	    
+	viaDumpDMA(cb);
+    }    
+    cb->pos = 0;
     cb->srcPixmap = NULL;
     cb->dstPixmap = NULL;
     ret = ochr_reset_cmdlists(cb);
@@ -218,7 +137,7 @@ viaSetupCBuffer(ScrnInfoPtr pScrn, ViaCommandBuffer * buf, unsigned size)
     buf->header_start = 0;
     buf->rindex = 0;
     buf->has3dState = FALSE;
-    buf->flushFunc = viaFlushPCI;
+    buf->flushFunc = NULL;
 #ifdef XF86DRI
     if (pVia->directRenderingEnabled) {
         buf->flushFunc = viaFlushDRIEnabled;
@@ -953,6 +872,8 @@ viaExpandablePixel(int format)
 
 #ifdef XF86DRI
 
+#if 0
+
 static int
 viaAccelDMADownload(ScrnInfoPtr pScrn, unsigned long fbOffset,
                     unsigned srcPitch, unsigned char *dst,
@@ -1093,6 +1014,7 @@ viaExaDownloadFromScreen(PixmapPtr pSrc, int x, int y, int w, int h,
 
     return TRUE;
 }
+#endif
 
 #endif
 #if 0
@@ -1446,7 +1368,7 @@ viaInitExa(ScreenPtr pScreen)
 
 #ifdef XF86DRI
     if (pVia->directRenderingEnabled) 
-	pExa->DownloadFromScreen = viaExaDownloadFromScreen;
+	pExa->DownloadFromScreen = NULL; /*viaExaDownloadFromScreen;*/
    
 #endif /* XF86DRI */
 

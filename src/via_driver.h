@@ -497,6 +497,7 @@ void ViaI2CInit(ScrnInfoPtr pScrn);
 Bool VIADRIScreenInit(ScreenPtr pScreen);
 void VIADRICloseScreen(ScreenPtr pScreen);
 Bool VIADRIFinishScreenInit(ScreenPtr pScreen);
+void viaDRIUpdateFront(ScreenPtr pScreen);
 
 #endif /* XF86DRI */
 
