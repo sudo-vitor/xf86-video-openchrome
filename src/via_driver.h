@@ -181,7 +181,6 @@ typedef struct _twodContext {
     CARD32 pattern1;
     CARD32 patternAddr;
     CARD32 keyControl;
-    unsigned srcOffset;
     unsigned srcPitch;
     unsigned bpp;
     unsigned bytesPPShift;

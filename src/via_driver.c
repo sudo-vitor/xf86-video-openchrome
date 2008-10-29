@@ -1789,7 +1789,7 @@ VIAEnterVT(int scrnIndex, int flags)
 			    &vt, sizeof(vt)) < 0)
 	    ErrorF("Failed DRM VT enter.\n");
 	else
-	    pVia->vtNotified = GL_TRUE;
+	    pVia->vtNotified = FALSE;
     }
 #endif 
 
@@ -1918,9 +1918,6 @@ VIALeaveVT(int scrnIndex, int flags)
 			  0,
 			  DRM_BO_FLAG_NO_EVICT);
 
-    //    (void) driBOData(pVia->scanout.bufs[VIA_SCANOUT_OVERLAY],
-    //		     0, NULL, NULL, 0);
-
     (void) driBOData(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY],
 		     0, NULL, NULL, 0);
 
@@ -1934,7 +1931,7 @@ VIALeaveVT(int scrnIndex, int flags)
 			    &vt, sizeof(vt)) < 0)
 	    ErrorF("Failed DRM VT leave.\n");
 	else
-	    pVia->vtNotified = GL_TRUE;
+	    pVia->vtNotified = TRUE;
 
     }
 #endif
@@ -2863,7 +2860,7 @@ VIACloseScreen(int scrnIndex, ScreenPtr pScreen)
 				&vt, sizeof(vt)) < 0)
 		ErrorF("Failed DRM VT leave.\n");
 	    else
-		pVia->vtNotified = GL_FALSE;
+		pVia->vtNotified = FALSE;
 	}
         VIADRICloseScreen(pScreen);
     }

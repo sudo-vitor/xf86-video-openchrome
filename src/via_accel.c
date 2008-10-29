@@ -588,31 +588,11 @@ viaExaPixmapIsOffscreen(PixmapPtr p)
     ScrnInfoPtr pScrn = xf86Screens[pScreen->myNum];
     VIAPtr pVia = VIAPTR(pScrn);
 
+    if (pVia->vtNotified == TRUE)
+	return FALSE;
+
     return (viaInBuffer(&pVia->offscreen, p->devPrivate.ptr) != NULL);
 }
-
-static unsigned long
-viaExaPixmapOffset(PixmapPtr p)
-{
-    ScreenPtr pScreen = p->drawable.pScreen;
-    ScrnInfoPtr pScrn = xf86Screens[pScreen->myNum];
-    VIAPtr pVia = VIAPTR(pScrn);
-    void *ptr;
-    struct _ViaOffscreenBuffer *buf;
-
-    ptr = (void *) exaGetPixmapOffset(p) + 
-	(unsigned long) pVia->exaMem.virtual;
-    
-    buf = viaInBuffer(&pVia->offscreen, ptr);
-
-    if (!buf) 
-	FatalError("Offscreen pixmap is not offscreen.\n");
-
-    return (unsigned long)ptr - (unsigned long) buf->virtual +
-	driBOOffset(buf->buf);
-}
-
-
 
 static Bool
 viaExaPrepareSolid(PixmapPtr pPixmap, int alu, Pixel planeMask, Pixel fg)
@@ -701,8 +681,6 @@ viaExaPrepareCopy(PixmapPtr pSrcPixmap, PixmapPtr pDstPixmap, int xdir,
 
     if (exaGetPixmapPitch(pDstPixmap) & 7)
         return FALSE;
-
-    tdc->srcOffset = viaExaPixmapOffset(pSrcPixmap);
 
     tdc->cmd = VIA_GEC_BLT | VIAACCELCOPYROP(alu);
     if (xdir < 0)
