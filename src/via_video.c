@@ -509,7 +509,7 @@ viaExitVideo(ScrnInfoPtr pScrn)
     DBG_DD(ErrorF(" via_video.c : viaExitVideo : \n"));
 
 #ifdef XF86DRI
-    // ViaCleanupXVMC(pScrn, viaAdaptPtr, XV_ADAPT_NUM);
+    ViaCleanupXVMC(pScrn, viaAdaptPtr, XV_ADAPT_NUM);
 #endif
 
     viaVidEng->video1_ctl = 0;
@@ -612,7 +612,7 @@ viaInitVideo(ScreenPtr pScreen)
     if (num_adaptors) {
         xf86XVScreenInit(pScreen, allAdaptors, num_adaptors);
 #ifdef XF86DRI
-        // ViaInitXVMC(pScreen);
+        ViaInitXVMC(pScreen);
 #endif
         viaSetColorSpace(pVia, 0, 0, 0, 0, TRUE);
         pVia->swov.panning_x = 0;
@@ -1081,7 +1081,7 @@ viaVideoFlip(VIAPtr pVia, int fourcc,
         case FOURCC_RV32:
             OUT_RING_QW(HQV_SRC_STARTADDR_Y + proReg, 0);
 	    ret = ochr_yuv_relocation(cb, hqvBuf->buf, 0, 1,
-				      hqvBuf->deltaY, 0, 0, 
+				      hqvBuf->deltaY, 0, 0, 0,
 				      WSBM_PL_FLAG_VRAM |
 				      hqvFlag,
 				      WSBM_PL_MASK_MEM |
@@ -1093,7 +1093,7 @@ viaVideoFlip(VIAPtr pVia, int fourcc,
             if (pVia->VideoEngine == VIDEO_ENGINE_CME) {
 		OUT_RING_QW(HQV_SRC_STARTADDR_U + proReg, 0);
 		ret = ochr_yuv_relocation(cb, hqvBuf->buf, 0, 2,
-					  hqvBuf->deltaY, hqvBuf->deltaU, 0, 
+					  hqvBuf->deltaY, hqvBuf->deltaU, 0, 0, 
 					  WSBM_PL_FLAG_VRAM |
 					  hqvFlag,
 					  WSBM_PL_MASK_MEM |
@@ -1103,7 +1103,7 @@ viaVideoFlip(VIAPtr pVia, int fourcc,
 		OUT_RING_QW(HQV_SRC_STARTADDR_V + proReg, 0);
 		ret = ochr_yuv_relocation(cb, hqvBuf->buf, 0, 3,
 					  hqvBuf->deltaY, hqvBuf->deltaV, 
-					  hqvBuf->deltaU,
+					  hqvBuf->deltaU, 0,
 					  WSBM_PL_FLAG_VRAM |
 					  hqvFlag,
 					  WSBM_PL_MASK_MEM |

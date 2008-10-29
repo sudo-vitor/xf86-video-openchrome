@@ -29,7 +29,8 @@ EXTRA_DIST = svnversion.h
 CONFIG_CLEAN_FILES= svnversion.h
 AM_CFLAGS = @XORG_CFLAGS@ @DRI_CFLAGS@ @libwsbm_CFLAGS@ -Wall
 openchrome_drv_la_LTLIBRARIES = openchrome_drv.la
-openchrome_drv_la_LDFLAGS = -module -avoid-version @libwsbm_LIBS@
+openchrome_drv_la_LDFLAGS = -module -avoid-version 
+openchrome_drv_la_LIBADD = @libwsbm_LIBS@
 openchrome_drv_ladir = @moduledir@/drivers
 
 openchrome_drv_la_SOURCES = \

@@ -509,6 +509,8 @@ ViaXvMCCreateSurface(ScrnInfoPtr pScrn, XvMCSurfacePtr pSurf,
     ViaXvMCSurfacePriv *sPriv;
     XvMCContextPtr ctx;
     unsigned bufSize, yBufSize;
+    unsigned char *map;
+    int ret;
 
     if (VIA_XVMC_MAX_SURFACES == vXvMC->nSurfaces) {
         xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
@@ -569,32 +571,42 @@ ViaXvMCCreateSurface(ScrnInfoPtr pScrn, XvMCSurfacePtr pSurf,
 
     ctx = pSurf->context;
     bufSize = size_yuv420(ctx->width, ctx->height);
-#if 0
-    sPriv->memory_ref.pool = 0;
-    if (VIAAllocLinear(&(sPriv->memory_ref), pScrn,
-                       numBuffers * bufSize + 32)) {
-        xfree(*priv);
-        xfree(sPriv);
+    ret = wsbmGenBuffers(pVia->mainPool, 1, &sPriv->buf, 0, 
+			 WSBM_PL_FLAG_VRAM);
+    if (ret) {
+	xfree(*priv);
+	xfree(sPriv);
         xf86DrvMsg(pScrn->scrnIndex, X_ERROR, "[XvMC] ViaXvMCCreateSurface: "
-                   "Unable to allocate frambuffer memory!\n");
+                   "Unable to allocate surface memory!\n");
         return BadAlloc;
     }
-    (*priv)[1] = numBuffers;
-    (*priv)[2] = sPriv->offsets[0] = ALIGN_TO(sPriv->memory_ref.base, 32);
-    for (i = 1; i < numBuffers; ++i) {
-        (*priv)[i + 2] = sPriv->offsets[i] = sPriv->offsets[i - 1] + bufSize;
+
+    ret = wsbmBOData(sPriv->buf, numBuffers * bufSize, NULL, NULL, 0);
+    if (ret) {
+	wsbmDeleteBuffers(1, &sPriv->buf);
+	xfree(*priv);
+	xfree(sPriv);
+        xf86DrvMsg(pScrn->scrnIndex, X_ERROR, "[XvMC] ViaXvMCCreateSurface: "
+                   "Unable to allocate surface memory!\n");
+        return BadAlloc;
     }
 
-#endif
+    (*priv)[1] = numBuffers;
+    (*priv)[2] = wsbmKBufHandle(wsbmKBuf(sPriv->buf));
+    for (i = 1; i < numBuffers; ++i) {
+        (*priv)[i + 2] = bufSize * i;
+    }
 
     yBufSize = stride(ctx->width) * ctx->height;
-    for (i = 0; i < numBuffers; ++i) {
-#if 0
-        memset((CARD8 *) (pVia->FBBase) + sPriv->offsets[i], 0, yBufSize);
-        memset((CARD8 *) (pVia->FBBase) + sPriv->offsets[i] + yBufSize, 0x80,
-               yBufSize >> 1);
-#endif
+    map = wsbmBOMap(sPriv->buf, WSBM_ACCESS_WRITE);
+    if (map) {
+	for (i = 0; i < numBuffers; ++i) {
+	    memset(map + (bufSize * i), 0, yBufSize);
+	    memset(map + (bufSize * i + yBufSize), 0x80,
+		   yBufSize >> 1);
+	}
     }
+    wsbmBOUnmap(sPriv->buf);
 
     vXvMC->sPrivs[srfNo] = sPriv;
     vXvMC->surfaces[srfNo] = pSurf->surface_id;
@@ -612,6 +624,7 @@ ViaXvMCCreateSubpicture(ScrnInfoPtr pScrn, XvMCSubpicturePtr pSubp,
     ViaXvMCSurfacePriv *sPriv;
     XvMCContextPtr ctx;
     unsigned bufSize;
+    int ret;
 
     if (VIA_XVMC_MAX_SURFACES == vXvMC->nSurfaces) {
         xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
@@ -649,18 +662,28 @@ ViaXvMCCreateSubpicture(ScrnInfoPtr pScrn, XvMCSubpicturePtr pSubp,
 
     ctx = pSubp->context;
     bufSize = size_xx44(ctx->width, ctx->height);
-#if 0
-    sPriv->memory_ref.pool = 0;
-    if (VIAAllocLinear(&(sPriv->memory_ref), pScrn, 1 * bufSize + 32)) {
-        xfree(*priv);
-        xfree(sPriv);
-        xf86DrvMsg(pScrn->scrnIndex, X_ERROR, "[XvMC] ViaXvMCCreateSubpicture:"
-                   " Unable to allocate framebuffer memory!\n");
+    ret = wsbmGenBuffers(pVia->mainPool, 1, &sPriv->buf, 0, 
+			 WSBM_PL_FLAG_VRAM);
+    if (ret) {
+	xfree(*priv);
+	xfree(sPriv);
+        xf86DrvMsg(pScrn->scrnIndex, X_ERROR, "[XvMC] ViaXvMCCreateSubpicture: "
+                   "Unable to allocate surface memory!\n");
         return BadAlloc;
     }
-    (*priv)[1] = sPriv->offsets[0] = ALIGN_TO(sPriv->memory_ref.base, 32);
 
-#endif
+    ret = wsbmBOData(sPriv->buf, bufSize, NULL, NULL, 0);
+    if (ret) {
+	wsbmDeleteBuffers(1, &sPriv->buf);
+	xfree(*priv);
+	xfree(sPriv);
+        xf86DrvMsg(pScrn->scrnIndex, X_ERROR, "[XvMC] ViaXvMCCreateSubpicture: "
+                   "Unable to allocate surface memory!\n");
+        return BadAlloc;
+    }
+
+    (*priv)[1] = sPriv->offsets[0] = wsbmKBufHandle(wsbmKBuf(sPriv->buf));
+
     vXvMC->sPrivs[srfNo] = sPriv;
     vXvMC->surfaces[srfNo] = pSubp->subpicture_id;
     vXvMC->nSurfaces++;
@@ -724,8 +747,7 @@ ViaXvMCDestroySurface(ScrnInfoPtr pScrn, XvMCSurfacePtr pSurf)
                 if (!__ret)
                     ViaOverlayHide(pScrn);
             }
-
-	    //            VIAFreeLinear(&(vXvMC->sPrivs[i]->memory_ref));
+	    wsbmDeleteBuffers(1, &vXvMC->sPrivs[i]->buf);
             xfree(vXvMC->sPrivs[i]);
             vXvMC->nSurfaces--;
             vXvMC->sPrivs[i] = 0;
@@ -767,7 +789,7 @@ ViaXvMCDestroySubpicture(ScrnInfoPtr pScrn, XvMCSubpicturePtr pSubp)
                 }
             }
 
-	    //            VIAFreeLinear(&(vXvMC->sPrivs[i]->memory_ref));
+	    wsbmDeleteBuffers(1, &(vXvMC->sPrivs[i]->buf));
             xfree(vXvMC->sPrivs[i]);
             vXvMC->nSurfaces--;
             vXvMC->sPrivs[i] = 0;

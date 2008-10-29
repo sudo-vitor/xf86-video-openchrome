@@ -3,6 +3,7 @@
  *
  * Copyright (c) 2004 Thomas Hellström. All rights reserved.
  * Copyright (c) 2003 Andreas Robinson. All rights reserved.
+ * Copyright (c) 2008 Tungsten Graphics Inc, Cedar Park, TX. USA. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -32,6 +33,7 @@
  *  Andreas Robinson 2003. (Initial decoder interface functions).
  *  Thomas Hellstrom 2004, 2005 (Blitting functions, AGP and locking, Unichrome Pro Video AGP).
  *  Ivor Hewitt 2005 (Unichrome Pro modifications and merging).
+ *  Thomas Hellstrom 2008, TTM port.
  */
 
 /* IH
@@ -48,92 +50,74 @@
 #include "viaXvMCPriv.h"
 #include "viaLowLevel.h"
 #include "driDrawable.h"
-#include <time.h>
-#include <sys/time.h>
+#include "ochr_ioctl.h"
 #include <stdio.h>
 
 typedef enum
-{ ll_init, ll_agpBuf, ll_pciBuf, ll_timeStamp, ll_llBuf }
+{ ll_init, ll_agpBuf, ll_pciBuf}
 LLState;
 
-typedef struct
-{
-    struct drm_via_mem mem;
-    unsigned offset;
-    unsigned stride;
-    unsigned height;
-} LowLevelBuffer;
+enum ViaLLEngines {
+    LL_ENGINE_MPEG,
+    LL_ENGINE_HQV,
+    LL_ENGINE_2D,
+    LL_ENGINE_3D,
+    LL_ENGINE_NONE,
+};
+
 
 struct _XvMCLowLevel;
 
 typedef struct _ViaCommandBuffer
 {
-    CARD32 *buf;
-    CARD32 waitFlags;
-    unsigned pos;
+    struct ochr_cmd_buffer c_buf;    
     unsigned bufSize;
     int mode;
     int header_start;
     int rindex;
-    void (*flushFunc) (struct _ViaCommandBuffer * cb,
-	struct _XvMCLowLevel * xl);
+    struct _XvMCLowLevel *xl;
+    void (*flushFunc) (struct _ViaCommandBuffer * cb);
 } ViaCommandBuffer;
+
+#define HQV_STATE_BASE 0x3CC
+#define HQV_STATE_SIZE 13
+
+struct _HQVRegister
+{
+    CARD32 data;
+    Bool set;
+};
+
+struct _HQVState {
+    struct _HQVRegister regs[HQV_STATE_SIZE];
+    struct _WsbmBufferObject *srcBuf;
+    unsigned yOffs;
+    unsigned uvOffs;
+};
+    
 
 typedef struct _XvMCLowLevel
 {
-    ViaCommandBuffer agpBuf, pciBuf, *videoBuf;
+    ViaCommandBuffer agpBuf;
     int use_agp;
     int fd;
     drm_context_t *drmcontext;
     drmLockPtr hwLock;
-    drmAddress mmioAddress;
-    drmAddress fbAddress;
     unsigned fbStride;
     unsigned fbDepth;
     unsigned width;
     unsigned height;
     int performLocking;
     unsigned errors;
-    struct drm_via_mem tsMem;
     CARD32 tsOffset;
-    volatile CARD32 *tsP;
-    CARD32 curTimeStamp;
-    CARD32 lastReadTimeStamp;
-    int agpSync;
-    CARD32 agpSyncTimeStamp;
     unsigned chipId;
-
-    /*
-     * Data for video-engine less display
-     */
-
-    XvMCRegion sRegion;
-    XvMCRegion dRegion;
-    LowLevelBuffer scale;
-    LowLevelBuffer back;
-    Bool downScaling;
-    CARD32 downScaleW;
-    CARD32 downScaleH;
-    CARD32 upScaleW;
-    CARD32 upScaleH;
-    unsigned fetch;
-    unsigned line;
+    uint64_t hqvFlag;
+    unsigned hqvOffset;
+    CARD32 subStride;
     LLState state;
+    enum ViaLLEngines lastEngine;
+    struct _HQVState hqvState;
 } XvMCLowLevel;
-
-/*
- * For Other architectures than i386 these might have to be modified for
- * bigendian etc.
- */
-
-#define MPEGIN(xl,reg)							\
-    *((volatile CARD32 *)(((CARD8 *)(xl)->mmioAddress) + 0xc00 + (reg)))
-
-#define VIDIN(ctx,reg)							\
-    *((volatile CARD32 *)(((CARD8 *)(ctx)->mmioAddress) + 0x200 + (reg)))
-
-#define REGIN(ctx,reg)							\
-    *((volatile CARD32 *)(((CARD8 *)(ctx)->mmioAddress) + 0x0000 + (reg)))
 
 #define HQV_CONTROL             0x1D0
 #define HQV_SRC_OFFSET          0x1CC
@@ -170,7 +154,6 @@ typedef struct _XvMCLowLevel
 #define SUBP_CONTROL_STRIDE     0x1C0
 #define SUBP_STARTADDR          0x1C4
 #define RAM_TABLE_CONTROL       0x1C8
-#define RAM_TABLE_READ          0x1CC
 
 /* SUBP_CONTROL_STRIDE              0x3c0 */
 #define SUBP_HQV_ENABLE             0x00010000
@@ -223,29 +206,22 @@ typedef struct _XvMCLowLevel
 #define VIA_AGP_HEADER5 0xFE040000
 #define VIA_AGP_HEADER6 0xFE050000
 
-typedef struct
-{
-    CARD32 data;
-    Bool set;
-} HQVRegister;
 
 #define H1_ADDR(val) (((val) >> 2) | 0xF0000000)
-#define WAITFLAGS(cb, flags)			\
-    (cb)->waitFlags |= (flags)
 #define BEGIN_RING_AGP(cb, xl, size)					\
     do {								\
-	if ((cb)->pos > ((cb)->bufSize-(size))) {			\
-	    cb->flushFunc(cb, xl);					\
+	if ((cb)->c_buf.pos > ((cb)->bufSize-(size))) {			\
+	    cb->flushFunc(cb);						\
 	}								\
     } while(0)
 #define OUT_RING_AGP(cb, val) do{			\
-	(cb)->buf[(cb)->pos++] = (val);	\
+	(cb)->c_buf.buf[(cb)->c_buf.pos++] = (val);	\
   } while(0);
 
 #define OUT_RING_QW_AGP(cb, val1, val2)			\
     do {						\
-	(cb)->buf[(cb)->pos++] = (val1);	\
-	(cb)->buf[(cb)->pos++] = (val2);	\
+	(cb)->c_buf.buf[(cb)->c_buf.pos++] = (val1);	\
+	(cb)->c_buf.buf[(cb)->c_buf.pos++] = (val2);	\
     } while (0)
 
 #define BEGIN_HEADER5_AGP(cb, xl, index)	\
@@ -253,22 +229,22 @@ typedef struct
 	BEGIN_RING_AGP(cb, xl, 8);		\
 	(cb)->mode = VIA_AGP_HEADER5;		\
         (cb)->rindex = (index);			\
-	(cb)->header_start = (cb)->pos;		\
-	(cb)->pos += 4;				\
+	(cb)->header_start = (cb)->c_buf.pos;		\
+	(cb)->c_buf.pos += 4;				\
     } while (0)
 
 #define BEGIN_HEADER6_AGP(cb, xl)		\
     do {					\
 	BEGIN_RING_AGP(cb, xl, 8);		\
 	(cb)->mode = VIA_AGP_HEADER6;	\
-	(cb)->header_start = (cb)->pos; \
-	(cb)->pos += 4;			\
+	(cb)->header_start = (cb)->c_buf.pos; \
+	(cb)->c_buf.pos += 4;			\
     } while (0)
 
 #define BEGIN_HEADER5_DATA(cb, xl, size, index)				\
     do {								\
-	if ((cb)->pos > ((cb)->bufSize - ((size) + 16))) {		\
-	    cb->flushFunc(cb, xl);					\
+	if ((cb)->c_buf.pos > ((cb)->bufSize - ((size) + 16))) {	\
+	    cb->flushFunc(cb);						\
 	    BEGIN_HEADER5_AGP(cb, xl, index);				\
 	} else if ((cb)->mode && (((cb)->mode != VIA_AGP_HEADER5) ||	\
 				  ((cb)->rindex != index))) {		\
@@ -281,8 +257,8 @@ typedef struct
 
 #define BEGIN_HEADER6_DATA(cb, xl, size)				\
     do{									\
-	if ((cb)->pos > (cb->bufSize-(((size) << 1) + 16))) {		\
-	    cb->flushFunc(cb, xl);					\
+	if ((cb)->c_buf.pos > (cb->bufSize-(((size) << 1) + 16))) {	\
+	    cb->flushFunc(cb);						\
 	    BEGIN_HEADER6_AGP(cb, xl);					\
 	} else	if ((cb)->mode && ((cb)->mode != VIA_AGP_HEADER6)) {	\
 	    finish_header_agp(cb);					\
@@ -293,17 +269,16 @@ typedef struct
 	}								\
     }while(0)
 
-#define HQV_SHADOW_BASE 0x3CC
-#define HQV_SHADOW_SIZE 13
-
-#define SETHQVSHADOW(shadow, offset, value)				\
+#define SETHQVSTATE(state, offset, value)				\
     do {								\
-	HQVRegister *r = (shadow) + (((offset) - HQV_SHADOW_BASE) >> 2); \
+	struct _HQVRegister *r =					\
+	    &(state)->regs[((offset) - HQV_STATE_BASE) >> 2];		\
 	r->data = (value);						\
 	r->set = TRUE;							\
     } while(0)
 
-#define GETHQVSHADOW(shadow, offset)  ((shadow)[(offset - HQV_SHADOW_BASE) >> 2].data)
+#define GETHQVSTATE(state, offset)				\
+    ((state)->regs[(offset - HQV_STATE_BASE) >> 2].data)	\
 
 #define LL_HW_LOCK(xl)							\
     do {								\
@@ -314,95 +289,64 @@ typedef struct
 	DRM_UNLOCK((xl)->fd,(xl)->hwLock,*(xl)->drmcontext);	\
     } while(0);
 
-static HQVRegister hqvShadow[HQV_SHADOW_SIZE];
 
 static void
-initHQVShadow(HQVRegister * r)
+initHQVState(struct _HQVState *state)
 {
     int i;
-
-    for (i = 0; i < HQV_SHADOW_SIZE; ++i) {
+    struct _HQVRegister *r = state->regs;
+    
+    if (state->srcBuf) {
+	wsbmBOUnReference(state->srcBuf);
+	state->srcBuf= NULL;
+    }
+    for (i = 0; i < HQV_STATE_SIZE; ++i) {
 	r->data = 0;
 	r++->set = FALSE;
     }
 }
 
-#if 0
 static void
-setHQVHWDeinterlacing(HQVRegister * shadow, Bool on, Bool motionDetect,
-    CARD32 stride, CARD32 height)
+setHQVDeblocking(struct _HQVState *state, Bool on, Bool lowPass)
 {
-    CARD32 tmp = GETHQVSHADOW(shadow, 0x3E4);
-
-    if (!on) {
-	tmp &= ~((1 << 0) | (1 << 12) | (1 << 27) | (1 << 31));
-	SETHQVSHADOW(shadow, 0x3E4, tmp);
-	return;
-    }
-
-    tmp = (1 << 31) |
-	(4 << 28) |
-	(1 << 27) |
-	(3 << 25) | (1 << 18) | (2 << 14) | (8 << 8) | (8 << 1) | (1 << 0);
-
-    if (motionDetect)
-	tmp |= (1 << 12);
-
-    SETHQVSHADOW(shadow, 0x3E4, tmp);
-
-    tmp = GETHQVSHADOW(shadow, 0x3DC);
-    tmp |= (stride * height * 1536) / 1024 & 0x7ff;
-
-    SETHQVSHADOW(shadow, 0x3DC, tmp);
-
-    tmp = GETHQVSHADOW(shadow, 0x3D0);
-    tmp |= (1 << 23);
-
-    SETHQVSHADOW(shadow, 0x3D0, tmp);
-}
-
-#endif
-
-static void
-setHQVDeblocking(HQVRegister * shadow, Bool on, Bool lowPass)
-{
-    CARD32 tmp = GETHQVSHADOW(shadow, 0x3DC);
+    CARD32 tmp = GETHQVSTATE(state, 0x3DC);
 
     if (!on) {
 	tmp &= ~(1 << 27);
-	SETHQVSHADOW(shadow, 0x3DC, tmp);
+	SETHQVSTATE(state, 0x3DC, tmp);
 	return;
     }
 
     tmp |= (8 << 16) | (1 << 27);
     if (lowPass)
 	tmp |= (1 << 26);
-    SETHQVSHADOW(shadow, 0x3DC, tmp);
+    SETHQVSTATE(state, 0x3DC, tmp);
 
-    tmp = GETHQVSHADOW(shadow, 0x3D4);
+    tmp = GETHQVSTATE(state, 0x3D4);
     tmp |= (6 << 27);
-    SETHQVSHADOW(shadow, 0x3D4, tmp);
+    SETHQVSTATE(state, 0x3D4, tmp);
 
-    tmp = GETHQVSHADOW(shadow, 0x3D8);
+    tmp = GETHQVSTATE(state, 0x3D8);
     tmp |= (19 << 27);
-    SETHQVSHADOW(shadow, 0x3D8, tmp);
+    SETHQVSTATE(state, 0x3D8, tmp);
 }
 
 static void
-setHQVStartAddress(HQVRegister * shadow, unsigned yOffs, unsigned uOffs,
-    unsigned stride, unsigned format)
+setHQVStartAddress(struct _HQVState *state, 
+		   struct _WsbmBufferObject *buf, 
+		   unsigned yOffs, unsigned uvOffs,
+		   unsigned stride, unsigned format)
 {
-    CARD32 tmp = GETHQVSHADOW(shadow, 0x3D4);
+    CARD32 tmp;
 
-    tmp |= yOffs & 0x03FFFFF0;
-    SETHQVSHADOW(shadow, 0x3D4, tmp);
-    tmp = GETHQVSHADOW(shadow, 0x3D8);
-    tmp |= uOffs & 0x03FFFFF0;
-    SETHQVSHADOW(shadow, 0x3D8, tmp);
-    tmp = GETHQVSHADOW(shadow, 0x3F8);
+    state->srcBuf = wsbmBOReference(buf);
+    state->yOffs = yOffs;
+    state->uvOffs = uvOffs;
+ 
+    tmp = GETHQVSTATE(state, 0x3F8);
     tmp |= (stride & 0x1FF8);
-    SETHQVSHADOW(shadow, 0x3F8, tmp);
-    tmp = GETHQVSHADOW(shadow, 0x3D0);
+    SETHQVSTATE(state, 0x3F8, tmp);
+    tmp = GETHQVSTATE(state, 0x3D0);
 
     if (format == 0) {
 	/*
@@ -420,61 +364,14 @@ setHQVStartAddress(HQVRegister * shadow, unsigned yOffs, unsigned uOffs,
 	 */
 	;
     }
-    SETHQVSHADOW(shadow, 0x3D0, tmp);
+    SETHQVSTATE(state, 0x3D0, tmp);
 }
 
-#if 0
 
 static void
-setHQVColorSpaceConversion(HQVRegister * shadow, unsigned depth, Bool on)
+setHQVDeinterlacing(struct _HQVState * state, CARD32 frameType)
 {
-    CARD32 tmp = GETHQVSHADOW(shadow, 0x3DC);
-
-    if (!on) {
-	tmp &= ~(1 << 28);
-	SETHQVSHADOW(shadow, 0x3DC, tmp);
-	return;
-    }
-
-    if (depth == 32)
-	tmp |= (1 << 29);
-    tmp |= (1 << 28);
-    tmp &= ~(1 << 15);
-    SETHQVSHADOW(shadow, 0x3DC, tmp);
-}
-
-static void
-setHQVFetchLine(HQVRegister * shadow, unsigned fetch, unsigned lines)
-{
-    SETHQVSHADOW(shadow, 0x3E0,
-	((lines - 1) & 0x7FF) | (((fetch - 1) & 0x1FFF) << 16));
-}
-
-static void
-setHQVScale(HQVRegister * shadow, unsigned horizontal, unsigned vertical)
-{
-    SETHQVSHADOW(shadow, 0x3E8,
-	(horizontal & 0xFFFF) | ((vertical & 0xFFFF) << 16));
-}
-
-static void
-setHQVSingleDestination(HQVRegister * shadow, unsigned offset,
-    unsigned stride)
-{
-    CARD32 tmp = GETHQVSHADOW(shadow, 0x3D0);
-
-    tmp |= (1 << 6);
-
-    SETHQVSHADOW(shadow, 0x3D0, tmp);
-    SETHQVSHADOW(shadow, 0x3EC, offset & 0x03FFFFF8);
-    SETHQVSHADOW(shadow, 0x3F4, stride & 0x1FF8);
-}
-#endif
-
-static void
-setHQVDeinterlacing(HQVRegister * shadow, CARD32 frameType)
-{
-    CARD32 tmp = GETHQVSHADOW(shadow, 0x3D0);
+    CARD32 tmp = GETHQVSTATE(state, 0x3D0);
 
     if ((frameType & XVMC_FRAME_PICTURE) == XVMC_TOP_FIELD) {
 	tmp |= HQV_FIELD_UV |
@@ -484,19 +381,19 @@ setHQVDeinterlacing(HQVRegister * shadow, CARD32 frameType)
 	    HQV_DEINTERLACE |
 	    HQV_FIELD_2_FRAME | HQV_FRAME_2_FIELD | HQV_FLIP_ODD;
     }
-    SETHQVSHADOW(shadow, 0x3D0, tmp);
+    SETHQVSTATE(state, 0x3D0, tmp);
 }
 
 static void
-setHQVTripleBuffer(HQVRegister * shadow, Bool on)
+setHQVTripleBuffer(struct _HQVState * state, Bool on)
 {
-    CARD32 tmp = GETHQVSHADOW(shadow, 0x3D0);
+    CARD32 tmp = GETHQVSTATE(state, 0x3D0);
 
     if (on)
 	tmp |= (1 << 26);
     else
 	tmp &= ~(1 << 26);
-    SETHQVSHADOW(shadow, 0x3D0, tmp);
+    SETHQVSTATE(state, 0x3D0, tmp);
 }
 
 static void
@@ -504,12 +401,12 @@ finish_header_agp(ViaCommandBuffer * cb)
 {
     int numDWords, i;
 
-    CARD32 *hb;
+    uint32_t *hb;
 
     if (!cb->mode)
 	return;
-    numDWords = cb->pos - cb->header_start - 4;
-    hb = cb->buf + cb->header_start;
+    numDWords = cb->c_buf.pos - cb->header_start - 4;
+    hb = cb->c_buf.buf + cb->header_start;
     switch (cb->mode) {
     case VIA_AGP_HEADER5:
 	hb[0] = VIA_AGP_HEADER5 | cb->rindex;
@@ -546,445 +443,71 @@ hwlUnlock(void *xlp, int videoLock)
     LL_HW_UNLOCK(xl);
 }
 
-static unsigned
-timeDiff(struct timeval *now, struct timeval *then)
-{
-    return (now->tv_usec >= then->tv_usec) ?
-	now->tv_usec - then->tv_usec :
-	1000000 - (then->tv_usec - now->tv_usec);
-}
-
-void
-setAGPSyncLowLevel(void *xlp, int val, CARD32 timeStamp)
-{
-    XvMCLowLevel *xl = (XvMCLowLevel *) xlp;
-
-    xl->agpSync = val;
-    xl->agpSyncTimeStamp = timeStamp;
-}
-
-CARD32
-viaDMATimeStampLowLevel(void *xlp)
-{
-    XvMCLowLevel *xl = (XvMCLowLevel *) xlp;
-
-    if (xl->use_agp) {
-	viaBlit(xl, 32, xl->tsOffset, 1, xl->tsOffset, 1, 1, 1, 0, 0,
-	    VIABLIT_FILL, xl->curTimeStamp);
-	return xl->curTimeStamp++;
-    }
-    return 0;
-}
-
-static void
-viaDMAWaitTimeStamp(XvMCLowLevel * xl, CARD32 timeStamp, int doSleep)
-{
-    struct timeval now, then;
-    struct timezone here;
-    struct timespec sleep, rem;
-
-    if (xl->use_agp && (xl->lastReadTimeStamp - timeStamp > (1 << 23))) {
-	sleep.tv_nsec = 1;
-	sleep.tv_sec = 0;
-	here.tz_minuteswest = 0;
-	here.tz_dsttime = 0;
-	gettimeofday(&then, &here);
-
-	while (((xl->lastReadTimeStamp = *xl->tsP) - timeStamp) > (1 << 23)) {
-	    gettimeofday(&now, &here);
-	    if (timeDiff(&now, &then) > VIA_DMAWAITTIMEOUT) {
-		if (((xl->lastReadTimeStamp =
-			    *xl->tsP) - timeStamp) > (1 << 23)) {
-		    xl->errors |= LL_DMA_TIMEDOUT;
-		    break;
-		}
-	    }
-	    if (doSleep)
-		nanosleep(&sleep, &rem);
-	}
-    }
-}
-
-static int
-viaDMAInitTimeStamp(XvMCLowLevel * xl)
-{
-    int ret = 0;
-
-    if (xl->use_agp) {
-	xl->tsMem.context = *(xl->drmcontext);
-	xl->tsMem.size = 64;
-	xl->tsMem.type = VIA_MEM_VIDEO;
-	if ((ret = drmCommandWriteRead(xl->fd, DRM_VIA_ALLOCMEM,
-		    &xl->tsMem, sizeof(xl->tsMem))) < 0)
-	    return ret;
-	if (xl->tsMem.size != 64)
-	    return -1;
-	xl->tsOffset = (xl->tsMem.offset + 31) & ~31;
-	xl->tsP = (CARD32 *) xl->fbAddress + (xl->tsOffset >> 2);
-	xl->curTimeStamp = 1;
-	*xl->tsP = 0;
-    }
-    return 0;
-}
-
-static int
-viaDMACleanupTimeStamp(XvMCLowLevel * xl)
-{
-
-    if (!(xl->tsMem.size) || !xl->use_agp)
-	return 0;
-    return drmCommandWrite(xl->fd, DRM_VIA_FREEMEM, &xl->tsMem,
-	sizeof(xl->tsMem));
-}
-
-static CARD32
-viaMpegGetStatus(XvMCLowLevel * xl)
-{
-    return MPEGIN(xl, 0x54);
-}
-
-static int
-viaMpegIsBusy(XvMCLowLevel * xl, CARD32 mask, CARD32 idle)
-{
-    CARD32 tmp = viaMpegGetStatus(xl);
-
-    /*
-     * Error detected. 
-     * FIXME: Are errors really shown when error concealment is on?
-     */
-
-    if (tmp & 0x70)
-	return 0;
-
-    return (tmp & mask) != idle;
-}
-
-static void
-syncDMA(XvMCLowLevel * xl, unsigned int doSleep)
-{
-
-    /*
-     * Ideally, we'd like to have an interrupt wait here, but, according to second hand
-     * information, the hardware does not support this, although earlier S3 chips do that.
-     * It is therefore not implemented into the DRM, and we'll do a user space wait here.
-     */
-
-    struct timeval now, then;
-    struct timezone here;
-    struct timespec sleep, rem;
-
-    sleep.tv_nsec = 1;
-    sleep.tv_sec = 0;
-    here.tz_minuteswest = 0;
-    here.tz_dsttime = 0;
-    gettimeofday(&then, &here);
-    while (!(REGIN(xl, VIA_REG_STATUS) & VIA_VR_QUEUE_BUSY)) {
-	gettimeofday(&now, &here);
-	if (timeDiff(&now, &then) > VIA_DMAWAITTIMEOUT) {
-	    if (!(REGIN(xl, VIA_REG_STATUS) & VIA_VR_QUEUE_BUSY)) {
-		xl->errors |= LL_DMA_TIMEDOUT;
-		break;
-	    }
-	}
-	if (doSleep)
-	    nanosleep(&sleep, &rem);
-    }
-    while (REGIN(xl, VIA_REG_STATUS) & VIA_CMD_RGTR_BUSY) {
-	gettimeofday(&now, &here);
-	if (timeDiff(&now, &then) > VIA_DMAWAITTIMEOUT) {
-	    if (REGIN(xl, VIA_REG_STATUS) & VIA_CMD_RGTR_BUSY) {
-		xl->errors |= LL_DMA_TIMEDOUT;
-		break;
-	    }
-	}
-	if (doSleep)
-	    nanosleep(&sleep, &rem);
-    }
-}
-
-#ifdef HQV_USE_IRQ
-static void
-syncVideo(XvMCLowLevel * xl, unsigned int doSleep)
-{
-    int proReg = REG_HQV1_INDEX;
-
-    /*
-     * Wait for HQV completion using completion interrupt. Nothing strange here. 
-     * Note that the interrupt handler clears the HQV_FLIP_STATUS bit, so we 
-     * can't wait on that one.
-     */
-
-    if ((VIDIN(xl, HQV_CONTROL | proReg) & (HQV_SW_FLIP | HQV_SUBPIC_FLIP))) {
-	drm_via_irqwait_t irqw;
-
-	irqw.request.irq = 1;
-	irqw.request.type = VIA_IRQ_ABSOLUTE;
-	if (drmCommandWriteRead(xl->fd, DRM_VIA_WAIT_IRQ, &irqw,
-		sizeof(irqw)) < 0)
-	    xl->errors |= LL_VIDEO_TIMEDOUT;
-    }
-}
-#else
-static void
-syncVideo(XvMCLowLevel * xl, unsigned int doSleep)
-{
-    /*
-     * Wait for HQV completion. Nothing strange here. We assume that the HQV
-     * Handles syncing to the V1 / V3 engines by itself. It should be safe to
-     * always wait for SUBPIC_FLIP completion although subpictures are not always
-     * used. 
-     */
-
-    struct timeval now, then;
-    struct timezone here;
-    struct timespec sleep, rem;
-
-    int proReg = REG_HQV1_INDEX;
-
-    sleep.tv_nsec = 1;
-    sleep.tv_sec = 0;
-    here.tz_minuteswest = 0;
-    here.tz_dsttime = 0;
-    gettimeofday(&then, &here);
-    while ((VIDIN(xl,
-		HQV_CONTROL | proReg) & (HQV_SW_FLIP | HQV_SUBPIC_FLIP))) {
-	gettimeofday(&now, &here);
-	if (timeDiff(&now, &then) > VIA_SYNCWAITTIMEOUT) {
-	    if ((VIDIN(xl,
-			HQV_CONTROL | proReg) & (HQV_SW_FLIP |
-			HQV_SUBPIC_FLIP))) {
-		xl->errors |= LL_VIDEO_TIMEDOUT;
-		break;
-	    }
-	}
-	if (doSleep)
-	    nanosleep(&sleep, &rem);
-    }
-}
-#endif
-
-static void
-syncAccel(XvMCLowLevel * xl, unsigned int mode, unsigned int doSleep)
-{
-    struct timeval now, then;
-    struct timezone here;
-    struct timespec sleep, rem;
-    CARD32 mask = ((mode & LL_MODE_2D) ? VIA_2D_ENG_BUSY : 0) |
-	((mode & LL_MODE_3D) ? VIA_3D_ENG_BUSY : 0);
-
-    sleep.tv_nsec = 1;
-    sleep.tv_sec = 0;
-    here.tz_minuteswest = 0;
-    here.tz_dsttime = 0;
-    gettimeofday(&then, &here);
-    while (REGIN(xl, VIA_REG_STATUS) & mask) {
-	gettimeofday(&now, &here);
-	if (timeDiff(&now, &then) > VIA_SYNCWAITTIMEOUT) {
-	    if (REGIN(xl, VIA_REG_STATUS) & mask) {
-		xl->errors |= LL_ACCEL_TIMEDOUT;
-		break;
-	    }
-	}
-	if (doSleep)
-	    nanosleep(&sleep, &rem);
-    }
-}
-
-static void
-syncMpeg(XvMCLowLevel * xl, unsigned int mode, unsigned int doSleep)
-{
-    /*
-     * Ideally, we'd like to have an interrupt wait here, but from information from VIA
-     * at least the MPEG completion interrupt is broken on the CLE266, which was
-     * discovered during validation of the chip.
-     */
-
-    struct timeval now, then;
-    struct timezone here;
-    struct timespec sleep, rem;
-    CARD32 busyMask = 0;
-    CARD32 idleVal = 0;
-    CARD32 ret;
-
-    sleep.tv_nsec = 1;
-    sleep.tv_sec = 0;
-    here.tz_minuteswest = 0;
-    here.tz_dsttime = 0;
-    gettimeofday(&then, &here);
-    if (mode & LL_MODE_DECODER_SLICE) {
-	busyMask = VIA_SLICEBUSYMASK;
-	idleVal = VIA_SLICEIDLEVAL;
-    }
-    if (mode & LL_MODE_DECODER_IDLE) {
-	busyMask |= VIA_BUSYMASK;
-	idleVal = VIA_IDLEVAL;
-    }
-    while (viaMpegIsBusy(xl, busyMask, idleVal)) {
-	gettimeofday(&now, &here);
-	if (timeDiff(&now, &then) > VIA_XVMC_DECODERTIMEOUT) {
-	    if (viaMpegIsBusy(xl, busyMask, idleVal)) {
-		xl->errors |= LL_DECODER_TIMEDOUT;
-	    }
-	    break;
-	}
-	if (doSleep)
-	    nanosleep(&sleep, &rem);
-    }
-
-    ret = viaMpegGetStatus(xl);
-    if (ret & 0x70) {
-	xl->errors |= ((ret & 0x70) >> 3);
-    }
-    return;
-}
-
-static void
-pciFlush(ViaCommandBuffer * cb, XvMCLowLevel * xl)
+static Status
+viaCmdBufferReset(struct _ViaCommandBuffer *buf)
 {
     int ret;
-    struct drm_via_cmdbuffer b;
-    unsigned mode = cb->waitFlags;
+    ret = ochr_reset_cmdlists(&buf->c_buf);
+    if (ret)
+	return BadAlloc;
+    buf->c_buf.pos = 0;
+    buf->mode = 0;
+    return Success;
+}
+
+static void
+viaCmdBufferTakedown(struct _ViaCommandBuffer *buf)
+{
+    wsbmBOUnrefUserList(buf->c_buf.validate_list);
+    wsbmBOFreeList(buf->c_buf.validate_list);
+    ochr_free_reloc_buffer(buf->c_buf.reloc_info);
+    free(buf->c_buf.buf);
+}
+
+static void
+agpFlush(ViaCommandBuffer * cb)
+{
+    int ret;
+    struct _XvMCLowLevel *xl = cb->xl;
 
     finish_header_agp(cb);
-    b.buf = (char *)cb->buf;
-    b.size = cb->pos * sizeof(CARD32);
-    if (xl->performLocking)
-	hwlLock(xl, 0);
-    if (((mode == LL_MODE_VIDEO) && (xl->videoBuf == &xl->agpBuf)) ||
-	((mode != LL_MODE_VIDEO) && (mode != 0)))
-	syncDMA(xl, 0);
-    if ((mode & LL_MODE_2D) || (mode & LL_MODE_3D)) {
-	syncAccel(xl, mode, 0);
+    ret = ochr_execbuf(xl->fd, &cb->c_buf);
+    if (ret)
+	xl->errors |= LL_AGP_COMMAND_ERR;
+
+    viaCmdBufferReset(cb);    
+}
+
+static void 
+viaEngineSwitchNotify(XvMCLowLevel * xl,
+		      enum ViaLLEngines engine)
+{
+    if (xl->lastEngine != engine || engine == LL_ENGINE_HQV) {
+	flushXvMCLowLevel(xl);
+	xl->lastEngine = engine;
     }
-    if (mode & LL_MODE_VIDEO) {
-	syncVideo(xl, 1);
-    }
-    if (mode & (LL_MODE_DECODER_SLICE | LL_MODE_DECODER_IDLE)) {
-	syncMpeg(xl, mode, 0);
-    }
-    ret = drmCommandWrite(xl->fd, DRM_VIA_PCICMD, &b, sizeof(b));
-    if (xl->performLocking)
-	hwlUnlock(xl, 0);
-    if (ret) {
-	xl->errors |= LL_PCI_COMMAND_ERR;
-    }
-    cb->pos = 0;
-    cb->waitFlags = 0;
 }
 
 static void
-agpFlush(ViaCommandBuffer * cb, XvMCLowLevel * xl)
+uploadHQVState(XvMCLowLevel * xl, unsigned offset, Bool flip)
 {
-    struct drm_via_cmdbuffer b;
-    int ret;
     int i;
-
-    finish_header_agp(cb);
-    if (xl->use_agp) {
-	b.buf = (char *)cb->buf;
-	b.size = cb->pos * sizeof(CARD32);
-	if (xl->agpSync) {
-	    syncXvMCLowLevel(xl, LL_MODE_DECODER_IDLE, 1,
-		xl->agpSyncTimeStamp);
-	    xl->agpSync = 0;
-	}
-	if (xl->performLocking)
-	    hwlLock(xl, 0);
-	do {
-	    ret = drmCommandWrite(xl->fd, DRM_VIA_CMDBUFFER, &b, sizeof(b));
-	} while (-EAGAIN == ret);
-	if (xl->performLocking)
-	    hwlUnlock(xl, 0);
-
-	if (ret) {
-	    xl->errors |= LL_AGP_COMMAND_ERR;
-	    for (i = 0; i < cb->pos; i += 2) {
-		printf("0x%x, 0x%x\n", (unsigned)cb->buf[i],
-		    (unsigned)cb->buf[i + 1]);
-	    }
-	    exit(-1);
-	} else {
-	    cb->pos = 0;
-	}
-	cb->waitFlags &= LL_MODE_VIDEO;	/* FIXME: Check this! */
-    } else {
-	unsigned mode = cb->waitFlags;
-
-	b.buf = (char *)cb->buf;
-	b.size = cb->pos * sizeof(CARD32);
-	if (xl->performLocking)
-	    hwlLock(xl, 0);
-	if (((mode == LL_MODE_VIDEO) && (cb == &xl->agpBuf)) ||
-	    ((mode != LL_MODE_VIDEO) && (mode != 0)))
-	    syncDMA(xl, 0);
-	if ((mode & LL_MODE_2D) || (mode & LL_MODE_3D))
-	    syncAccel(xl, mode, 0);
-	if (mode & LL_MODE_VIDEO)
-	    syncVideo(xl, 1);
-	if (mode & (LL_MODE_DECODER_SLICE | LL_MODE_DECODER_IDLE))
-	    syncMpeg(xl, mode, 0);
-	ret = drmCommandWrite(xl->fd, DRM_VIA_PCICMD, &b, sizeof(b));
-	if (xl->performLocking)
-	    hwlUnlock(xl, 0);
-	if (ret) {
-	    xl->errors |= LL_PCI_COMMAND_ERR;
-	}
-	cb->pos = 0;
-	cb->waitFlags = 0;
-    }
-}
-
-#if 0				       /* Needs debugging */
-static void
-uploadHQVDeinterlace(XvMCLowLevel * xl, unsigned offset, HQVRegister * shadow,
-    CARD32 cur_offset, CARD32 prev_offset, CARD32 stride,
-    Bool top_field_first, CARD32 height)
-{
     CARD32 tmp;
     ViaCommandBuffer *cb = &xl->agpBuf;
+    struct _HQVState *state = &xl->hqvState;
+    struct _HQVRegister *regs = &state->regs[0];
 
-    BEGIN_HEADER6_DATA(cb, xl, 9);
-    tmp = GETHQVSHADOW(shadow, 0x3F8);
-    tmp &= ~(3 << 30);
-    tmp |= (1 << 30);
-    OUT_RING_QW_AGP(cb, 0x3F8 + offset, tmp);
-    OUT_RING_QW_AGP(cb, 0x3D4 + offset, prev_offset +
-	((top_field_first) ? stride : 0));
-    OUT_RING_QW_AGP(cb, 0x3D8 + offset, prev_offset + stride * height);
-    tmp &= ~(3 << 30);
-    tmp |= (2 << 30);
-    OUT_RING_QW_AGP(cb, 0x3F8 + offset, tmp);
-    OUT_RING_QW_AGP(cb, 0x3D4 + offset, cur_offset +
-	((top_field_first) ? 0 : stride));
-    OUT_RING_QW_AGP(cb, 0x3D8 + offset, cur_offset + stride * height);
-    tmp |= (3 << 30);
-    OUT_RING_QW_AGP(cb, 0x3F8 + offset, tmp);
-    OUT_RING_QW_AGP(cb, 0x3D4 + offset, cur_offset +
-	((top_field_first) ? stride : 0));
-    OUT_RING_QW_AGP(cb, 0x3D8 + offset, cur_offset + stride * height);
-}
+    viaEngineSwitchNotify(xl, LL_ENGINE_HQV);
+    BEGIN_HEADER6_DATA(cb, xl, HQV_STATE_SIZE);
+    cb->c_buf.exec_flags |= DRM_VIA_WAIT_BARRIER;
 
-#endif
-
-static void
-uploadHQVShadow(XvMCLowLevel * xl, unsigned offset, HQVRegister * shadow,
-    Bool flip)
-{
-    int i;
-    CARD32 tmp;
-    ViaCommandBuffer *cb = xl->videoBuf;
-
-    BEGIN_HEADER6_DATA(cb, xl, HQV_SHADOW_SIZE);
-    WAITFLAGS(cb, LL_MODE_VIDEO);
-
-    if (shadow[0].set)
+    if (regs[0].set)
 	OUT_RING_QW_AGP(cb, 0x3CC + offset, 0);
 
-    for (i = 2; i < HQV_SHADOW_SIZE; ++i) {
-	if (shadow[i].set) {
-	    OUT_RING_QW_AGP(cb, offset + HQV_SHADOW_BASE + (i << 2),
-		shadow[i].data);
-	    shadow[i].set = FALSE;
+    for (i = 4; i < HQV_STATE_SIZE; ++i) {
+	if (regs[i].set) {
+	    OUT_RING_QW_AGP(cb, offset + HQV_STATE_BASE + (i << 2),
+			    regs[i].data);
 	}
     }
 
@@ -993,12 +516,21 @@ uploadHQVShadow(XvMCLowLevel * xl, unsigned offset, HQVRegister * shadow,
      */
 
     if (flip) {
-	tmp = GETHQVSHADOW(shadow, 0x3D0);
+	int ret;
+
+	OUT_RING_QW_AGP(cb, offset + 0x3D4, 0);
+	OUT_RING_QW_AGP(cb, offset + 0x3D8, 0);
+	ret = ochr_yuv_relocation(&cb->c_buf, state->srcBuf, 0, 2,
+				  state->yOffs,
+				  state->uvOffs,
+				  0, 1,
+				  WSBM_PL_FLAG_VRAM | xl->hqvFlag,
+				  WSBM_PL_MASK_MEM | xl->hqvFlag);
+
+	tmp = GETHQVSTATE(state, 0x3D0);
 	OUT_RING_QW_AGP(cb, offset + HQV_CONTROL + 0x200,
 	    HQV_ENABLE | HQV_GEN_IRQ | HQV_SUBPIC_FLIP | HQV_SW_FLIP | tmp);
     }
-    shadow[0].set = FALSE;
-    shadow[1].set = FALSE;
 }
 
 unsigned
@@ -1007,26 +539,15 @@ flushXvMCLowLevel(void *xlp)
     unsigned errors;
     XvMCLowLevel *xl = (XvMCLowLevel *) xlp;
 
-    if (xl->pciBuf.pos)
-	pciFlush(&xl->pciBuf, xl);
-    if (xl->agpBuf.pos)
-	agpFlush(&xl->agpBuf, xl);
+    if (xl->agpBuf.c_buf.pos)
+	agpFlush(&xl->agpBuf);
     errors = xl->errors;
     if (errors)
 	printf("Error 0x%x\n", errors);
     xl->errors = 0;
+    xl->agpBuf.c_buf.needs_pci = 0;
+    xl->agpBuf.c_buf.exec_flags = 0;
     return errors;
-}
-
-void
-flushPCIXvMCLowLevel(void *xlp)
-{
-    XvMCLowLevel *xl = (XvMCLowLevel *) xlp;
-
-    if (xl->pciBuf.pos)
-	pciFlush(&xl->pciBuf, xl);
-    if ((!xl->use_agp && xl->agpBuf.pos))
-	agpFlush(&xl->agpBuf, xl);
 }
 
 void
@@ -1037,24 +558,23 @@ viaMpegSetSurfaceStride(void *xlp, ViaXvMCContext * ctx)
     XvMCLowLevel *xl = (XvMCLowLevel *) xlp;
     ViaCommandBuffer *cb = &xl->agpBuf;
 
+    viaEngineSwitchNotify(xl, LL_ENGINE_MPEG);
     BEGIN_HEADER6_DATA(cb, xl, 1);
+    cb->c_buf.exec_flags |= DRM_VIA_WAIT_BARRIER;
     OUT_RING_QW_AGP(cb, 0xc50, (y_stride >> 3) | ((uv_stride >> 3) << 16));
-    WAITFLAGS(cb, LL_MODE_DECODER_IDLE);
 }
 
 void
-viaVideoSetSWFLipLocked(void *xlp, unsigned yOffs, unsigned uOffs,
-    unsigned vOffs, unsigned yStride, unsigned uvStride)
+viaVideoSetSWFLipLocked(void *xlp,
+			struct _WsbmBufferObject *buf,
+			unsigned yOffs, unsigned uOffs,
+			unsigned vOffs, 
+			unsigned yStride, unsigned uvStride)
 {
     XvMCLowLevel *xl = (XvMCLowLevel *) xlp;
 
-    initHQVShadow(hqvShadow);
-    setHQVStartAddress(hqvShadow, yOffs, vOffs, yStride, 0);
-    if (xl->videoBuf == &xl->agpBuf)
-	syncDMA(xl, 1);
-    syncVideo(xl, 1);
-    uploadHQVShadow(xl, REG_HQV1_INDEX, hqvShadow, FALSE);
-    xl->videoBuf->flushFunc(xl->videoBuf, xl);
+    initHQVState(&xl->hqvState);
+    setHQVStartAddress(&xl->hqvState, buf, yOffs, vOffs, yStride, 0);
 }
 
 void
@@ -1062,30 +582,32 @@ viaVideoSWFlipLocked(void *xlp, unsigned flags, Bool progressiveSequence)
 {
     XvMCLowLevel *xl = (XvMCLowLevel *) xlp;
 
-    setHQVDeinterlacing(hqvShadow, flags);
-    setHQVDeblocking(hqvShadow,
+    setHQVDeinterlacing(&xl->hqvState, flags);
+    setHQVDeblocking(&xl->hqvState,
 	((flags & XVMC_FRAME_PICTURE) == XVMC_FRAME_PICTURE), TRUE);
-    setHQVTripleBuffer(hqvShadow, TRUE);
-    if (xl->videoBuf == &xl->agpBuf)
-	syncDMA(xl, 1);
-    syncVideo(xl, 1);
-    uploadHQVShadow(xl, REG_HQV1_INDEX, hqvShadow, TRUE);
-    xl->videoBuf->flushFunc(xl->videoBuf, xl);
+    setHQVTripleBuffer(&xl->hqvState, TRUE);
+    uploadHQVState(xl, xl->hqvOffset, TRUE);
 }
 
 void
-viaMpegSetFB(void *xlp, unsigned i,
-    unsigned yOffs, unsigned uOffs, unsigned vOffs)
+viaMpegSetFB(void *xlp, unsigned i, 
+	     struct _WsbmBufferObject *buf,
+	     unsigned yOffs, unsigned uOffs, unsigned vOffs)
 {
     XvMCLowLevel *xl = (XvMCLowLevel *) xlp;
     ViaCommandBuffer *cb = &xl->agpBuf;
+    int ret;
 
+    viaEngineSwitchNotify(xl, LL_ENGINE_MPEG);
     i *= (4 * 2);
     BEGIN_HEADER6_DATA(cb, xl, 2);
-    OUT_RING_QW_AGP(cb, 0xc28 + i, yOffs >> 3);
-    OUT_RING_QW_AGP(cb, 0xc2c + i, vOffs >> 3);
-
-    WAITFLAGS(cb, LL_MODE_DECODER_IDLE);
+    cb->c_buf.exec_flags |= DRM_VIA_WAIT_BARRIER;
+    OUT_RING_QW_AGP(cb, 0xc28 + i, 0);
+    OUT_RING_QW_AGP(cb, 0xc2c + i, 0);
+    ret = ochr_yuv_relocation(&cb->c_buf, buf, 0, 2,
+			      yOffs, vOffs, 0, 3, 
+			      WSBM_PL_FLAG_VRAM | VIA_VAL_FLAG_MPEG0,
+			      WSBM_PL_MASK_MEM | VIA_VAL_FLAG_MPEG0);
 }
 
 void
@@ -1097,6 +619,7 @@ viaMpegBeginPicture(void *xlp, ViaXvMCContext * ctx,
     XvMCLowLevel *xl = (XvMCLowLevel *) xlp;
     ViaCommandBuffer *cb = &xl->agpBuf;
 
+    viaEngineSwitchNotify(xl, LL_ENGINE_MPEG);
     mb_width = (width + 15) >> 4;
 
     mb_height =
@@ -1105,7 +628,8 @@ viaMpegBeginPicture(void *xlp, ViaXvMCContext * ctx,
 	2 * ((height + 31) >> 5) : (((height + 15) >> 4));
 
     BEGIN_HEADER6_DATA(cb, xl, 72);
-    WAITFLAGS(cb, LL_MODE_DECODER_IDLE);
+    cb->c_buf.exec_flags |= DRM_VIA_WAIT_BARRIER;
+
 
     OUT_RING_QW_AGP(cb, 0xc00,
 	((control->picture_structure & XVMC_FRAME_PICTURE) << 2) |
@@ -1191,9 +715,10 @@ viaMpegReset(void *xlp)
     XvMCLowLevel *xl = (XvMCLowLevel *) xlp;
     ViaCommandBuffer *cb = &xl->agpBuf;
 
+    viaEngineSwitchNotify(xl, LL_ENGINE_MPEG);
     BEGIN_HEADER6_DATA(cb, xl, 99);
-    WAITFLAGS(cb, LL_MODE_DECODER_IDLE);
-
+    cb->c_buf.exec_flags |= DRM_VIA_WAIT_BARRIER;
+    
     OUT_RING_QW_AGP(cb, 0xcf0, 0);
 
     for (i = 0; i < 6; i++) {
@@ -1246,8 +771,8 @@ viaMpegWriteSlice(void *xlp, CARD8 * slice, int nBytes, CARD32 sCode)
 
     nBytes += 8;
 
+    viaEngineSwitchNotify(xl, LL_ENGINE_MPEG);
     BEGIN_HEADER6_DATA(cb, xl, 2);
-    WAITFLAGS(cb, LL_MODE_DECODER_IDLE);
     OUT_RING_QW_AGP(cb, 0xc9c, nBytes);
 
     if (sCode)
@@ -1282,16 +807,14 @@ viaVideoSubPictureOffLocked(void *xlp)
 {
 
     CARD32 stride;
-    int proReg = REG_HQV1_INDEX;
     XvMCLowLevel *xl = (XvMCLowLevel *) xlp;
-    ViaCommandBuffer *cb = xl->videoBuf;
+    ViaCommandBuffer *cb = &xl->agpBuf;
 
-    if (xl->videoBuf == &xl->agpBuf)
-	syncDMA(xl, 1);
-    stride = VIDIN(xl, proReg | SUBP_CONTROL_STRIDE);
-    WAITFLAGS(cb, LL_MODE_VIDEO);
+    stride = xl->subStride;
+    viaEngineSwitchNotify(xl, LL_ENGINE_HQV);
+    cb->c_buf.exec_flags |= DRM_VIA_WAIT_BARRIER;
     BEGIN_HEADER6_DATA(cb, xl, 1);
-    OUT_RING_QW_AGP(cb, proReg | SUBP_CONTROL_STRIDE | 0x200,
+    OUT_RING_QW_AGP(cb, xl->hqvOffset | SUBP_CONTROL_STRIDE | 0x200,
 	stride & ~SUBP_HQV_ENABLE);
 }
 
@@ -1302,35 +825,44 @@ viaVideoSubPictureLocked(void *xlp, ViaXvMCSubPicture * pViaSubPic)
     unsigned i;
     CARD32 cWord;
     XvMCLowLevel *xl = (XvMCLowLevel *) xlp;
-    int proReg = REG_HQV1_INDEX;
-    ViaCommandBuffer *cb = xl->videoBuf;
+    ViaCommandBuffer *cb = &xl->agpBuf;
+    int ret;
 
-    if (xl->videoBuf == &xl->agpBuf)
-	syncDMA(xl, 1);
-    WAITFLAGS(cb, LL_MODE_VIDEO);
+    viaEngineSwitchNotify(xl, LL_ENGINE_HQV);
     BEGIN_HEADER6_DATA(cb, xl, VIA_SUBPIC_PALETTE_SIZE + 2);
+    cb->c_buf.exec_flags |= DRM_VIA_WAIT_BARRIER;
+
     for (i = 0; i < VIA_SUBPIC_PALETTE_SIZE; ++i) {
-	OUT_RING_QW_AGP(cb, proReg | RAM_TABLE_CONTROL | 0x200,
+	OUT_RING_QW_AGP(cb, xl->hqvOffset | RAM_TABLE_CONTROL | 0x200,
 	    pViaSubPic->palette[i]);
     }
 
     cWord = (pViaSubPic->stride & SUBP_STRIDE_MASK) | SUBP_HQV_ENABLE;
     cWord |= (pViaSubPic->ia44) ? SUBP_IA44 : SUBP_AI44;
-    OUT_RING_QW_AGP(cb, proReg | SUBP_STARTADDR | 0x200, pViaSubPic->offset);
-    OUT_RING_QW_AGP(cb, proReg | SUBP_CONTROL_STRIDE | 0x200, cWord);
+    OUT_RING_QW_AGP(cb, xl->hqvOffset | SUBP_STARTADDR | 0x200, 0);
+    ret = ochr_yuv_relocation(&cb->c_buf, pViaSubPic->buf, 0, 1, 0, 0, 0, 0,
+			      WSBM_PL_FLAG_VRAM | xl->hqvFlag,
+			      WSBM_PL_MASK_MEM | xl->hqvFlag);
+    OUT_RING_QW_AGP(cb, xl->hqvOffset | SUBP_CONTROL_STRIDE | 0x200, cWord);
+    xl->subStride = cWord;	
 }
 
 void
-viaBlit(void *xlp, unsigned bpp, unsigned srcBase,
-    unsigned srcPitch, unsigned dstBase, unsigned dstPitch,
-    unsigned w, unsigned h, int xdir, int ydir, unsigned blitMode,
-    unsigned color)
+viaBlit(void *xlp, unsigned bpp, 
+	struct _WsbmBufferObject *srcBuf,
+	unsigned srcDelta, unsigned srcPitch, 
+	struct _WsbmBufferObject *dstBuf,
+	unsigned dstDelta, unsigned dstPitch,
+	unsigned w, unsigned h, int xdir, int ydir, unsigned blitMode,
+	unsigned color)
 {
 
-    CARD32 dwGEMode = 0, srcY = 0, srcX, dstY = 0, dstX;
+    CARD32 dwGEMode = 0, srcY = 0, srcX = 0, dstY = 0, dstX = 0;
     CARD32 cmd;
     XvMCLowLevel *xl = (XvMCLowLevel *) xlp;
     ViaCommandBuffer *cb = &xl->agpBuf;
+    int ret;
+
 
     if (!w || !h)
 	return;
@@ -1349,39 +881,20 @@ viaBlit(void *xlp, unsigned bpp, unsigned srcBase,
 	break;
     }
 
-    srcX = srcBase & 31;
-    dstX = dstBase & 31;
-    switch (bpp) {
-    case 16:
-	dwGEMode |= VIA_GEM_16bpp;
-	srcX >>= 2;
-	dstX >>= 2;
-	break;
-    case 32:
-	dwGEMode |= VIA_GEM_32bpp;
-	srcX >>= 4;
-	dstX >>= 4;
-	break;
-    default:
-	dwGEMode |= VIA_GEM_8bpp;
-	break;
-    }
-
+    viaEngineSwitchNotify(xl, LL_ENGINE_2D);
     BEGIN_RING_AGP(cb, xl, 20);
-    WAITFLAGS(cb, LL_MODE_2D);
-
     OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_GEMODE), dwGEMode);
     cmd = 0;
 
     if (xdir < 0) {
 	cmd |= VIA_GEC_DECX;
-	srcX += (w - 1);
-	dstX += (w - 1);
+	srcX = (w - 1);
+	dstX = (w - 1);
     }
     if (ydir < 0) {
 	cmd |= VIA_GEC_DECY;
-	srcY += (h - 1);
-	dstY += (h - 1);
+	srcY = (h - 1);
+	dstY = (h - 1);
     }
 
     switch (blitMode) {
@@ -1399,107 +912,31 @@ viaBlit(void *xlp, unsigned bpp, unsigned srcBase,
 	cmd |= VIA_GEC_BLT | (VIA_BLIT_COPY << 24);
     }
 
-    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_SRCBASE), (srcBase & ~31) >> 3);
-    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_DSTBASE), (dstBase & ~31) >> 3);
+    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_SRCBASE), 0);
+    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_SRCPOS), 0);
+    ret = ochr_2d_relocation(&cb->c_buf, srcBuf, srcDelta, bpp,
+			     ((srcY << 16) | srcX), 
+			     WSBM_PL_FLAG_VRAM,
+			     WSBM_PL_MASK_MEM);
+    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_DSTBASE), 0);
+    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_DSTPOS), 0);
+    ret = ochr_2d_relocation(&cb->c_buf, dstBuf, dstDelta, bpp,
+			     ((dstY << 16) | dstX), 
+			     WSBM_PL_FLAG_VRAM,
+			     WSBM_PL_MASK_MEM);    
     OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_PITCH), VIA_PITCH_ENABLE |
 	(srcPitch >> 3) | (((dstPitch) >> 3) << 16));
-    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_SRCPOS), ((srcY << 16) | srcX));
-    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_DSTPOS), ((dstY << 16) | dstX));
     OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_DIMENSION),
 	(((h - 1) << 16) | (w - 1)));
     OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_GECMD), cmd);
-}
-
-unsigned
-syncXvMCLowLevel(void *xlp, unsigned int mode, unsigned int doSleep,
-    CARD32 timeStamp)
-{
-    unsigned errors;
-    XvMCLowLevel *xl = (XvMCLowLevel *) xlp;
-
-    if (mode == 0) {
-	errors = xl->errors;
-	xl->errors = 0;
-	return errors;
-    }
-
-    if ((mode & (LL_MODE_VIDEO | LL_MODE_3D)) || !xl->use_agp) {
-	if (xl->performLocking)
-	    hwlLock(xl, 0);
-	if ((xl->videoBuf == &xl->agpBuf) || (mode != LL_MODE_VIDEO))
-	    syncDMA(xl, doSleep);
-	if (mode & LL_MODE_3D)
-	    syncAccel(xl, mode, doSleep);
-	if (mode & LL_MODE_VIDEO)
-	    syncVideo(xl, doSleep);
-	if (xl->performLocking)
-	    hwlUnlock(xl, 0);
-    } else {
-	viaDMAWaitTimeStamp(xl, timeStamp, doSleep);
-    }
-
-    if (mode & (LL_MODE_DECODER_SLICE | LL_MODE_DECODER_IDLE))
-	syncMpeg(xl, mode, doSleep);
-
-    errors = xl->errors;
-    xl->errors = 0;
-
-    return errors;
-}
-
-static int
-updateLowLevelBuf(XvMCLowLevel * xl, LowLevelBuffer * buf,
-    unsigned width, unsigned height)
-{
-    unsigned stride, size;
-    struct drm_via_mem *mem = &buf->mem;
-    int ret;
-
-    stride = (width + 31) & ~31;
-    size = stride * height + (xl->fbDepth >> 3);
-
-    if (size != mem->size) {
-	if (mem->size)
-	    drmCommandWrite(xl->fd, DRM_VIA_FREEMEM, mem, sizeof(mem));
-	mem->context = *(xl->drmcontext);
-	mem->size = size;
-	mem->type = VIA_MEM_VIDEO;
-
-	if (((ret = drmCommandWriteRead(xl->fd, DRM_VIA_ALLOCMEM, mem,
-			sizeof(mem))) < 0) || mem->size != size) {
-	    mem->size = 0;
-	    return -1;
-	}
-    }
-
-    buf->offset = (mem->offset + 31) & ~31;
-    buf->stride = stride;
-    buf->height = height;
-    return 0;
-}
-
-static void
-cleanupLowLevelBuf(XvMCLowLevel * xl, LowLevelBuffer * buf)
-{
-    struct drm_via_mem *mem = &buf->mem;
-
-    if (mem->size)
-	drmCommandWrite(xl->fd, DRM_VIA_FREEMEM, mem, sizeof(mem));
-    mem->size = 0;
 }
 
 static void *
 releaseXvMCLowLevel(XvMCLowLevel * xl)
 {
     switch (xl->state) {
-    case ll_llBuf:
-	cleanupLowLevelBuf(xl, &xl->scale);
-    case ll_timeStamp:
-	viaDMACleanupTimeStamp(xl);
-    case ll_pciBuf:
-	free(xl->pciBuf.buf);
     case ll_agpBuf:
-	free(xl->agpBuf.buf);
+	viaCmdBufferTakedown(&xl->agpBuf);
     case ll_init:
 	free(xl);
     default:
@@ -1508,10 +945,47 @@ releaseXvMCLowLevel(XvMCLowLevel * xl)
     return NULL;
 }
 
+static Status
+viaCmdBufferInit(struct _ViaCommandBuffer *buf,
+		 struct _XvMCLowLevel *xl)
+{
+    buf->xl = xl;
+    buf->c_buf.buf = (uint32_t *) malloc(LL_AGP_CMDBUF_SIZE * sizeof(uint32_t));
+
+    if (!buf->c_buf.buf)
+	return BadAlloc;
+    buf->c_buf.reloc_info = ochr_create_reloc_buffer();
+    if (!buf->c_buf.reloc_info)
+	goto out_err0;
+    
+    buf->c_buf.validate_list = wsbmBOCreateList(10);
+    if (!buf->c_buf.validate_list)
+	goto out_err1;
+
+    buf->bufSize = LL_AGP_CMDBUF_SIZE;
+    buf->flushFunc = &agpFlush;
+    buf->mode = 0;
+
+    buf->c_buf.needs_pci = 0;
+    buf->c_buf.exec_flags = 0;
+
+    if (viaCmdBufferReset(buf))
+	goto out_err2;
+
+    return Success;
+ out_err2:
+    wsbmBOUnrefUserList(buf->c_buf.validate_list);
+    wsbmBOFreeList(buf->c_buf.validate_list);    
+ out_err1:
+    ochr_free_reloc_buffer(buf->c_buf.reloc_info);
+ out_err0:
+    free(buf->c_buf.buf);
+    return BadAlloc;
+}
+
 void *
 initXvMCLowLevel(int fd, drm_context_t * ctx,
-    drmLockPtr hwLock, drmAddress mmioAddress,
-    drmAddress fbAddress, unsigned fbStride, unsigned fbDepth,
+    drmLockPtr hwLock, unsigned fbStride, unsigned fbDepth,
     unsigned width, unsigned height, int useAgp, unsigned chipId)
 {
     XvMCLowLevel *xl;
@@ -1527,58 +1001,26 @@ initXvMCLowLevel(int fd, drm_context_t * ctx,
 	return NULL;
     xl->state = ll_init;
 
-    xl->agpBuf.buf = (CARD32 *) malloc(LL_AGP_CMDBUF_SIZE * sizeof(CARD32));
-    if (!xl->agpBuf.buf)
-	return releaseXvMCLowLevel(xl);
+    if (viaCmdBufferInit(&xl->agpBuf, xl)) {
+	releaseXvMCLowLevel(xl);
+	return NULL;
+    }
     xl->state = ll_agpBuf;
-    xl->agpBuf.bufSize = LL_AGP_CMDBUF_SIZE;
-    xl->agpBuf.flushFunc = &agpFlush;
-    xl->agpBuf.pos = 0;
-    xl->agpBuf.mode = 0;
-    xl->agpBuf.waitFlags = 0;
 
-    xl->pciBuf.buf = (CARD32 *) malloc(LL_PCI_CMDBUF_SIZE * sizeof(CARD32));
-    if (!xl->pciBuf.buf)
-	return releaseXvMCLowLevel(xl);
-    xl->state = ll_pciBuf;
-    xl->pciBuf.bufSize = LL_PCI_CMDBUF_SIZE;
-    xl->pciBuf.flushFunc = &pciFlush;
-    xl->pciBuf.pos = 0;
-    xl->pciBuf.mode = 0;
-    xl->pciBuf.waitFlags = 0;
-
-    xl->use_agp = useAgp;
+    xl->use_agp = 1;
     xl->fd = fd;
     xl->drmcontext = ctx;
     xl->hwLock = hwLock;
-    xl->mmioAddress = mmioAddress;
-    xl->fbAddress = fbAddress;
     xl->fbDepth = fbDepth;
     xl->fbStride = fbStride;
     xl->width = width;
     xl->height = height;
     xl->performLocking = 1;
     xl->errors = 0;
-    xl->agpSync = 0;
     xl->chipId = chipId;
-
-    if (viaDMAInitTimeStamp(xl))
-	return releaseXvMCLowLevel(xl);
-    xl->state = ll_timeStamp;
-
-    xl->scale.mem.size = 0;
-    xl->back.mem.size = 0;
-
-    if (updateLowLevelBuf(xl, &xl->scale, width, height))
-	return releaseXvMCLowLevel(xl);
-    xl->state = ll_llBuf;
-
-#ifdef VIDEO_DMA
-    xl->videoBuf = &xl->agpBuf;
-#else
-    xl->videoBuf = &xl->pciBuf;
-#endif
-
+    xl->hqvOffset = REG_HQV1_INDEX;
+    xl->hqvFlag = VIA_VAL_FLAG_HQV1;
+    xl->hqvState.srcBuf = NULL;
     return xl;
 }
 
@@ -1597,54 +1039,3 @@ closeXvMCLowLevel(void *xlp)
 
     releaseXvMCLowLevel(xl);
 }
-
-#if 0				       /* Under development */
-static CARD32
-computeDownScaling(int dst, int *src)
-{
-    CARD32 value = 0x800;
-
-    while (*src > dst) {
-	*src >>= 1;
-	value--;
-    }
-    return value;
-}
-
-static void
-computeHQVScaleAndFilter(XvMCLowLevel * xl)
-{
-    int srcW, srcH;
-    const XvMCRegion *src = &xl->sRegion, *back = &xl->dRegion;
-
-    xl->downScaling = FALSE;
-
-    if (back->w < src->w || back->h < src->h) {
-
-	xl->downScaling = TRUE;
-	srcW = src->w;
-	srcH = src->h;
-
-	xl->downScaleW = (back->w >= srcW) ? 0 :
-	    HQV_SCALE_ENABLE | HQV_SCALE_DOWN |
-	    (computeDownScaling(back->w, &srcW));
-
-	xl->downScaleH = (back->h >= srcH) ? 0 :
-	    HQV_SCALE_ENABLE | HQV_SCALE_DOWN |
-	    (computeDownScaling(back->h, &srcH));
-
-    }
-
-    xl->upScaleW =
-	(back->w == srcW) ? 0 : (0x800 * srcW / back->w) | HQV_SCALE_ENABLE;
-    xl->upScaleH =
-	(back->h == srcH) ? 0 : (0x800 * srcH / back->h) | HQV_SCALE_ENABLE;
-}
-
-static int
-setupBackBuffer(XvMCLowLevel * xl)
-{
-    return updateLowLevelBuf(xl, &xl->back, xl->dRegion.w, xl->dRegion.h);
-}
-
-#endif

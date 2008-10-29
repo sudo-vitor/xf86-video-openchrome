@@ -43,6 +43,7 @@ ochr_yuv_relocation(struct _ViaCommandBuffer *cBuf,
 		    uint32_t delta, int planes, 
 		    uint32_t plane_0, uint32_t plane_1,
 		    uint32_t plane_2,
+		    uint32_t shift,
 		    uint64_t flags, uint64_t mask);
 
 

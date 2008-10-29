@@ -196,7 +196,7 @@ ochr_apply_yuv_reloc(uint32_t *cmdbuf,
 	uint32_t val;
 	int i;
 
-	if (reloc->planes > 3)
+	if (reloc->planes > 4)
 		return -EINVAL;
 
 	if (baddr->index > num_buffers)
@@ -209,8 +209,8 @@ ochr_apply_yuv_reloc(uint32_t *cmdbuf,
 	val = val_buf->offset + baddr->delta;
 
 	for(i=0; i<reloc->planes; ++i) {
-		*buf++ = val + reloc->plane_offs[i];
-		++buf;
+	    *buf++ = (val + reloc->plane_offs[i]) >> reloc->shift;
+	    ++buf;
 	}
 	
 	return 0;
@@ -218,10 +218,11 @@ ochr_apply_yuv_reloc(uint32_t *cmdbuf,
 
 int
 ochr_yuv_relocation(struct _ViaCommandBuffer *cBuf,
-		   struct _WsbmBufferObject *buffer,
-		   uint32_t delta, 
-		   int planes, uint32_t plane_0, uint32_t plane_1,
+		    struct _WsbmBufferObject *buffer,
+		    uint32_t delta, 
+		    int planes, uint32_t plane_0, uint32_t plane_1,
 		    uint32_t plane_2,
+		    uint32_t shift,
 		   uint64_t flags, uint64_t mask)
 {
     struct via_yuv_reloc reloc;
@@ -253,6 +254,7 @@ ochr_yuv_relocation(struct _ViaCommandBuffer *cBuf,
     reloc.addr.index = 0;
     reloc.addr.delta = delta + wsbmBOPoolOffset(buffer);
     reloc.planes = planes;
+    reloc.shift = shift;
     reloc.plane_offs[0] = plane_0;
     reloc.plane_offs[1] = plane_1;
     reloc.plane_offs[2] = plane_2;

@@ -82,47 +82,49 @@
 
 extern void
     *initXvMCLowLevel(int fd, drm_context_t * ctx,
-    drmLockPtr hwLock, drmAddress mmioAddress,
-    drmAddress fbAddress, unsigned fbStride, unsigned fbDepth,
+    drmLockPtr hwLock, unsigned fbStride, unsigned fbDepth,
     unsigned width, unsigned height, int useAgp, unsigned chipId);
 
 extern void setLowLevelLocking(void *xlp, int perFormLocking);
 extern void closeXvMCLowLevel(void *xlp);
-extern void flushPCIXvMCLowLevel(void *xlp);
-extern CARD32 viaDMATimeStampLowLevel(void *xlp);
-extern void setAGPSyncLowLevel(void *xlp, int val, CARD32 timeStamp);
 
 /*
  * These two functions also return and clear the current error status.
  */
 
 extern unsigned flushXvMCLowLevel(void *xlp);
-extern unsigned syncXvMCLowLevel(void *xlp, unsigned int mode,
-    unsigned int doSleep, CARD32 timeStamp);
-
 extern void hwlUnlock(void *xlp, int videoLock);
 extern void hwlLock(void *xlp, int videoLock);
 
-extern void viaVideoSetSWFLipLocked(void *xlp, unsigned yOffs, unsigned uOffs,
+extern void viaVideoSetSWFLipLocked(void *xlp,
+				    struct _WsbmBufferObject *buf,
+				    unsigned yOffs, unsigned uOffs,
     unsigned vOffs, unsigned yStride, unsigned uvStride);
 
 extern void viaMpegReset(void *xlp);
 extern void viaMpegWriteSlice(void *xlp, CARD8 * slice,
     int nBytes, CARD32 sCode);
 extern void viaMpegSetSurfaceStride(void *xlp, ViaXvMCContext * ctx);
-extern void viaMpegSetFB(void *xlp, unsigned i, unsigned yOffs,
-    unsigned uOffs, unsigned vOffs);
+extern void viaMpegSetFB(void *xlp, unsigned i, struct _WsbmBufferObject *buf,
+			 unsigned yOffs,
+			 unsigned uOffs, unsigned vOffs);
 extern void viaMpegBeginPicture(void *xlp, ViaXvMCContext * ctx,
     unsigned width, unsigned height, const XvMCMpegControl * control);
+
+extern void viaFlushNotify(void *xlp);
+
 
 /*
  * Low-level Video functions in viaLowLevel.c
  */
+extern void viaBlit(void *xlp, unsigned bpp, 
+		    struct _WsbmBufferObject *srcBuf,
+		    unsigned srcDelta, unsigned srcPitch, 
+		    struct _WsbmBufferObject *dstBuf,
+		    unsigned dstDelta, unsigned dstPitch,
+		    unsigned w, unsigned h, int xdir, int ydir, unsigned blitMode,
+		    unsigned color);
 
-extern void viaBlit(void *xlp, unsigned bpp, unsigned srcBase,
-    unsigned srcPitch, unsigned dstBase, unsigned dstPitch,
-    unsigned w, unsigned h, int xdir, int ydir,
-    unsigned blitMode, unsigned color);
 
 extern void viaVideoSWFlipLocked(void *xlp, unsigned flags,
     int progressiveSequence);

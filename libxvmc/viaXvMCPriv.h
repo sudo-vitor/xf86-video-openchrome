@@ -32,6 +32,7 @@
 #include <X11/Xutil.h>
 #include "vldXvMC.h"
 #include "via_xvmc.h"
+#include "wsbm_manager.h"
 
 typedef struct
 {
@@ -64,10 +65,10 @@ typedef enum
     context_drawHash,
     context_lowLevel,
     context_mutex,
-    context_sAreaMap,
-    context_fbMap,
-    context_mmioMap,
     context_drmContext,
+    context_ttmPool,
+    context_fenceMgr,
+    context_sAreaMap,
     context_fd,
     context_driConnection,
     context_context,
@@ -76,28 +77,42 @@ typedef enum
 
 typedef struct
 {
+    /*
+     * Constant members
+     */
+
     unsigned ctxNo;		       /* XvMC private context reference number */
-    pthread_mutex_t ctxMutex;	       /* Mutex for multi-threading. Not used */
     drm_context_t drmcontext;	       /* The drm context */
-    drm_handle_t fbOffset;	       /* Handle to drm frame-buffer area */
-    drm_handle_t mmioOffset;	       /* Handle to drm mmio area */
     drm_handle_t sAreaOffset;	       /* Handle to drm shared memory area */
-    unsigned fbSize;		       /* Size of drm frame-buffer area */
-    unsigned mmioSize;		       /* Size of drm mmio area */
     unsigned sAreaSize;		       /* Size of drm shared memory area */
     unsigned sAreaPrivOffset;	       /* Offset in sarea to private part */
-    drmAddress fbAddress;	       /* Virtual address of frame buffer area */
-    drmAddress mmioAddress;	       /* Virtual address of mmio area */
     drmAddress sAreaAddress;	       /* Virtual address of shared memory area */
     char busIdString[21];	       /* Busid of video card */
     unsigned yStride;		       /* Y stride of surfaces in this context */
     int fd;			       /* FD for connection to drm module */
-    unsigned char intra_quantiser_matrix[64];
-    unsigned char non_intra_quantiser_matrix[64];
-    unsigned char chroma_intra_quantiser_matrix[64];
-    unsigned char chroma_non_intra_quantiser_matrix[64];
-    unsigned rendSurf[VIA_MAX_RENDSURF];	/* Which surfaces answer rendering to
-						 * a rendering query */
+    struct _WsbmBufferPool *ttmPool;
+    struct _WsbmFenceMgr *fenceMgr;
+    unsigned xvMCPort;		       /* XvMC private port. Corresponds to
+				        * an Xv port, but not by number */
+    int useAGP;			       /* Use the AGP ringbuffer to upload data to the chip */
+    void *xl;			       /* Lowlevel context. Opaque to us. */
+    ContextRes resources;
+    XID id;
+    unsigned screen;
+    unsigned depth;
+    unsigned stride;
+    XVisualInfo visualInfo;
+    void *drawHash;
+    CARD32 chipId;
+
+
+    /*
+     * Non-constant members.
+     * Need to be protected with mutex.
+     */
+
+
+    pthread_mutex_t ctxMutex;	       /* Mutex for multi-threading. Not used */
     int decoderOn;		       /* Decoder switched on ? */
     int intraLoaded;		       /* Intra quantiser matrix loaded in 
 				        * decoder? */
@@ -111,13 +126,9 @@ typedef struct
 				        * display */
     drmLockPtr hwLock;		       /* Virtual address Pointer to the 
 				        * heavyweight drm hardware lock */
-    unsigned xvMCPort;		       /* XvMC private port. Corresponds to
-				        * an Xv port, but not by number */
     ViaXvMCAttrHolder attrib;	       /* This contexts attributes and their
 				        * values */
     XvAttribute attribDesc[VIA_NUM_XVMC_ATTRIBUTES];	/* Attribute decriptions */
-    int useAGP;			       /* Use the AGP ringbuffer to upload data to the chip */
-    void *xl;			       /* Lowlevel context. Opaque to us. */
     int haveXv;			       /* Have I initialized the Xv 
 				        * connection for this surface? */
     XvImage *xvImage;		       /* Fake Xv Image used for command 
@@ -126,54 +137,60 @@ typedef struct
     Drawable draw;		       /* Drawable to undisplay from */
     XvPortID port;		       /* Xv Port ID when displaying */
     int lastSrfDisplaying;
-    ContextRes resources;
-    CARD32 timeStamp;
-    CARD32 videoTimeStamp;
-    XID id;
-    unsigned screen;
-    unsigned depth;
-    unsigned stride;
-    XVisualInfo visualInfo;
-    void *drawHash;
-    CARD32 chipId;
     XvMCRegion sRegion;
     XvMCRegion dRegion;
+
+    unsigned char intra_quantiser_matrix[64];
+    unsigned char non_intra_quantiser_matrix[64];
+    unsigned char chroma_intra_quantiser_matrix[64];
+    unsigned char chroma_non_intra_quantiser_matrix[64];
+    unsigned rendSurf[VIA_MAX_RENDSURF];	/* Which surfaces answer rendering to
+						 * a rendering query */
+
+
+
 } ViaXvMCContext;
 
 typedef struct
 {
-    pthread_mutex_t subMutex;	       /* Currently not used. */
+    /*
+     * Constant members.
+     */
+
     unsigned srfNo;		       /* XvMC private surface number */
-    unsigned offset;		       /* Offset into frame-buffer area */
     unsigned stride;		       /* Storage stride */
     unsigned width;		       /* Width */
     unsigned height;		       /* Height */
-    CARD32 palette[VIA_SUBPIC_PALETTE_SIZE];	/* YUV Palette */
     ViaXvMCContext *privContext;       /* Pointer to context private data */
     int ia44;			       /* IA44 or AI44 format */
-    int needsSync;
-    CARD32 timeStamp;
+    struct _WsbmBufferObject *buf;
+
+    /*
+     * Non-constant members.
+     */
+
+    CARD32 palette[VIA_SUBPIC_PALETTE_SIZE];	/* YUV Palette */
 } ViaXvMCSubPicture;
 
 typedef struct
 {
-    pthread_mutex_t srfMutex;	       /* For multithreading. Not used. */
-    pthread_cond_t bufferAvailable;    /* For multithreading. Not used. */
+    /*
+     * Constant members.
+     */
     unsigned srfNo;		       /* XvMC private surface numbers */
-    unsigned numBuffers;	       /* Number of picture buffers */
-    unsigned curBuf;		       /* Which is the current buffer? */
-    unsigned offsets[VIA_MAX_BUFS];    /* Offsets of picture buffers 
-				        * into the frame-buffer area */
     unsigned yStride;		       /* Stride of YUV420 Y component. */
     unsigned width;		       /* Dimensions */
     unsigned height;
-    int progressiveSequence;	       /* Mpeg progressive picture? Hmm? */
     ViaXvMCContext *privContext;       /* XvMC context private part. */
+    struct _WsbmBufferObject *buf;
+
+    /*
+     * Non-constant members.
+     */
+
+    int progressiveSequence;	       /* Mpeg progressive picture? Hmm? */
     ViaXvMCSubPicture *privSubPic;     /* Subpicture to be blended when 
 				        * displaying. NULL if none. */
-    int needsSync;
-    int syncMode;
-    CARD32 timeStamp;
     int topFieldFirst;
 } ViaXvMCSurface;
 

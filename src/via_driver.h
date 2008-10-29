@@ -149,7 +149,7 @@ typedef struct {
 
     
 typedef struct {
-    //    VIAMem memory_ref;
+    struct _WsbmBufferObject *buf;
     unsigned long offsets[VIA_XVMC_MAX_BUFFERS];
 } ViaXvMCSurfacePriv;
 
