@@ -95,6 +95,7 @@ static struct ViaCardIdStruct ViaCardId[] = {
     {"MSI K8M Neo-V",                         VIA_K8M800,  0x1462, 0x0320, VIA_DEVICE_CRT},
     {"MSI K8MM-V",                            VIA_K8M800,  0x1462, 0x7142, VIA_DEVICE_CRT},
     {"MSI K8MM3-V",                           VIA_K8M800,  0x1462, 0x7181, VIA_DEVICE_CRT},
+    {"MSI K9MM-V",                            VIA_K8M800,  0x1462, 0x7312, VIA_DEVICE_CRT},
     {"MSI K8MM-ILSR",                         VIA_K8M800,  0x1462, 0x7410, VIA_DEVICE_CRT},
     {"Abit KV-80",                            VIA_K8M800,  0x147B, 0x1419, VIA_DEVICE_CRT},
     {"Abit KV-81",                            VIA_K8M800,  0x147B, 0x141A, VIA_DEVICE_CRT},
@@ -195,6 +196,7 @@ static struct ViaCardIdStruct ViaCardId[] = {
     {"Samsung Q1B",                           VIA_CX700,   0x144D, 0xC02C, VIA_DEVICE_CRT | VIA_DEVICE_LCD},
     {"FIC CE260",                             VIA_CX700,   0x1509, 0x2D30, VIA_DEVICE_LCD},
     {"FIC CE261",                             VIA_CX700,   0x1509, 0x2F07, VIA_DEVICE_LCD},
+    {"Gigabyte M704 / RoverPC A700GQ",        VIA_CX700,   0x161F, 0x2060, VIA_DEVICE_CRT | VIA_DEVICE_LCD},
     {"Packard Bell EasyNote XS",              VIA_CX700,   0x1631, 0xC201, VIA_DEVICE_LCD}, /* aka Everex Cloudbook CE1200V */
 
     /*** P4M890, VN890 ***/
