@@ -25,6 +25,7 @@
 #include "config.h"
 #endif
 
+#include <ws_dri_bufmgr.h>
 #include "via.h"
 #include "via_driver.h"
 #include "via_memcpy.h"
@@ -533,11 +534,12 @@ viaVidCopyInit(char *copyType, ScreenPtr pScreen)
     char *tmpBuf, *endBuf;
     int count, j, bestSoFar;
     unsigned best, tmp, testSize, alignSize, tmp2;
-    VIAMem tmpFbBuffer;
+    struct _DriBufferObject *tmpFbBuffer;
     McFuncData *curData;
     FILE *cpuInfoFile;
     double cpuFreq;
     VIAPtr pVia = VIAPTR(pScrn);
+    int ret;
 
     if (NULL == (cpuInfoFile = fopen("/proc/cpuinfo", "r"))) {
         return libc_YUV42X;
@@ -572,27 +574,45 @@ viaVidCopyInit(char *copyType, ScreenPtr pScreen)
 
     alignSize = BSIZH * (BSIZA + (BSIZA >> 1));
     testSize = BSIZH * (BSIZW + (BSIZW >> 1));
-    tmpFbBuffer.pool = 0;
 
     /*
      * Allocate an area of offscreen FB memory, (buf1), a simulated video
      * player buffer (buf2) and a pool of uninitialized "video" data (buf3). 
      */
 
-    return libc_YUV42X;
+    ret = driGenBuffers(pVia->mainPool, "video test buffer", 1,
+			&tmpFbBuffer, 0, 
+			DRM_BO_FLAG_MEM_VRAM |
+			DRM_BO_FLAG_READ |
+			DRM_BO_FLAG_NO_EVICT, 0);
+    if (ret) 
+	return libc_YUV42X;
 
-    if (VIAAllocLinear(&tmpFbBuffer, pScrn, alignSize + 31))
-        return libc_YUV42X;
+    ret = driBOData(tmpFbBuffer, alignSize + 31, NULL, NULL, 0);
+
+    if (ret) {
+	driDeleteBuffers(1, &tmpFbBuffer);
+	return libc_YUV42X;
+    }
+    
+    buf1 = driBOMap(tmpFbBuffer, WS_DRI_MAP_WRITE);
+
+    if (!buf1) {
+	driDeleteBuffers(1, &tmpFbBuffer);
+	return libc_YUV42X;
+    }
+
     if (NULL == (buf2 = (unsigned char *)xalloc(testSize))) {
-        VIAFreeLinear(&tmpFbBuffer);
+	driBOUnmap(tmpFbBuffer);
+	driDeleteBuffers(1, &tmpFbBuffer);
         return libc_YUV42X;
     }
     if (NULL == (buf3 = (unsigned char *)xalloc(testSize))) {
         xfree(buf2);
-        VIAFreeLinear(&tmpFbBuffer);
+	driBOUnmap(tmpFbBuffer);
+	driDeleteBuffers(1, &tmpFbBuffer);
         return libc_YUV42X;
     }
-    buf1 = (unsigned char *)pVia->FBBase + tmpFbBuffer.base;
 
     /* Align the frame buffer destination memory to a 32 byte boundary. */
     if ((unsigned long)buf1 & 31)
@@ -646,7 +666,9 @@ viaVidCopyInit(char *copyType, ScreenPtr pScreen)
     }
     xfree(buf3);
     xfree(buf2);
-    VIAFreeLinear(&tmpFbBuffer);
+    driBOUnmap(tmpFbBuffer);
+    driDeleteBuffers(1, &tmpFbBuffer);
+
     xf86DrvMsg(pScrn->scrnIndex, X_PROBED,
                "Using %s YUV42X copy for %s.\n",
                mcFunctions[bestSoFar].mName, copyType);
