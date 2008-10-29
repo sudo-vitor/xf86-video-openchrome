@@ -1837,27 +1837,7 @@ VIAEnterVT(int scrnIndex, int flags)
 
     pVia->cursorOffset = driBOOffset(pVia->scanout.bufs[VIA_SCANOUT_CURSOR]);
 
-    retVal = driBOSetStatus(pVia->scanout.bufs[VIA_SCANOUT_SYNC],
-			    DRM_BO_FLAG_MEM_VRAM | DRM_BO_FLAG_NO_EVICT,
-			    DRM_BO_FLAG_MEM_LOCAL);
-
-    if (retVal) {
-	xf86DrvMsg(scrnIndex, X_ERROR, 
-		   "Failed moving in the sync buffer.");
-	return FALSE;
-    }
-
-    pVia->markerOffset = driBOOffset(pVia->scanout.bufs[VIA_SCANOUT_SYNC]);
-
-
-    /*
-     * For now, bring in the EXA pixmap cache.
-     */
-
-    driBOSetStatus(pVia->exaMem.buf, 0, 0);
-
-
-    /* A patch for APM suspend/resume, when HWCursor has garbage. */
+    /* A Patch for APM suspend/resume, when HWCursor has garbage. */
     if (pVia->hwcursor)
         ViaCursorRestore(pScrn);
 
@@ -1928,10 +1908,6 @@ VIALeaveVT(int scrnIndex, int flags)
 			  DRM_BO_FLAG_NO_EVICT);
 
     (void) driBOSetStatus(pVia->scanout.bufs[VIA_SCANOUT_CURSOR],
-			  0,
-			  DRM_BO_FLAG_NO_EVICT);
-
-    (void) driBOSetStatus(pVia->scanout.bufs[VIA_SCANOUT_SYNC],
 			  0,
 			  DRM_BO_FLAG_NO_EVICT);
 

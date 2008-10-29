@@ -6,6 +6,11 @@
 #include "via_dmabuffer.h"
 
 struct via_reloc_bufinfo;
+struct via_reloc_texlist
+{
+    struct _DriBufferObject *buf;
+    uint32_t delta;
+};
 
 extern void
 ochr_reloc_state_save(struct via_reloc_bufinfo *info);
@@ -27,4 +32,18 @@ ochr_2d_relocation(struct _ViaCommandBuffer *cBuf,
 		   struct _DriBufferObject *buffer,
 		   uint32_t delta, uint32_t bpp, uint32_t pos, 
 		   uint64_t flags, uint64_t mask);
+extern int
+ochr_tex_relocation(struct _ViaCommandBuffer *cBuf,
+		    const struct via_reloc_texlist *addr,
+		    uint32_t low_mip,
+		    uint32_t hi_mip,
+		    uint32_t reg_tex_fm, uint64_t flags, uint64_t mask);
+extern int
+ochr_dest_relocation(struct _ViaCommandBuffer *cBuf,
+		     struct _DriBufferObject *dstBuffer,
+		     uint32_t delta,
+		     uint64_t flags, uint64_t mask);
+
+extern int 
+ochr_execbuf(int fd, struct _ViaCommandBuffer *cBuf);
 #endif

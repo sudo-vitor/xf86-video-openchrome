@@ -165,6 +165,8 @@ viaFlushDRIEnabled(ViaCommandBuffer * cb)
     if (pVia->agpDMA || (pVia->directRenderingEnabled && cb->has3dState)) {
         cb->mode = 0;
         cb->has3dState = FALSE;
+	ochr_execbuf(pVia->drmFD, cb);
+#if 0
         while (tmpSize > 0) {
             b.size = (tmpSize > VIA_DMASIZE) ? VIA_DMASIZE : tmpSize;
             tmpSize -= b.size;
@@ -178,6 +180,8 @@ viaFlushDRIEnabled(ViaCommandBuffer * cb)
                 return;
             }
         }
+#endif
+
         cb->pos = 0;
     } else {
         viaFlushPCI(cb);
@@ -570,55 +574,19 @@ viaAccelCopyHelper(ViaCommandBuffer * cb, int xs, int ys, int xd, int yd,
     cb->dstPixmap = NULL;
 }
 
-/*
- * Mark Sync using the 2D blitter for AGP. NoOp for PCI.
- * In the future one could even launch a NULL PCI DMA command
- * to have an interrupt generated, provided it is possible to
- * write to the PCI DMA engines from the AGP command stream.
- */
-int
-viaAccelMarkSync(ScreenPtr pScreen)
+
+static void
+viaExaWaitMarker(ScreenPtr pScreen, int marker)
 {
-    ScrnInfoPtr pScrn = xf86Screens[pScreen->myNum];
-    VIAPtr pVia = VIAPTR(pScrn);
-
-    RING_VARS;
-
-    ++pVia->curMarker;
-
-    /* Wrap around without affecting the sign bit. */
-    pVia->curMarker &= 0x7FFFFFFF;
-
-    if (pVia->agpDMA) {
-        BEGIN_RING(2);
-        OUT_RING_H1(VIA_REG_KEYCONTROL, 0x00);
-        ADVANCE_RING;
-        viaAccelSolidHelper(cb, 0, 0, 1, 1, 
-			    pVia->scanout.bufs[VIA_SCANOUT_SYNC], 0, 32,
-                            VIA_GEM_32bpp, 4, pVia->curMarker,
-                            (0xF0 << 24) | VIA_GEC_BLT | VIA_GEC_FIXCOLOR_PAT);
-	FLUSH_RING;
-    }
-    return pVia->curMarker;
+    ;
 }
 
-/*
- * Wait for the value to get blitted, or in the PCI case for engine idle.
- */
-void
-viaAccelWaitMarker(ScreenPtr pScreen, int marker)
+static int
+viaExaMarkSync(ScreenPtr pScreen)
 {
-    ScrnInfoPtr pScrn = xf86Screens[pScreen->myNum];
-    VIAPtr pVia = VIAPTR(pScrn);
-    CARD32 uMarker = marker;
-
-    if (pVia->agpDMA) {
-        while ((pVia->lastMarkerRead - uMarker) > (1 << 24))
-            pVia->lastMarkerRead = *pVia->markerBuf;
-    } else {
-        viaAccelSync(pScrn);
-    }
+    return 1;
 }
+
 
 /*
  * Check if we need to force upload of the whole 3D state (when other
@@ -1137,6 +1105,7 @@ viaExaUploadToScratch(PixmapPtr pSrc, PixmapPtr pDst)
     char *src, *dst;
     unsigned w, wBytes, srcPitch, h;
     CARD32 dstPitch;
+    size = dstPitch * h;
 
     if (!pVia->scratchAddr)
         return FALSE;
@@ -1145,11 +1114,11 @@ viaExaUploadToScratch(PixmapPtr pSrc, PixmapPtr pDst)
     w = pSrc->drawable.width;
     h = pSrc->drawable.height;
     wBytes = (w * pSrc->drawable.bitsPerPixel + 7) >> 3;
+    dstPitch = (wBytes + 31) & ~31;
+    
+    
 
-    viaOrder(wBytes, &dstPitch);
-    dstPitch = 1 << dstPitch;
-    if (dstPitch < 8)
-        dstPitch = 8;
+
     if (dstPitch * h > pVia->exaScratchSize * 1024) {
         ErrorF("EXA UploadToScratch Failed %u %u %u %u\n",
                dstPitch, h, dstPitch * h, pVia->exaScratchSize * 1024);
@@ -1263,27 +1232,6 @@ viaExaCheckComposite(int op, PicturePtr pSrcPicture,
 }
 
 static Bool
-viaIsAGP(VIAPtr pVia, PixmapPtr pPix, unsigned long *offset)
-{
-#if 0
-#ifdef XF86DRI
-    unsigned long offs;
-
-    if (pVia->directRenderingEnabled && !pVia->IsPCI) {
-        offs = ((unsigned long)pPix->devPrivate.ptr
-                - (unsigned long)pVia->agpMappedAddr);
-
-        if ((offs - pVia->scratchOffset) < pVia->agpSize) {
-            *offset = offs + pVia->agpAddr;
-            return TRUE;
-        }
-    }
-#endif
-#endif
-    return FALSE;
-}
-
-static Bool
 viaExaPrepareComposite(int op, PicturePtr pSrcPicture,
                        PicturePtr pMaskPicture, PicturePtr pDstPicture,
                        PixmapPtr pSrc, PixmapPtr pMask, PixmapPtr pDst)
@@ -1294,11 +1242,12 @@ viaExaPrepareComposite(int op, PicturePtr pSrcPicture,
     Via3DState *v3d = &pVia->v3d;
     int curTex = 0;
     ViaTexBlendingModes srcMode;
-    Bool isAGP;
-    unsigned long offset;
     CARD32 col;
+    struct _DriBufferObject *buf;
+    unsigned long delta;
 
-    v3d->setDestination(v3d, viaExaPixmapOffset(pDst),
+    delta = viaExaSuperPixmapOffset(pDst, &buf);
+    v3d->setDestination(v3d, buf, delta,
                         exaGetPixmapPitch(pDst), pDstPicture->format);
     v3d->setCompositeOperator(v3d, op);
     v3d->setDrawing(v3d, 0x0c, 0xFFFFFFFF, 0x000000FF, 0xFF);
@@ -1348,12 +1297,13 @@ viaExaPrepareComposite(int op, PicturePtr pSrcPicture,
     }
 
     if (!pVia->srcP) {
-        offset = viaExaPixmapOffset(pSrc);
-        isAGP = viaIsAGP(pVia, pSrc, &offset);
-        if (!v3d->setTexture(v3d, curTex, offset,
+
+	delta = viaExaSuperPixmapOffset(pSrc, &buf);
+	
+        if (!v3d->setTexture(v3d, buf, delta, curTex,
                              exaGetPixmapPitch(pSrc), pVia->nPOT[curTex],
                              1 << width, 1 << height, pSrcPicture->format,
-                             via_repeat, via_repeat, srcMode, isAGP)) {
+                             via_repeat, via_repeat, srcMode)) {
 	  
 #ifdef VIA_DEBUG_COMPOSITE
         ErrorF("Src setTexture\n");
@@ -1364,16 +1314,16 @@ viaExaPrepareComposite(int op, PicturePtr pSrcPicture,
     }
 
     if (pMaskPicture && !pVia->maskP) {
-        offset = viaExaPixmapOffset(pMask);
-        isAGP = viaIsAGP(pVia, pMask, &offset);
+	delta = viaExaSuperPixmapOffset(pMask, &buf);
+
         viaOrder(pMask->drawable.width, &width);
         viaOrder(pMask->drawable.height, &height);
-        if (!v3d->setTexture(v3d, curTex, offset,
+        if (!v3d->setTexture(v3d, buf, delta, curTex,
                              exaGetPixmapPitch(pMask), pVia->nPOT[curTex],
                              1 << width, 1 << height, pMaskPicture->format,
                              via_repeat, via_repeat,
                              ((pMaskPicture->componentAlpha)
-                              ? via_comp_mask : via_mask), isAGP)) {
+                              ? via_comp_mask : via_mask))) {
 #ifdef VIA_DEBUG_COMPOSITE
         ErrorF("Dst setTexture\n");
 #endif
@@ -1421,9 +1371,40 @@ static Bool
 viaExaPrepareAccess(PixmapPtr pPix, int index)
 {
     ScrnInfoPtr pScrn = xf86Screens[pPix->drawable.pScreen->myNum];
+    VIAPtr pVia = VIAPTR(pScrn);
+    struct _ViaOffscreenBuffer *buf;
+    uint32_t flags;
+    void *ptr;
+    void *virtual;
+
+    ptr = (void *) (exaGetPixmapOffset(pPix) + 
+		    (unsigned long) pVia->exaMem.virtual);
+
+    buf = viaInBuffer(&pVia->offscreen, ptr);
+    if (buf) {
+	flags = (index == EXA_PREPARE_DEST) ?
+	    DRM_BO_FLAG_WRITE : DRM_BO_FLAG_READ;
+	virtual = driBOMap(buf->buf, flags);
+    }
+    return TRUE;
+}
+
+static void
+viaExaFinishAccess(PixmapPtr pPix, int index)
+{
+    ScrnInfoPtr pScrn = xf86Screens[pPix->drawable.pScreen->myNum];
+    VIAPtr pVia = VIAPTR(pScrn);
+    struct _ViaOffscreenBuffer *buf;
+    void *ptr;
     
-    viaAccelSync(pScrn);
-    return GL_TRUE;
+    ptr = (void *) (exaGetPixmapOffset(pPix) + 
+		    (unsigned long) pVia->exaMem.virtual);
+
+    buf = viaInBuffer(&pVia->offscreen, ptr);
+
+    if (buf) {
+	(void) driBOUnmap(buf->buf);
+    }
 }
 
 
@@ -1450,8 +1431,8 @@ viaInitExa(ScreenPtr pScreen)
             (pVia->nPOT[1] ? 0 : EXA_OFFSCREEN_ALIGN_POT);
     pExa->maxX = 2047;
     pExa->maxY = 2047;
-    pExa->WaitMarker = viaAccelWaitMarker;
-    pExa->MarkSync = viaAccelMarkSync;
+    pExa->WaitMarker = viaExaWaitMarker;
+    pExa->MarkSync = viaExaMarkSync;
     pExa->PrepareSolid = viaExaPrepareSolid;
     pExa->Solid = viaExaSolid;
     pExa->DoneSolid = viaExaDoneSolidCopy;
@@ -1459,6 +1440,7 @@ viaInitExa(ScreenPtr pScreen)
     pExa->Copy = viaExaCopy;
     pExa->DoneCopy = viaExaDoneSolidCopy;
     pExa->PrepareAccess = viaExaPrepareAccess;
+    pExa->FinishAccess = viaExaFinishAccess;
     pExa->DownloadFromScreen = NULL;
     pExa->PixmapIsOffscreen = viaExaPixmapIsOffscreen;
 
@@ -1539,25 +1521,6 @@ viaInitAccel(ScreenPtr pScreen)
     WSDRILISTADDTAIL(&pVia->front.head, &pVia->offscreen);
     WSDRILISTADDTAIL(&pVia->exaMem.head, &pVia->offscreen);
 
-    /* Sync marker space. */
-    ret = driBOData(pVia->scanout.bufs[VIA_SCANOUT_SYNC],
-		    64, NULL, NULL, 0);
-    if (ret) {
-	goto out_err0;
-    }
-
-    pVia->markerBuf = (CARD32 *) driBOMap(pVia->scanout.bufs[VIA_SCANOUT_SYNC],
-					  WS_DRI_MAP_READ | WS_DRI_MAP_WRITE);
-    if (!pVia->markerBuf)
-	goto out_err1;
-
-    driBOUnmap(pVia->scanout.bufs[VIA_SCANOUT_SYNC]);
-    pVia->markerOffset = driBOOffset(pVia->scanout.bufs[VIA_SCANOUT_SYNC]);
-
-    *pVia->markerBuf = 0;
-    pVia->curMarker = 0;
-    pVia->lastMarkerRead = 0;
-
     /*
      * nPOT textures. DRM versions below 2.11.0 don't allow them.
      * Also some CLE266 hardware may not allow nPOT textures for 
@@ -1593,9 +1556,6 @@ viaInitAccel(ScreenPtr pScreen)
 	       "[EXA] Trying to enable EXA acceleration.\n");
     
     return TRUE;
- out_err1:
-    (void) driBOData(pVia->scanout.bufs[VIA_SCANOUT_SYNC],
-		     0, NULL, NULL, 0);
  out_err0:
 
     driDeleteBuffers(1, &pVia->exaMem.buf);
@@ -1692,7 +1652,6 @@ viaAccelBlitRect(ScrnInfoPtr pScrn, int srcx, int srcy, int w, int h,
         viaAccelCopyHelper(cb, srcx, srcy, dstx, dsty, w, h,
 			   buf, delta, tdc->bpp,
 			   tdc->mode, pVia->Bpl, pVia->Bpl, cmd);
-        pVia->accelMarker = viaAccelMarkSync(pScrn->pScreen);
 	FLUSH_RING;
     }
 }
@@ -1724,7 +1683,6 @@ viaAccelFillRect(ScrnInfoPtr pScrn, int x, int y, int w, int h,
 			    tdc->mode,
 			    pVia->Bpl, 
 			    color, cmd);
-        pVia->accelMarker = viaAccelMarkSync(pScrn->pScreen);
 	FLUSH_RING;
     }
 }
@@ -1750,7 +1708,6 @@ viaAccelFillPixmap(ScrnInfoPtr pScrn,
         viaAccelTransparentHelper(tdc, cb, 0x0, 0x0, FALSE);
 	viaAccelSolidPixmapHelper(cb, x, y, w, h, pPix, tdc->mode,
 				  pitch, color, cmd);
-        pVia->accelMarker = viaAccelMarkSync(pScrn->pScreen);
         ADVANCE_RING;
 	FLUSH_RING;
     }
@@ -1759,32 +1716,6 @@ viaAccelFillPixmap(ScrnInfoPtr pScrn,
 void
 viaAccelSyncMarker(ScrnInfoPtr pScrn)
 {
-    VIAPtr pVia = VIAPTR(pScrn);
-
-    viaAccelWaitMarker(pScrn->pScreen, pVia->accelMarker);
+    viaAccelSync(pScrn);
 }
 
-void
-viaAccelTextureBlit(ScrnInfoPtr pScrn, unsigned long srcOffset,
-                    unsigned srcPitch, unsigned w, unsigned h, unsigned srcX,
-                    unsigned srcY, unsigned srcFormat, unsigned long dstOffset,
-                    unsigned dstPitch, unsigned dstX, unsigned dstY,
-                    unsigned dstFormat, int rotate)
-{
-    VIAPtr pVia = VIAPTR(pScrn);
-    CARD32 wOrder, hOrder;
-    Via3DState *v3d = &pVia->v3d;
-
-    viaOrder(w, &wOrder);
-    viaOrder(h, &hOrder);
-
-    v3d->setDestination(v3d, dstOffset, dstPitch, dstFormat);
-    v3d->setDrawing(v3d, 0x0c, 0xFFFFFFFF, 0x000000FF, 0x00);
-    v3d->setFlags(v3d, 1, TRUE, TRUE, FALSE);
-    v3d->setTexture(v3d, 0, srcOffset, srcPitch, TRUE,
-                    1 << wOrder, 1 << hOrder, srcFormat,
-                    via_single, via_single, via_src, FALSE);
-    v3d->emitState(v3d, &pVia->cb, viaCheckUpload(pScrn, v3d));
-    v3d->emitClipRect(v3d, &pVia->cb, dstX, dstY, w, h);
-    v3d->emitQuad(v3d, &pVia->cb, dstX, dstY, srcX, srcY, 0, 0, w, h);
-}

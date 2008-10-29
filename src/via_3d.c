@@ -21,9 +21,10 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include <picturestr.h>
 #include "via_3d.h"
 #include "via_3d_reg.h"
-#include <picturestr.h>
+#include "via_drm.h"
 
 typedef struct
 {
@@ -126,11 +127,13 @@ via3DTexSupported(int format)
 }
 
 static void
-viaSet3DDestination(Via3DState * v3d, CARD32 offset, CARD32 pitch, int format)
+viaSet3DDestination(Via3DState * v3d, struct _DriBufferObject *destBuf,
+		    CARD32 destDelta, CARD32 pitch, int format)
 {
     v3d->drawingDirty = TRUE;  /* Affects planemask format. */
     v3d->destDirty = TRUE;
-    v3d->destOffset = offset;
+    v3d->destBuf = destBuf;
+    v3d->destDelta = destDelta;
     v3d->destPitch = pitch;
     v3d->destFormat = via3DDstFormat(format);
     v3d->destDepth = (v3d->destFormat < HC_HDBFM_ARGB0888) ? 16 : 32;
@@ -170,14 +173,16 @@ viaOrder(CARD32 val, CARD32 * shift)
 }
 
 static Bool
-viaSet3DTexture(Via3DState * v3d, int tex, CARD32 offset,
+viaSet3DTexture(Via3DState * v3d, struct _DriBufferObject *buf,
+		CARD32 delta, int tex, 
                 CARD32 pitch, Bool npot, CARD32 width, CARD32 height,
                 int format, ViaTextureModes sMode, ViaTextureModes tMode,
-                ViaTexBlendingModes blendingMode, Bool agpTexture)
+                ViaTexBlendingModes blendingMode)
 {
     ViaTextureUnit *vTex = v3d->tex + tex;
 
-    vTex->textureLevel0Offset = offset;
+    vTex->list.buf = buf;
+    vTex->list.delta = delta;
     vTex->npot = npot;
     if (!viaOrder(pitch, &vTex->textureLevel0Exp) && !vTex->npot)
         return FALSE;
@@ -237,7 +242,6 @@ viaSet3DTexture(Via3DState * v3d, int tex, CARD32 offset,
     vTex->textureModesS = sMode - via_single;
     vTex->textureModesT = tMode - via_single;
 
-    vTex->agpTexture = agpTexture;
     return TRUE;
 }
 
@@ -396,6 +400,7 @@ via3DEmitState(Via3DState * v3d, ViaCommandBuffer * cb, Bool forceUpload)
     int i;
     Bool saveHas3dState;
     ViaTextureUnit *vTex;
+    int ret;
 
     /*
      * Destination buffer location, format and pitch.
@@ -404,9 +409,10 @@ via3DEmitState(Via3DState * v3d, ViaCommandBuffer * cb, Bool forceUpload)
     if (forceUpload || v3d->destDirty) {
         v3d->destDirty = FALSE;
         BEGIN_H2(HC_ParaType_NotTex, 3);
-
-        OUT_RING_SubA(HC_SubA_HDBBasL, v3d->destOffset & 0x00FFFFFF);
-        OUT_RING_SubA(HC_SubA_HDBBasH, v3d->destOffset >> 24);
+	ret = ochr_dest_relocation(cb, v3d->destBuf, 
+				   v3d->destDelta,
+				   DRM_BO_FLAG_MEM_VRAM,
+				   DRM_BO_MASK_MEM);
         OUT_RING_SubA(HC_SubA_HDBFM, v3d->destFormat |
                       (v3d->destPitch & HC_HDBPit_MASK) | HC_HDBLoc_Local);
 	ADVANCE_RING;
@@ -493,20 +499,23 @@ via3DEmitState(Via3DState * v3d, ViaCommandBuffer * cb, Bool forceUpload)
         vTex = v3d->tex + i;
 
         if (forceUpload || vTex->textureDirty) {
+	    CARD32 regTexFM;
+
             vTex->textureDirty = FALSE;
 
             BEGIN_H2((HC_ParaType_Tex |
                       (((i == 0) ? HC_SubType_Tex0 : HC_SubType_Tex1) << 8)),
                      14);
 
-            OUT_RING_SubA(HC_SubA_HTXnFM, (vTex->textureFormat |
-                                           (vTex->
-                                            agpTexture ? HC_HTXnLoc_AGP :
-                                            HC_HTXnLoc_Local)));
-            OUT_RING_SubA(HC_SubA_HTXnL0BasL,
-                          vTex->textureLevel0Offset & 0x00FFFFFF);
-            OUT_RING_SubA(HC_SubA_HTXnL012BasH,
-                          vTex->textureLevel0Offset >> 24);
+	    regTexFM = (HC_SubA_HTXnFM << HC_SubA_SHIFT) | 
+		vTex->textureFormat;
+	    
+	    ret = ochr_tex_relocation(cb, &vTex->list, 0, 0, regTexFM,
+				      DRM_BO_FLAG_MEM_VRAM |
+				      DRM_BO_FLAG_MEM_TT |
+				      VIA_BO_FLAG_MEM_AGP,
+				      DRM_BO_MASK_MEM);
+	    
             if (vTex->npot) {
                 OUT_RING_SubA(HC_SubA_HTXnL0Pit,
                               (vTex->textureLevel0Pitch & HC_HTXnLnPit_MASK) |

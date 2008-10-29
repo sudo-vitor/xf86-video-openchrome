@@ -26,6 +26,9 @@
 
 #include "xf86.h"
 #include "via_dmabuffer.h"
+#include "ochr_ioctl.h"
+
+#include <ws_dri_bufmgr.h>
 
 #define VIA_NUM_TEXUNITS 2
 
@@ -49,7 +52,7 @@ typedef enum
 
 typedef struct _ViaTextureUnit
 {
-    CARD32 textureLevel0Offset;
+    struct via_reloc_texlist list;
     CARD32 textureLevel0Pitch;
     CARD32 textureLevel0Exp;
     CARD32 textureLevel0WExp;
@@ -61,7 +64,6 @@ typedef struct _ViaTextureUnit
     CARD32 texRCa;
     CARD32 texAsat;
     CARD32 texRAa;
-    Bool agpTexture;
     Bool textureDirty;
     Bool texBColDirty;
     Bool npot;
@@ -77,7 +79,8 @@ typedef struct _Via3DState
     CARD32 planeMask;
     CARD32 solidColor;
     CARD32 solidAlpha;
-    CARD32 destOffset;
+    struct _DriBufferObject *destBuf;
+    CARD32 destDelta;
     CARD32 destPitch;
     CARD32 destFormat;
     int destDepth;
@@ -91,16 +94,21 @@ typedef struct _Via3DState
     Bool writeColor;
     Bool useDestAlpha;
     ViaTextureUnit tex[VIA_NUM_TEXUNITS];
-    void (*setDestination) (struct _Via3DState * v3d, CARD32 offset,
-	CARD32 pitch, int format);
+    void (*setDestination) (struct _Via3DState * v3d, 
+			    struct _DriBufferObject *destBuf,
+			    CARD32 delta,
+			    CARD32 pitch, int format);
     void (*setDrawing) (struct _Via3DState * v3d, int rop,
 	CARD32 planeMask, CARD32 solidColor, CARD32 solidAlpha);
     void (*setFlags) (struct _Via3DState * v3d, int numTextures,
 	Bool writeAlpha, Bool writeColor, Bool blend);
-        Bool(*setTexture) (struct _Via3DState * v3d, int tex, CARD32 offset,
-	CARD32 pitch, Bool nPot, CARD32 width, CARD32 height, int format,
-	ViaTextureModes sMode, ViaTextureModes tMode,
-	ViaTexBlendingModes blendingMode, Bool agpTexture);
+        Bool(*setTexture) (struct _Via3DState * v3d, 
+			   struct _DriBufferObject *buf, 
+			   CARD32 delta, int tex,
+			   CARD32 pitch, Bool nPot, CARD32 width, 
+			   CARD32 height, int format,
+			   ViaTextureModes sMode, ViaTextureModes tMode,
+			   ViaTexBlendingModes blendingMode);
     void (*setTexBlendCol) (struct _Via3DState * v3d, int tex, Bool component,
 	CARD32 color);
     void (*setCompositeOperator) (struct _Via3DState * v3d, CARD8 op);

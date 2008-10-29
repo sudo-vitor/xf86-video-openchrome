@@ -83,7 +83,6 @@
 #include "exa.h"
 #define VIA_AGP_UPL_SIZE    (1024*128)
 #define VIA_DMA_DL_SIZE     (1024*128)
-#define VIA_SCRATCH_SIZE    (4*1024*1024)
 
 /*
  * Pixmap sizes below which we don't try to do hw accel.
@@ -225,7 +224,6 @@ enum _ViaScanoutTypes {
     VIA_SCANOUT_DISPLAY,
     VIA_SCANOUT_CURSOR,
     VIA_SCANOUT_OVERLAY,
-    VIA_SCANOUT_SYNC,
     VIA_SCANOUT_NUM
 };
 
@@ -300,11 +298,6 @@ typedef struct _VIA {
     Via3DState          v3d;
     Via3DState          *lastToUpload;
     ViaCommandBuffer    cb;
-    int                 accelMarker;
-    CARD32              markerOffset;
-    CARD32             *markerBuf;
-    CARD32              curMarker;
-    CARD32              lastMarkerRead;
     Bool                agpDMA;
     Bool                nPOT[VIA_NUM_TEXUNITS];
 

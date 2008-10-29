@@ -1,10 +1,9 @@
-
 #include <errno.h>
-
 #include "ochr_ioctl.h"
 #include "via_dmabuffer.h"
 #include "via_drm.h"
 #include "ochr_ws_driver.h"
+
 
 struct via_reloc_bufinfo
 {
@@ -250,9 +249,6 @@ ochr_2d_relocation(struct _ViaCommandBuffer *cBuf,
 
     fake.po_correct = 0;
     fake.offset = val_req->presumed_gpu_offset;
-    if (fake.offset == 0) {
-	ErrorF("Warning! Offset was 0\n");
-    }
     reloc.type = VIA_RELOC_2D;
     reloc.offset = 1;
     reloc.addr.index = 0;
@@ -270,4 +266,271 @@ ochr_2d_relocation(struct _ViaCommandBuffer *cBuf,
     assert(ret == 0);
 
     return ochr_add_reloc(cBuf->reloc_info, &reloc, sizeof(reloc));
+}
+
+static int
+ochr_apply_texture_reloc(uint32_t ** cmdbuf,
+			uint32_t num_buffers,
+			struct via_validate_buffer *buffers,
+			const struct via_texture_reloc *reloc)
+{
+    const struct via_reloc_bufaddr *baddr = reloc->addr;
+    uint32_t baseh[4];
+    uint32_t *buf = *cmdbuf + reloc->offset;
+    uint32_t val;
+    int i;
+    int basereg;
+    int shift;
+    uint64_t flags = 0;
+    uint32_t reg_tex_fm;
+
+    memset(baseh, 0, sizeof(baseh));
+
+    for (i = 0; i <= (reloc->hi_mip - reloc->low_mip); ++i) {
+	if (baddr->index > num_buffers) {
+	    *cmdbuf = buf;
+	    return -EINVAL;
+	}
+
+	val = buffers[baddr->index].offset + baddr->delta;
+	if (i == 0) 
+	    flags = buffers[baddr->index].flags;
+
+	*buf++ = ((HC_SubA_HTXnL0BasL + i) << 24) | (val & 0x00FFFFFF);
+	basereg = i / 3;
+	shift = (3 - (i % 3)) << 3;
+
+	baseh[basereg] |= (val & 0xFF000000) >> shift;
+	baddr++;
+    }
+
+    if (reloc->low_mip < 3)
+	*buf++ = baseh[0] | (HC_SubA_HTXnL012BasH << 24);
+    if (reloc->low_mip < 6 && reloc->hi_mip > 2)
+	*buf++ = baseh[1] | (HC_SubA_HTXnL345BasH << 24);
+    if (reloc->low_mip < 9 && reloc->hi_mip > 5)
+	*buf++ = baseh[2] | (HC_SubA_HTXnL678BasH << 24);
+    if (reloc->hi_mip > 8)
+	*buf++ = baseh[3] | (HC_SubA_HTXnL9abBasH << 24);
+
+    reg_tex_fm = reloc->reg_tex_fm & ~HC_HTXnLoc_MASK;
+
+    if (flags & DRM_BO_FLAG_MEM_VRAM) {
+	reg_tex_fm |=  HC_HTXnLoc_Local;
+    } else if (flags & (DRM_BO_FLAG_MEM_TT | VIA_BO_FLAG_MEM_AGP)) {
+	reg_tex_fm |=  HC_HTXnLoc_AGP;
+    } else
+	abort();
+
+    *buf++ = reg_tex_fm;
+    *cmdbuf = buf;
+
+    return 0;
+}
+
+int
+ochr_tex_relocation(struct _ViaCommandBuffer *cBuf,
+		    const struct via_reloc_texlist *addr,
+		    uint32_t low_mip,
+		    uint32_t hi_mip,
+		    uint32_t reg_tex_fm, uint64_t flags, uint64_t mask)
+{
+    struct via_texture_reloc reloc;
+    struct via_validate_buffer fake[12];
+    struct via_reloc_bufaddr fake_addr[12];
+    struct via_reloc_bufaddr real_addr[12];
+    int itemLoc;
+    struct _ValidateNode *node;
+    struct via_validate_req *val_req;
+    int ret;
+    uint32_t tmp;
+    int i;
+    int count = 0;
+    size_t size;
+    uint32_t *cmdBuf = (uint32_t *) cBuf->buf + cBuf->pos;
+
+
+    driReadLockKernelBO();
+    for (i = 0; i <= (hi_mip - low_mip); ++i) {
+	ret = driBOAddListItem(cBuf->validate_list, addr[i].buf,
+			       flags, mask, &itemLoc, &node);
+	if (ret)
+		return ret;
+
+	val_req = ochrValReq(node);
+
+	if (!(val_req->presumed_flags & VIA_USE_PRESUMED)) {
+	    val_req->presumed_gpu_offset = (uint64_t) driBOOffset(addr[i].buf);
+	    val_req->presumed_flags |= VIA_USE_PRESUMED;
+	}
+
+	fake[count].po_correct = 0;
+	fake[count].offset = val_req->presumed_gpu_offset;
+	fake[count].flags = driBOFlags(addr[i].buf);
+	real_addr[count].index = itemLoc;
+	real_addr[count].delta = addr[i].delta;
+	fake_addr[count].index = count;
+	fake_addr[count].delta = addr[i].delta;
+	count++;
+    }
+    driReadUnlockKernelBO();
+
+    reloc.type = VIA_RELOC_TEX;
+    reloc.offset = 0;
+    reloc.low_mip = low_mip;
+    reloc.hi_mip = hi_mip;
+    reloc.reg_tex_fm = reg_tex_fm;
+    memcpy(reloc.addr, fake_addr, count * sizeof(struct via_reloc_bufaddr));
+    tmp = cBuf->pos;
+
+    ret = ochr_apply_texture_reloc(&cmdBuf, count, fake, &reloc);
+    cBuf->pos = cmdBuf - (uint32_t *)cBuf->buf;
+
+    memcpy(reloc.addr, real_addr, count * sizeof(struct via_reloc_bufaddr));
+    reloc.offset = tmp;
+
+    size = offsetof(struct via_texture_reloc, addr) -
+	offsetof(struct via_texture_reloc, type) +
+	count * sizeof(struct via_reloc_bufaddr);
+
+    assert(ret == 0);
+
+    return ochr_add_reloc(cBuf->reloc_info, &reloc, size);
+}
+
+
+static int
+ochr_apply_dest_reloc(uint32_t ** cmdbuf,
+		      uint32_t num_buffers,
+		      struct via_validate_buffer *buffers,
+		      const struct via_zbuf_reloc *reloc)
+{
+    uint32_t *buf = *cmdbuf + reloc->offset;
+    const struct via_reloc_bufaddr *baddr = &reloc->addr;
+    const struct via_validate_buffer *val_buf;
+    uint32_t val;
+
+    if (baddr->index > num_buffers)
+	return -EINVAL;
+
+    val_buf = &buffers[baddr->index];
+    if (val_buf->po_correct)
+	return 0;
+
+    val = val_buf->offset + baddr->delta;
+    *buf++ = (HC_SubA_HDBBasL << 24) | (val & 0xFFFFFF);
+    *buf++ = (HC_SubA_HDBBasH << 24) | ((val & 0xFF000000) >> 24);
+
+    *cmdbuf = buf;
+    return 0;
+}
+
+
+int
+ochr_dest_relocation(struct _ViaCommandBuffer *cBuf,
+		     struct _DriBufferObject *dstBuffer,
+		     uint32_t delta,
+		     uint64_t flags, uint64_t mask)
+{
+    struct via_zbuf_reloc reloc;
+    struct via_validate_buffer fake;
+    int itemLoc;
+    struct _ValidateNode *node;
+    struct via_validate_req *val_req;
+    int ret;
+    uint32_t tmp;
+    uint32_t *cmdbuf = (uint32_t *)cBuf->buf + cBuf->pos;
+
+    ret = driBOAddListItem(cBuf->validate_list, dstBuffer,
+			   flags, mask, &itemLoc, &node);
+    if (ret)
+	return ret;
+
+    val_req = ochrValReq(node);
+
+    if (!(val_req->presumed_flags & VIA_USE_PRESUMED)) {
+	driReadLockKernelBO();
+	val_req->presumed_gpu_offset = (uint64_t) driBOOffset(dstBuffer);
+	driReadUnlockKernelBO();
+	val_req->presumed_flags |= VIA_USE_PRESUMED;
+    }
+
+    fake.po_correct = 0;
+    fake.offset = val_req->presumed_gpu_offset;
+
+    reloc.type = VIA_RELOC_DSTBUF;
+    reloc.offset = 0;
+    reloc.addr.index = 0;
+    reloc.addr.delta = delta;
+
+    tmp = cBuf->pos;
+    (void) ochr_apply_dest_reloc(&cmdbuf, 1, &fake, &reloc);
+
+    reloc.addr.index = itemLoc;
+    reloc.offset = tmp;
+    cBuf->pos = cmdbuf - (uint32_t *)cBuf->buf;
+
+    return ochr_add_reloc(cBuf->reloc_info, &reloc, sizeof(reloc));
+}
+
+
+int ochr_execbuf(int fd, struct _ViaCommandBuffer *cBuf)
+{
+    union via_ttm_execbuf_arg arg;
+    struct via_ttm_execbuf_req *exec_req = &arg.req;
+    struct _ValidateList *valList;
+    struct _ValidateNode *node;
+    struct _ViaDrmValidateNode *viaNode;
+    struct via_validate_arg *val_arg;
+    struct via_validate_req *req;
+    uint64_t first = 0ULL;
+    uint64_t *prevNext = NULL;
+    void *iterator;
+    uint32_t count = 0;
+    int ret;
+    
+    /*
+     * Build the validate list chain.
+     */
+
+    valList = driGetDRMValidateList(cBuf->validate_list);
+    iterator = validateListIterator(valList);
+
+    while (iterator) {
+	node = validateListNode(iterator);
+	viaNode = containerOf(node, struct _ViaDrmValidateNode, base);
+	val_arg = &viaNode->val_arg;
+	req = &val_arg->d.req;
+
+	if (!first) 
+	    first = (uint64_t) (unsigned long) val_arg;
+	if (prevNext)
+	    *prevNext = (uint64_t) (unsigned long) val_arg;
+	prevNext = &req->next;
+	
+	req->buffer_handle = *(uint32_t *)node->buf;
+	req->group = 0;
+
+	iterator = validateListNext(valList, iterator);
+	++count;
+    }
+
+    exec_req->buffer_list = first;
+    exec_req->num_buffers = count;
+    exec_req->reloc_list = (uint64_t) (unsigned long) 
+	cBuf->reloc_info->first_header;
+    exec_req->cmd_buffer = (uint64_t) (unsigned long) 
+	cBuf->buf;
+    exec_req->cmd_buffer_size = cBuf->pos << 2;
+    exec_req->engine = 0;
+    exec_req->exec_flags = 0x00000000;
+    exec_req->cliprect_offset = 0;
+
+    do {
+	ret = drmCommandWriteRead(fd, DRM_VIA_TTM_EXECBUF, 
+				  &arg, sizeof(arg));
+    }while(ret == EAGAIN || ret == EINTR);
+    
+
+    return 0;
 }
