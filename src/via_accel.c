@@ -33,6 +33,7 @@
 #include "config.h"
 #endif
 
+
 #include <X11/Xarch.h>
 #include "xaalocal.h"
 #include "xaarop.h"
@@ -51,6 +52,8 @@
 #define VIAACCELPATTERNROP(vRop) (XAAPatternROP[vRop] << 24)
 #define VIAACCELCOPYROP(vRop) (XAACopyROP[vRop] << 24)
 #endif
+
+#undef VIA_DEBUG_COMPOSITE
 
 /*
  * Use PCI MMIO to flush the command buffer when AGP DMA is not available.
@@ -466,6 +469,7 @@ viaAccelClippingHelper(ViaCommandBuffer * cb, int refY, ViaTwodContext * tdc)
         BEGIN_RING(4);
         OUT_RING_H1(VIA_REG_CLIPTL, ((tdc->clipY1 - refY) << 16) | tdc->clipX1);
         OUT_RING_H1(VIA_REG_CLIPBR, ((tdc->clipY2 - refY) << 16) | tdc->clipX2);
+	ADVANCE_RING;
     } else {
         tdc->cmd &= ~VIA_GEC_CLIP_ENABLE;
     }
@@ -488,6 +492,7 @@ viaAccelSolidHelper(ViaCommandBuffer * cb, int x, int y, int w, int h,
     OUT_RING_H1(VIA_REG_DIMENSION, ((h - 1) << 16) | (w - 1));
     OUT_RING_H1(VIA_REG_FGCOLOR, fg);
     OUT_RING_H1(VIA_REG_GECMD, cmd);
+    ADVANCE_RING;
 }
 
 /*
@@ -544,6 +549,7 @@ viaAccelTransparentHelper(ViaTwodContext * tdc, ViaCommandBuffer * cb,
     if (keyControl) {
         OUT_RING_H1(VIA_REG_SRCCOLORKEY, transColor);
     }
+    ADVANCE_RING_VARIABLE;
 }
 
 /*
@@ -575,6 +581,7 @@ viaAccelCopyHelper(ViaCommandBuffer * cb, int xs, int ys, int xd, int yd,
     OUT_RING_H1(VIA_REG_DSTPOS, (yd << 16) | (xd & 0xFFFF));
     OUT_RING_H1(VIA_REG_DIMENSION, ((h - 1) << 16) | (w - 1));
     OUT_RING_H1(VIA_REG_GECMD, cmd);
+    ADVANCE_RING;
 }
 
 /*
@@ -625,6 +632,7 @@ viaSubsequentScreenToScreenCopy(ScrnInfoPtr pScrn, int x1, int y1,
                        pScrn->fbOffset + pVia->Bpl * sub,
                        tdc->mode, pVia->Bpl, pVia->Bpl, tdc->cmd);
     ADVANCE_RING;
+    FLUSH_RING;
 }
 
 /*
@@ -660,6 +668,7 @@ viaSubsequentSolidFillRect(ScrnInfoPtr pScrn, int x, int y, int w, int h)
                         pScrn->fbOffset + pVia->Bpl * sub, tdc->mode, pVia->Bpl,
                         tdc->fgColor, tdc->cmd);
     ADVANCE_RING;
+    FLUSH_RING;
 }
 
 /*
@@ -731,6 +740,7 @@ viaSubsequentMono8x8PatternFillRect(ScrnInfoPtr pScrn, int patOffx,
     OUT_RING_H1(VIA_REG_MONOPAT1, tdc->pattern1);
     OUT_RING_H1(VIA_REG_GECMD, tdc->cmd);
     ADVANCE_RING;
+    FLUSH_RING;
 }
 
 static void
@@ -777,6 +787,7 @@ viaSubsequentColor8x8PatternFillRect(ScrnInfoPtr pScrn, int patOffx,
     OUT_RING_H1(VIA_REG_PATADDR, patAddr);
     OUT_RING_H1(VIA_REG_GECMD, tdc->cmd);
     ADVANCE_RING;
+    FLUSH_RING;
 }
 
 /*
@@ -808,6 +819,7 @@ viaSetupForCPUToScreenColorExpandFill(ScrnInfoPtr pScrn, int fg, int bg,
     tdc->bgColor = bg;
 
     ADVANCE_RING;
+    FLUSH_RING;
 
     viaAccelTransparentHelper(tdc, cb, 0x0, 0x0, FALSE);
 }
@@ -832,6 +844,7 @@ viaSubsequentScanlineCPUToScreenColorExpandFill(ScrnInfoPtr pScrn, int x,
     BEGIN_RING(4);
     OUT_RING_H1(VIA_REG_BGCOLOR, tdc->bgColor);
     OUT_RING_H1(VIA_REG_FGCOLOR, tdc->fgColor);
+    ADVANCE_RING;
     viaAccelCopyHelper(cb, 0, 0, x, y - sub, w, h, 0,
                        pScrn->fbOffset + sub * pVia->Bpl, tdc->mode,
                        pVia->Bpl, pVia->Bpl, tdc->cmd);
@@ -851,6 +864,7 @@ viaSetupForImageWrite(ScrnInfoPtr pScrn, int rop, unsigned planemask,
 
     tdc->cmd = VIA_GEC_BLT | VIA_GEC_SRC_SYS | VIAACCELCOPYROP(rop);
     ADVANCE_RING;
+    FLUSH_RING;
     viaAccelTransparentHelper(tdc, cb, (trans_color != -1) ? 0x4000 : 0x0000,
                               trans_color, FALSE);
 }
@@ -897,6 +911,7 @@ viaSetupForSolidLine(ScrnInfoPtr pScrn, int color, int rop,
     OUT_RING_H1(VIA_REG_GEMODE, tdc->mode);
     OUT_RING_H1(VIA_REG_MONOPAT0, 0xFF);
     OUT_RING_H1(VIA_REG_FGCOLOR, tdc->fgColor);
+    ADVANCE_RING;
 }
 
 static void
@@ -961,6 +976,7 @@ viaSubsequentSolidTwoPointLine(ScrnInfoPtr pScrn, int x1, int y1,
                 ((tdc->dashed) ? 0xFF0000 : 0));
     OUT_RING_H1(VIA_REG_GECMD, cmd);
     ADVANCE_RING;
+    FLUSH_RING;
 }
 
 static void
@@ -990,6 +1006,7 @@ viaSubsequentSolidHorVertLine(ScrnInfoPtr pScrn, int x, int y, int len, int dir)
         OUT_RING_H1(VIA_REG_GECMD, tdc->cmd | VIA_GEC_BLT);
     }
     ADVANCE_RING;
+    FLUSH_RING;
 }
 
 static void
@@ -1034,6 +1051,7 @@ viaSetupForDashedLine(ScrnInfoPtr pScrn, int fg, int bg, int rop,
     OUT_RING_H1(VIA_REG_FGCOLOR, tdc->fgColor);
     OUT_RING_H1(VIA_REG_BGCOLOR, tdc->bgColor);
     OUT_RING_H1(VIA_REG_MONOPAT0, tdc->pattern0);
+    ADVANCE_RING;
 }
 
 static void
@@ -1173,10 +1191,11 @@ viaAccelMarkSync(ScreenPtr pScreen)
     if (pVia->agpDMA) {
         BEGIN_RING(2);
         OUT_RING_H1(VIA_REG_KEYCONTROL, 0x00);
+        ADVANCE_RING;
         viaAccelSolidHelper(cb, 0, 0, 1, 1, pVia->markerOffset,
                             VIA_GEM_32bpp, 4, pVia->curMarker,
                             (0xF0 << 24) | VIA_GEC_BLT | VIA_GEC_FIXCOLOR_PAT);
-        ADVANCE_RING;
+	FLUSH_RING;
     }
     return pVia->curMarker;
 }
@@ -1236,22 +1255,24 @@ viaExaSolid(PixmapPtr pPixmap, int x1, int y1, int x2, int y2)
     VIAPtr pVia = VIAPTR(pScrn);
     ViaTwodContext *tdc = &pVia->td;
     CARD32 dstPitch, dstOffset;
-
-    RING_VARS;
-
     int w = x2 - x1, h = y2 - y1;
+    RING_VARS;
 
     dstPitch = exaGetPixmapPitch(pPixmap);
     dstOffset = exaGetPixmapOffset(pPixmap);
 
     viaAccelSolidHelper(cb, x1, y1, w, h, dstOffset,
                         tdc->mode, dstPitch, tdc->fgColor, tdc->cmd);
-    ADVANCE_RING;
 }
 
 static void
 viaExaDoneSolidCopy(PixmapPtr pPixmap)
 {
+    ScrnInfoPtr pScrn = xf86Screens[pPixmap->drawable.pScreen->myNum];
+    VIAPtr pVia = VIAPTR(pScrn);
+    RING_VARS;
+
+    FLUSH_RING;
 }
 
 static Bool
@@ -1300,7 +1321,6 @@ viaExaCopy(PixmapPtr pDstPixmap, int srcX, int srcY, int dstX, int dstY,
     ViaTwodContext *tdc = &pVia->td;
     CARD32 srcOffset = tdc->srcOffset;
     CARD32 dstOffset = exaGetPixmapOffset(pDstPixmap);
-
     RING_VARS;
 
     if (!width || !height)
@@ -1309,7 +1329,6 @@ viaExaCopy(PixmapPtr pDstPixmap, int srcX, int srcY, int dstX, int dstY,
     viaAccelCopyHelper(cb, srcX, srcY, dstX, dstY, width, height,
                        srcOffset, dstOffset, tdc->mode, tdc->srcPitch,
                        exaGetPixmapPitch(pDstPixmap), tdc->cmd);
-    ADVANCE_RING;
 }
 
 #ifdef VIA_DEBUG_COMPOSITE
@@ -1894,18 +1913,28 @@ viaExaCheckComposite(int op, PicturePtr pSrcPicture,
     /* Reject small composites early. They are done much faster in software. */
     if (!pSrcPicture->repeat &&
         pSrcPicture->pDrawable->width *
-        pSrcPicture->pDrawable->height < VIA_MIN_COMPOSITE)
+        pSrcPicture->pDrawable->height < VIA_MIN_COMPOSITE) {
+#ifdef VIA_DEBUG_COMPOSITE
+        ErrorF("Size.\n");
+#endif
         return FALSE;
-
+    }
     if (pMaskPicture &&
         !pMaskPicture->repeat &&
         pMaskPicture->pDrawable->width *
-        pMaskPicture->pDrawable->height < VIA_MIN_COMPOSITE)
+        pMaskPicture->pDrawable->height < VIA_MIN_COMPOSITE) {
+#ifdef VIA_DEBUG_COMPOSITE
+        ErrorF("Size.\n");
+#endif
         return FALSE;
-
+    }
     if (pSrcPicture->transform ||
-	(pMaskPicture && pMaskPicture->transform))
+	(pMaskPicture && pMaskPicture->transform)) {
+#ifdef VIA_DEBUG_COMPOSITE
+        ErrorF("Tranform\n");
+#endif
 	return FALSE;
+    }
 
     if (pMaskPicture && pMaskPicture->componentAlpha) {
 #ifdef VIA_DEBUG_COMPOSITE
@@ -1995,6 +2024,7 @@ viaExaPrepareComposite(int op, PicturePtr pSrcPicture,
     ViaTexBlendingModes srcMode;
     Bool isAGP;
     unsigned long offset;
+    CARD32 col;
 
     v3d->setDestination(v3d, exaGetPixmapOffset(pDst),
                         exaGetPixmapPitch(pDst), pDstPicture->format);
@@ -2054,6 +2084,10 @@ viaExaPrepareComposite(int op, PicturePtr pSrcPicture,
                              exaGetPixmapPitch(pSrc), pVia->nPOT[curTex],
                              1 << width, 1 << height, pSrcPicture->format,
                              via_repeat, via_repeat, srcMode, isAGP)) {
+	  
+#ifdef VIA_DEBUG_COMPOSITE
+        ErrorF("Src setTexture\n");
+#endif
             return FALSE;
         }
         curTex++;
@@ -2072,12 +2106,23 @@ viaExaPrepareComposite(int op, PicturePtr pSrcPicture,
                              via_repeat, via_repeat,
                              ((pMaskPicture->componentAlpha)
                               ? via_comp_mask : via_mask), isAGP)) {
+#ifdef VIA_DEBUG_COMPOSITE
+        ErrorF("Dst setTexture\n");
+#endif
             return FALSE;
         }
         curTex++;
     }
 
     v3d->setFlags(v3d, curTex, FALSE, TRUE, TRUE);
+    if (pVia->maskP) {
+        viaPixelARGB8888(pVia->maskFormat, pVia->maskP, &col);
+        v3d->setTexBlendCol(v3d, 0, pVia->componentAlpha, col);
+    }
+    if (pVia->srcP) {
+        viaPixelARGB8888(pVia->srcFormat, pVia->srcP, &col);
+        v3d->setDrawing(v3d, 0x0c, 0xFFFFFFFF, col & 0x00FFFFFF, col >> 24);
+    }
     v3d->emitState(v3d, &pVia->cb, viaCheckUpload(pScrn, v3d));
     v3d->emitClipRect(v3d, &pVia->cb, 0, 0, pDst->drawable.width,
                       pDst->drawable.height);
@@ -2092,27 +2137,29 @@ viaExaComposite(PixmapPtr pDst, int srcX, int srcY, int maskX, int maskY,
     ScrnInfoPtr pScrn = xf86Screens[pDst->drawable.pScreen->myNum];
     VIAPtr pVia = VIAPTR(pScrn);
     Via3DState *v3d = &pVia->v3d;
-    CARD32 col;
-
-    if (pVia->maskP) {
-        viaPixelARGB8888(pVia->maskFormat, pVia->maskP, &col);
-        v3d->setTexBlendCol(v3d, 0, pVia->componentAlpha, col);
-    }
-    if (pVia->srcP) {
-        viaPixelARGB8888(pVia->srcFormat, pVia->srcP, &col);
-        v3d->setDrawing(v3d, 0x0c, 0xFFFFFFFF, col & 0x00FFFFFF, col >> 24);
-        srcX = maskX;
-        srcY = maskY;
-    }
-
+#if 0
     if (pVia->maskP || pVia->srcP)
         v3d->emitState(v3d, &pVia->cb, viaCheckUpload(pScrn, v3d));
-
+#endif
+    if (pVia->srcP) {
+      srcX = maskX;
+      srcY = maskY;
+    }
     v3d->emitQuad(v3d, &pVia->cb, dstX, dstY, srcX, srcY, maskX, maskY,
                   width, height);
 }
 
 #if (EXA_VERSION_MAJOR >= 2)
+
+static Bool 
+viaExaPrepareAccess(PixmapPtr pPix, int index)
+{
+    ScrnInfoPtr pScrn = xf86Screens[pPix->drawable.pScreen->myNum];
+    
+    viaAccelSync(pScrn);
+    return GL_TRUE;
+}
+
 
 static ExaDriverPtr
 viaInitExa(ScreenPtr pScreen)
@@ -2145,6 +2192,7 @@ viaInitExa(ScreenPtr pScreen)
     pExa->PrepareCopy = viaExaPrepareCopy;
     pExa->Copy = viaExaCopy;
     pExa->DoneCopy = viaExaDoneSolidCopy;
+    pExa->PrepareAccess = viaExaPrepareAccess;
 
 #ifdef XF86DRI
     if (pVia->directRenderingEnabled) {
@@ -2561,6 +2609,7 @@ viaAccelBlitRect(ScrnInfoPtr pScrn, int srcx, int srcy, int w, int h,
                            tdc->mode, pVia->Bpl, pVia->Bpl, cmd);
         pVia->accelMarker = viaAccelMarkSync(pScrn->pScreen);
         ADVANCE_RING;
+	FLUSH_RING;
     }
 }
 
@@ -2585,6 +2634,7 @@ viaAccelFillRect(ScrnInfoPtr pScrn, int x, int y, int w, int h,
                             pVia->Bpl, color, cmd);
         pVia->accelMarker = viaAccelMarkSync(pScrn->pScreen);
         ADVANCE_RING;
+	FLUSH_RING;
     }
 }
 
@@ -2611,6 +2661,7 @@ viaAccelFillPixmap(ScrnInfoPtr pScrn,
                             pitch, color, cmd);
         pVia->accelMarker = viaAccelMarkSync(pScrn->pScreen);
         ADVANCE_RING;
+	FLUSH_RING;
     }
 }
 

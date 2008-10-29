@@ -413,6 +413,8 @@ via3DEmitState(Via3DState * v3d, ViaCommandBuffer * cb, Bool forceUpload)
         OUT_RING_SubA(HC_SubA_HDBBasH, v3d->destOffset >> 24);
         OUT_RING_SubA(HC_SubA_HDBFM, v3d->destFormat |
                       (v3d->destPitch & HC_HDBPit_MASK) | HC_HDBLoc_Local);
+	ADVANCE_RING;
+	QWORD_PAD_RING;
     }
 
     if (forceUpload || v3d->blendDirty) {
@@ -424,6 +426,8 @@ via3DEmitState(Via3DState * v3d, ViaCommandBuffer * cb, Bool forceUpload)
         OUT_RING_SubA(HC_SubA_HABLCop, v3d->blendCol1);
         OUT_RING_SubA(HC_SubA_HABLAsat, v3d->blendAl0);
         OUT_RING_SubA(HC_SubA_HABLAop, v3d->blendAl1);
+	ADVANCE_RING;
+	QWORD_PAD_RING;
     }
 
     if (forceUpload || v3d->drawingDirty) {
@@ -458,6 +462,8 @@ via3DEmitState(Via3DState * v3d, ViaCommandBuffer * cb, Bool forceUpload)
         OUT_RING_SubA(HC_SubA_HPixGC,
                       (((v3d->solidColor & 0xFF000000) >> 16) | (0 << 23)
                        | (v3d->solidAlpha & 0xFF)));
+	ADVANCE_RING;
+	QWORD_PAD_RING;
     }
 
     if (forceUpload || v3d->enableDirty) {
@@ -469,6 +475,8 @@ via3DEmitState(Via3DState * v3d, ViaCommandBuffer * cb, Bool forceUpload)
                       ((v3d->blend) ? HC_HenABL_MASK : 0) |
                       ((v3d->numTextures) ? HC_HenTXMP_MASK : 0) |
                       ((v3d->writeAlpha) ? HC_HenAW_MASK : 0));
+	ADVANCE_RING;
+	QWORD_PAD_RING;
 
         if (v3d->numTextures) {
             BEGIN_H2((HC_ParaType_Tex | (HC_SubType_TexGeneral << 8)), 2);
@@ -487,7 +495,7 @@ via3DEmitState(Via3DState * v3d, ViaCommandBuffer * cb, Bool forceUpload)
 
             BEGIN_H2((HC_ParaType_Tex |
                       (((i == 0) ? HC_SubType_Tex0 : HC_SubType_Tex1) << 8)),
-                     13);
+                     14);
 
             OUT_RING_SubA(HC_SubA_HTXnFM, (vTex->textureFormat |
                                            (vTex->
@@ -519,6 +527,8 @@ via3DEmitState(Via3DState * v3d, ViaCommandBuffer * cb, Bool forceUpload)
                           (0x00 << 7) | (0x03 << 3) | 0x02);
             OUT_RING_SubA(HC_SubA_HTXnTBLAsat, vTex->texAsat);
             OUT_RING_SubA(HC_SubA_HTXnTBLRFog, 0x00);
+            OUT_RING_SubA(HC_SubA_HTXnTBLRFog, 0x00);
+	    ADVANCE_RING;
         }
     }
 
@@ -533,6 +543,7 @@ via3DEmitState(Via3DState * v3d, ViaCommandBuffer * cb, Bool forceUpload)
                      2);
             OUT_RING_SubA(HC_SubA_HTXnTBLRAa, vTex->texRAa);
             OUT_RING_SubA(HC_SubA_HTXnTBLRCa, vTex->texRCa);
+	    ADVANCE_RING;
             cb->has3dState = saveHas3dState;
         }
     }
@@ -549,9 +560,11 @@ via3DEmitClipRect(Via3DState * v3d, ViaCommandBuffer * cb, int x, int y,
     Bool saveHas3dState;
 
     saveHas3dState = cb->has3dState;
-    BEGIN_H2(HC_ParaType_NotTex, 4);
+    BEGIN_H2(HC_ParaType_NotTex, 2);
     OUT_RING_SubA(HC_SubA_HClipTB, (y << 12) | (y + h));
     OUT_RING_SubA(HC_SubA_HClipLR, (x << 12) | (x + w));
+    ADVANCE_RING;
+    QWORD_PAD_RING;
     cb->has3dState = saveHas3dState;
 }
 
