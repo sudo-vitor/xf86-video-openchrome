@@ -631,7 +631,6 @@ viaSubsequentScreenToScreenCopy(ScrnInfoPtr pScrn, int x1, int y1,
                        pScrn->fbOffset + pVia->Bpl * y1,
                        pScrn->fbOffset + pVia->Bpl * sub,
                        tdc->mode, pVia->Bpl, pVia->Bpl, tdc->cmd);
-    ADVANCE_RING;
     FLUSH_RING;
 }
 
@@ -667,7 +666,6 @@ viaSubsequentSolidFillRect(ScrnInfoPtr pScrn, int x, int y, int w, int h)
     viaAccelSolidHelper(cb, x, y - sub, w, h,
                         pScrn->fbOffset + pVia->Bpl * sub, tdc->mode, pVia->Bpl,
                         tdc->fgColor, tdc->cmd);
-    ADVANCE_RING;
     FLUSH_RING;
 }
 
@@ -818,7 +816,6 @@ viaSetupForCPUToScreenColorExpandFill(ScrnInfoPtr pScrn, int fg, int bg,
     tdc->fgColor = fg;
     tdc->bgColor = bg;
 
-    ADVANCE_RING;
     FLUSH_RING;
 
     viaAccelTransparentHelper(tdc, cb, 0x0, 0x0, FALSE);
@@ -863,7 +860,6 @@ viaSetupForImageWrite(ScrnInfoPtr pScrn, int rop, unsigned planemask,
     RING_VARS;
 
     tdc->cmd = VIA_GEC_BLT | VIA_GEC_SRC_SYS | VIAACCELCOPYROP(rop);
-    ADVANCE_RING;
     FLUSH_RING;
     viaAccelTransparentHelper(tdc, cb, (trans_color != -1) ? 0x4000 : 0x0000,
                               trans_color, FALSE);
@@ -2609,7 +2605,6 @@ viaAccelBlitRect(ScrnInfoPtr pScrn, int srcx, int srcy, int w, int h,
         viaAccelCopyHelper(cb, srcx, 0, dstx, 0, w, h, srcOffset, dstOffset,
                            tdc->mode, pVia->Bpl, pVia->Bpl, cmd);
         pVia->accelMarker = viaAccelMarkSync(pScrn->pScreen);
-        ADVANCE_RING;
 	FLUSH_RING;
     }
 }
@@ -2634,7 +2629,6 @@ viaAccelFillRect(ScrnInfoPtr pScrn, int x, int y, int w, int h,
         viaAccelSolidHelper(cb, x, 0, w, h, dstBase, tdc->mode,
                             pVia->Bpl, color, cmd);
         pVia->accelMarker = viaAccelMarkSync(pScrn->pScreen);
-        ADVANCE_RING;
 	FLUSH_RING;
     }
 }

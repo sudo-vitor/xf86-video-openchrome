@@ -2793,7 +2793,6 @@ VIAWriteMode(ScrnInfoPtr pScrn, DisplayModePtr mode)
     pVia->OverlaySupported = FALSE;
 
     pScrn->vtSema = TRUE;
-    ErrorF("Writemode\n");
 
     if (!pVia->pVbe) {
 
