@@ -65,6 +65,8 @@ viaHWCursorInit(ScreenPtr pScreen)
 	switch (pVia->Chipset) {
 		case VIA_CLE266:
 		case VIA_KM400:
+			/* FIXME Mono HW Cursors not working */
+			pVia->hwcursor = FALSE;
 			pVia->CursorARGBSupported = FALSE;
 			pVia->CursorMaxWidth = 32;
 			pVia->CursorMaxHeight = 32;
@@ -90,9 +92,6 @@ viaHWCursorInit(ScreenPtr pScreen)
     memset(pVia->cursorMap, 0x00, pVia->CursorSize);
 
     switch (pVia->Chipset) {
-		case VIA_CLE266:
-		case VIA_KM400:
-			break;
         case VIA_CX700:
         /* case VIA_CN750: */
         case VIA_P4M890:
@@ -160,9 +159,6 @@ viaHWCursorInit(ScreenPtr pScreen)
     VIASETREG(pVia->CursorRegTransKey, 0);
 
     switch (pVia->Chipset) {
-		case VIA_CLE266:
-		case VIA_KM400:
-			break;
         case VIA_CX700:
         /* case VIA_CN750: */
         case VIA_P4M890:
