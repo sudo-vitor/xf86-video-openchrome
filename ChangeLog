@@ -1,5 +1,12 @@
 2009-01-05  Jon Nettleton  <jon.nettleton@gmail.com>
 
+	* src/via_cursor.c: (viaHWCursorInit), (viaLoadCursorImage):
+
+	A couple more tweaks to fix mono hardware cursor on older
+	chipsets.
+
+2009-01-05  Jon Nettleton  <jon.nettleton@gmail.com>
+
 	* src/via_cursor.c: (viaHWCursorInit), (viaUseHWCursorARGB),
 	(viaUseHWCursor):
 	* src/via_driver.c: (VIAScreenInit):

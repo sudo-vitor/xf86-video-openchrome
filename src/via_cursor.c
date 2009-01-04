@@ -68,7 +68,7 @@ viaHWCursorInit(ScreenPtr pScreen)
 			pVia->CursorARGBSupported = FALSE;
 			pVia->CursorMaxWidth = 32;
 			pVia->CursorMaxHeight = 32;
-			pVia->CursorSize = ((pVia->CursorMaxWidth * (pVia->CursorMaxHeight + 1)) / 8) * 2;
+			pVia->CursorSize = ((pVia->CursorMaxWidth * pVia->CursorMaxHeight) / 8) * 2;
 			break;
 		default:
 			pVia->CursorARGBSupported = TRUE;
@@ -392,15 +392,19 @@ viaLoadCursorImage(ScrnInfoPtr pScrn, unsigned char *s)
     dst = (CARD32*)(pVia->cursorMap);
     src = (CARD8*)s;
 
+    if (pVia->CursorisARGBSupported) {
 #define ARGB_PER_CHUNK	(8 * sizeof (chunk) / 2)
-    for (i = 0; i < (pVia->CursorMaxWidth * pVia->CursorMaxHeight / ARGB_PER_CHUNK); i++) {
-	chunk = *s++;
-	for (j = 0; j < ARGB_PER_CHUNK; j++, chunk >>= 2)
-	    *dst++ = mono_cursor_color[chunk & 3];
-    }
+		for (i = 0; i < (pVia->CursorMaxWidth * pVia->CursorMaxHeight / ARGB_PER_CHUNK); i++) {
+		chunk = *s++;
+		for (j = 0; j < ARGB_PER_CHUNK; j++, chunk >>= 2)
+			*dst++ = mono_cursor_color[chunk & 3];
+		}
 
-    pVia->CursorFG = mono_cursor_color[3];
-    pVia->CursorBG = mono_cursor_color[2];
+		pVia->CursorFG = mono_cursor_color[3];
+		pVia->CursorBG = mono_cursor_color[2];
+	} else {
+		memcpy(dst, src, pVia->CursorSize);
+	}
 
     VIASETREG(control, temp);
 }
