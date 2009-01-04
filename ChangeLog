@@ -1,3 +1,23 @@
+2009-01-04  Jon Nettleton <jon.nettleton@gmail.com>
+
+	* src/via_accel.c: (viaInitXAA), (viaInitAccel):
+	* src/via_crtc.c: (ViaSecondCRTCSetStartingAddress):
+	* src/via_cursor.c: (viaHWCursorInit), (viaCursorSetFB),
+	(viaCursorStore), (viaCursorRestore), (viaShowCursor),
+	(viaHideCursor), (viaSetCursorPosition), (viaUseHWCursorARGB),
+	(viaUseHWCursor), (viaLoadCursorImage), (viaSetCursorColors),
+	(viaLoadCursorARGB):
+	* src/via_dga.c: (VIADGASetMode):
+	* src/via_driver.c: (VIAFreeRec), (VIASetupDefaultOptions),
+	(VIAPreInit), (VIAEnterVT), (VIALeaveVT), (VIAScreenInit),
+	(VIACloseScreen):
+	* src/via_driver.h:
+	* src/via_regs.h:
+
+	This is a take at reworking HWCursor.  It works off the
+	ttm_branch and the work done in the randr_branch.  It only needs
+	marginal testing as HWCursor was already very broken.
+
 2009-01-04  Jon Nettleton  <jon.nettleton@gmail.com>
 
 	* src/via_driver.c: (VIAMapMMIO), (VIAMapFB):
