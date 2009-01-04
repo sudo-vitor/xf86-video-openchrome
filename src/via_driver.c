@@ -2775,6 +2775,7 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
 
     if (pVia->hwcursor) {
         if (!viaHWCursorInit(pScreen)) {
+			pVia->hwcursor = FALSE;
             xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
                        "Hardware cursor initialization failed\n");
         }

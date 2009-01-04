@@ -62,13 +62,29 @@ viaHWCursorInit(ScreenPtr pScreen)
     VIAPtr pVia = VIAPTR(pScrn);
     xf86CursorInfoPtr infoPtr;
 
+	switch (pVia->Chipset) {
+		case VIA_CLE266:
+		case VIA_KM400:
+			pVia->CursorARGBSupported = FALSE;
+			pVia->CursorMaxWidth = 32;
+			pVia->CursorMaxHeight = 32;
+			pVia->CursorSize = ((pVia->CursorMaxWidth * (pVia->CursorMaxHeight + 1)) / 8) * 2;
+			break;
+		default:
+			pVia->CursorARGBSupported = TRUE;
+			pVia->CursorMaxWidth = 64;
+			pVia->CursorMaxHeight = 64;
+			pVia->CursorSize = pVia->CursorMaxWidth * (pVia->CursorMaxHeight + 1) * 4;
+			break;
+    }
+
     if (pVia->NoAccel) 
     	viaCursorSetFB(pScrn);
 
     pVia->cursorMap = pVia->FBBase + pVia->CursorStart;
 
     if (pVia->cursorMap == NULL)
-	return FALSE;
+		return FALSE;
 
     pVia->cursorOffset = pScrn->fbOffset + pVia->CursorStart;
     memset(pVia->cursorMap, 0x00, pVia->CursorSize);
@@ -337,8 +353,6 @@ viaUseHWCursorARGB(ScreenPtr pScreen, CursorPtr pCurs)
     ScrnInfoPtr pScrn = xf86Screens[pScreen->myNum];
     VIAPtr pVia = VIAPTR(pScrn);
 
-    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "viaCursorARGBUse\n"));
-
     return (pVia->hwcursor
             && pVia->CursorARGBSupported
             && pCurs->bits->width <= pVia->CursorMaxWidth
@@ -350,24 +364,6 @@ viaUseHWCursor(ScreenPtr pScreen, CursorPtr pCurs)
 {
     ScrnInfoPtr pScrn = xf86Screens[pScreen->myNum];
     VIAPtr pVia = VIAPTR(pScrn);
-
-    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "viaUseHWCursor\n"));
-
-	switch (pVia->Chipset) {
-		case VIA_CLE266:
-		case VIA_KM400:
-			pVia->CursorARGBSupported = FALSE;
-			pVia->CursorMaxWidth = 32;
-			pVia->CursorMaxHeight = 32;
-			pVia->CursorSize = ((pVia->CursorMaxWidth * (pVia->CursorMaxHeight + 1)) / 8) * 2;
-			break;
-		default:
-			pVia->CursorARGBSupported = TRUE;
-			pVia->CursorMaxWidth = 64;
-			pVia->CursorMaxHeight = 64;
-			pVia->CursorSize = pVia->CursorMaxWidth * (pVia->CursorMaxHeight + 1) * 4;
-			break;
-    }
 
     return (pVia->hwcursor
             /* Can't enable HW cursor on both CRTCs at the same time. */
