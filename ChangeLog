@@ -1,3 +1,14 @@
+2009-01-04  Jon Nettleton  <jon.nettleton@gmail.com>
+
+	* src/via_cursor.c: (viaHWCursorInit), (viaCursorSetFB),
+	(viaUseHWCursorARGB), (viaUseHWCursor), (viaLoadCursorImage),
+	(viaSetCursorColors), (viaLoadCursorARGB):
+	* src/via_driver.h:
+
+	Okay I tried to cheat.  We need to have some chipset
+	specific intelligence.  I have added this back into
+	the initial test to check for HWCursor support.
+
 2009-01-04  Jon Nettleton <jon.nettleton@gmail.com>
 
 	* src/via_accel.c: (viaInitXAA), (viaInitAccel):

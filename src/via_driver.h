@@ -105,9 +105,6 @@
 #define PATCHLEVEL      903
 #define VIA_VERSION     ((VERSION_MAJOR<<24) | (VERSION_MINOR<<16) | PATCHLEVEL)
 
-#define VIA_CURSOR_MAX      64
-/* Need a extra row due to buggy hw */
-#define VIA_CURSOR_SIZE         (VIA_CURSOR_MAX * (VIA_CURSOR_MAX + 1) * 4)
 #define VIA_VQ_SIZE             (256 * 1024)
 
 typedef struct {
@@ -358,8 +355,12 @@ typedef struct _VIA {
     CARD32              CursorFG;
     CARD32              CursorBG;
     Bool                CursorARGB;
+    Bool                CursorARGBSupported;
     CARD8               CursorPipe;
     int                 CursorStart;
+	int					CursorMaxWidth;
+	int					CursorMaxHeight;
+	int					CursorSize;
 
     CARD32              CursorRegControl;
     CARD32              CursorRegBase;
