@@ -392,7 +392,7 @@ viaLoadCursorImage(ScrnInfoPtr pScrn, unsigned char *s)
     dst = (CARD32*)(pVia->cursorMap);
     src = (CARD8*)s;
 
-    if (pVia->CursorisARGBSupported) {
+    if (pVia->CursorARGBSupported) {
 #define ARGB_PER_CHUNK	(8 * sizeof (chunk) / 2)
 		for (i = 0; i < (pVia->CursorMaxWidth * pVia->CursorMaxHeight / ARGB_PER_CHUNK); i++) {
 		chunk = *s++;
