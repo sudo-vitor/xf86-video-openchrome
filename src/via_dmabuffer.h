@@ -53,6 +53,8 @@ typedef struct _ViaCommandBuffer
     Bool needsPCI;
     CARD32 execFlags;
 
+    unsigned execIoctlOffset;
+
 } ViaCommandBuffer;
 
 #define VIA_DMASIZE 16384

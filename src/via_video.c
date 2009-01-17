@@ -505,7 +505,8 @@ viaExitVideo(ScrnInfoPtr pScrn)
     DBG_DD(ErrorF(" via_video.c : viaExitVideo : \n"));
 
 #ifdef XF86DRI
-    ViaCleanupXVMC(pScrn, viaAdaptPtr, XV_ADAPT_NUM);
+    if (pVia->hasXvMCExtension)
+	ViaCleanupXVMC(pScrn, viaAdaptPtr, XV_ADAPT_NUM);
 #endif
 
     viaVidEng->video1_ctl = 0;
@@ -608,7 +609,8 @@ viaInitVideo(ScreenPtr pScreen)
     if (num_adaptors) {
         xf86XVScreenInit(pScreen, allAdaptors, num_adaptors);
 #ifdef XF86DRI
-        ViaInitXVMC(pScreen);
+	if (pVia->hasXvMCExtension)
+	    ViaInitXVMC(pScreen);
 #endif
         viaSetColorSpace(pVia, 0, 0, 0, 0, TRUE);
         pVia->swov.panning_x = 0;
@@ -888,7 +890,8 @@ viaSetupAdaptors(ScreenPtr pScreen, XF86VideoAdaptorPtr ** adaptors)
         usedPorts += j;
 
 #ifdef XF86DRI
-        // viaXvMCInitXv(pScrn, viaAdaptPtr[i]);
+	if (pVia->hasXvMCExtension)
+	    viaXvMCInitXv(pScrn, viaAdaptPtr[i]);
 #endif
 
     } /* End of for */

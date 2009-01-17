@@ -160,6 +160,7 @@ viaSetupCBuffer(ScrnInfoPtr pScrn, ViaCommandBuffer * buf, unsigned size)
     buf->inComposite = FALSE;
     buf->needsPCI = FALSE;
     buf->execFlags = 0x0;
+    buf->execIoctlOffset = pVia->execIoctlOffset;
 #ifdef XF86DRI
     if (pVia->directRenderingEnabled) {
         buf->flushFunc = viaFlushDRIEnabled;
@@ -540,19 +541,12 @@ viaCheckUpload(ScrnInfoPtr pScrn, Via3DState * v3d)
     VIAPtr pVia = VIAPTR(pScrn);
     Bool forceUpload;
 
+#ifdef XF86DRI
+    return 1;
+#endif
     forceUpload = (pVia->lastToUpload != v3d);
     pVia->lastToUpload = v3d;
 
-#ifdef XF86DRI
-    if (pVia->directRenderingEnabled) {
-        volatile struct drm_via_sarea *saPriv = (struct drm_via_sarea *)
-                DRIGetSAREAPrivate(pScrn->pScreen);
-        int myContext = DRIGetContext(pScrn->pScreen);
-
-        forceUpload = forceUpload || (saPriv->ctxOwner != myContext);
-        saPriv->ctxOwner = myContext;
-    }
-#endif
     return forceUpload;
 }
 
@@ -666,7 +660,7 @@ viaFreeScratchBuffers(VIAPtr pVia)
 	entry = WSBMLISTENTRY(list, struct _ViaOffscreenBuffer, head);
 	if (entry->scratch) {
 	    WSBMLISTDEL(list);
-	    wsbmBOUnReference(entry->buf);
+	    wsbmBOUnreference(&entry->buf);
 	    free(entry);
 	}
     }
@@ -1106,7 +1100,7 @@ viaExaUploadToScratch(PixmapPtr pSrc, PixmapPtr pDst)
     return TRUE;
 
   out_err1:
-    wsbmBOUnReference(entry->buf);
+    wsbmBOUnreference(&entry->buf);
   out_err0:
     free(entry);
     return FALSE;
@@ -1486,7 +1480,7 @@ viaInitAccel(ScreenPtr pScreen)
     if (pVia->directRenderingEnabled) {
 	struct drm_via_getparam_arg arg;
 
-	arg.param = VIA_PARAM_VRAM_SIZE;
+	arg.param = DRM_VIA_PARAM_VRAM_SIZE;
 	ret = drmCommandWriteRead(pVia->drmFD, DRM_VIA_GET_PARAM, &arg, 
 			     sizeof(arg));
 	if (ret == 0) {

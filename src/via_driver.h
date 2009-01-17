@@ -342,6 +342,7 @@ typedef struct _VIA {
 #ifdef XF86DRI
     Bool		directRenderingEnabled;
     Bool                XvMCEnabled;
+    Bool                hasXvMCExtension;
     DRIInfoPtr		pDRIInfo;
     int 		drmFD;
     int 		numVisualConfigs;
@@ -360,6 +361,9 @@ typedef struct _VIA {
     int                 drmVerMinor;
     int                 drmVerPL;
     Bool                vtNotified;
+    unsigned            execIoctlOffset;
+    volatile struct drm_via_sarea *saPriv;
+    volatile struct drm_via_sarea_xvmc *saPrivXvMC;
 #endif
     Bool                agpEnable;
     Bool                dma2d;

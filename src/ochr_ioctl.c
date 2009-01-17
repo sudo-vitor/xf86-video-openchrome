@@ -632,7 +632,7 @@ ochr_execbuf(int fd, struct _ViaCommandBuffer *cBuf)
     arg.num_cliprects = 0;
 
     do {
-	ret = drmCommandWrite(fd, DRM_VIA_TTM_EXECBUF, &arg, sizeof(arg));
+	ret = drmCommandWrite(fd, cBuf->execIoctlOffset, &arg, sizeof(arg));
     } while (ret == -EAGAIN || ret == -EINTR || ret == -ERESTART);
 
 

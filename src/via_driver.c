@@ -1896,11 +1896,7 @@ VIALeaveVT(int scrnIndex, int flags)
 
 #ifdef XF86DRI
     if (pVia->directRenderingEnabled) {
-	volatile struct drm_via_sarea *saPriv = (struct drm_via_sarea *)
-                DRIGetSAREAPrivate(pScrn->pScreen);
-
         DRILock(screenInfo.screens[scrnIndex], 0);
-        saPriv->ctxOwner = ~0;
     }
 #endif
 
@@ -2510,6 +2506,7 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
     pVia->vtNotified = FALSE;
     if (pVia->directRenderingEnabled && !pVia->IsSecondary) {
 	const char drm_ext[] = "via_ttm_placement_081121";
+	const char exec_ext[] = "via_ttm_execbuf";
 	union drm_via_extension_arg arg;
 	strncpy(arg.extension, drm_ext, sizeof(arg.extension));
 	ret = drmCommandWriteRead(pVia->drmFD, DRM_VIA_EXTENSION, &arg,
@@ -2522,6 +2519,16 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
 	} else
 	    pVia->mainPool = wsbmTTMPoolInit(pVia->drmFD, 
 					     arg.rep.driver_ioctl_offset);
+	strncpy(arg.extension, exec_ext, sizeof(arg.extension));
+	ret = drmCommandWriteRead(pVia->drmFD, DRM_VIA_EXTENSION, &arg,
+				  sizeof(arg));
+	if (ret != 0 || !arg.rep.exists) {
+	    xf86DrvMsg(pScrn->scrnIndex, X_ERROR, 
+		       "Failed to detect DRM extension \"%s\". Bailing out.\n", 
+		       exec_ext);
+	    goto out_err1;
+	} else
+	    pVia->execIoctlOffset = arg.rep.driver_ioctl_offset;
     }
 #else
     /*
@@ -2751,7 +2758,7 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
 	xfree(pVia->ShadowPtr);
     pVia->ShadowPtr = NULL;
   out_err3:
-    wsbmBOUnReference(pVia->front.buf);
+    wsbmBOUnreference(&pVia->front.buf);
     pVia->front.buf = NULL;
     wsbmDeleteBuffers(VIA_SCANOUT_NUM, pVia->scanout.bufs);
   out_err2:
@@ -2961,7 +2968,7 @@ VIACloseScreen(int scrnIndex, ScreenPtr pScreen)
 	xfree(pVia->ShadowPtr);
     pVia->ShadowPtr = NULL;
     
-    wsbmBOUnReference(pVia->front.buf);
+    wsbmBOUnreference(&pVia->front.buf);
     pVia->front.buf = NULL;
 
     wsbmBOUnmap(pVia->scanout.bufs[VIA_SCANOUT_CURSOR]);

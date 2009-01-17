@@ -315,7 +315,7 @@ ViaInitXVMC(ScreenPtr pScreen)
     ScrnInfoPtr pScrn = xf86Screens[pScreen->myNum];
     VIAPtr pVia = VIAPTR(pScrn);
     ViaXvMCPtr vXvMC = &(pVia->xvmc);
-    volatile ViaXvMCSAreaPriv *saPriv;
+    volatile struct drm_via_sarea_xvmc *saPriv = pVia->saPrivXvMC;
 
     pVia->XvMCEnabled = 0;
 
@@ -378,8 +378,8 @@ ViaInitXVMC(ScreenPtr pScreen)
 #endif
 
     vXvMC->activePorts = 0;
-    saPriv = (ViaXvMCSAreaPriv *) DRIGetSAREAPrivate(pScreen);
-    saPriv->XvMCCtxNoGrabbed = ~0;
+    saPriv = pVia->saPrivXvMC;
+    saPriv->xvmc_ctx[0] = ~0;
 
     DRM_VIA_XVMCLOCKPTR(saPriv, UNICHROME_LOCK_DECODER1)->lock = 0;
 
@@ -425,14 +425,14 @@ ViaXvMCCreateContext(ScrnInfoPtr pScrn, XvMCContextPtr pContext,
     XvPortRecPrivatePtr portPriv = (XvPortRecPrivatePtr) pContext->port_priv;
     viaPortPrivPtr pPriv = (viaPortPrivPtr) portPriv->DevPriv.ptr;
     ViaXvMCXVPriv *vx = (ViaXvMCXVPriv *) pPriv->xvmc_priv;
-    volatile ViaXvMCSAreaPriv *sAPriv;
+    volatile struct drm_via_sarea_xvmc *sAPriv;
 
-    sAPriv = (ViaXvMCSAreaPriv *) DRIGetSAREAPrivate(pScrn->pScreen);
+    sAPriv = pVia->saPrivXvMC;
 
     if (-1 == vx->xvmc_port) {
         vx->xvmc_port = (vXvMC->activePorts++);
-        sAPriv->XvMCSubPicOn[vx->xvmc_port] = 0;
-        sAPriv->XvMCDisplaying[vx->xvmc_port] = 0;
+        sAPriv->xvmc_sub_pic_on[vx->xvmc_port] = 0;
+        sAPriv->xvmc_displaying[vx->xvmc_port] = 0;
     }
 
     if (vXvMC->nContexts >= VIA_XVMC_MAX_CONTEXTS) {
@@ -693,7 +693,7 @@ ViaXvMCDestroyContext(ScrnInfoPtr pScrn, XvMCContextPtr pContext)
     VIAPtr pVia = VIAPTR(pScrn);
     ViaXvMCPtr vXvMC = &(pVia->xvmc);
     int i;
-    volatile ViaXvMCSAreaPriv *sAPriv;
+    volatile struct drm_via_sarea_xvmc *sAPriv;
     viaPortPrivPtr pPriv;
     XvPortRecPrivatePtr portPriv;
     ViaXvMCXVPriv *vx;
@@ -701,7 +701,7 @@ ViaXvMCDestroyContext(ScrnInfoPtr pScrn, XvMCContextPtr pContext)
     for (i = 0; i < VIA_XVMC_MAX_CONTEXTS; i++) {
         if (vXvMC->contexts[i] == pContext->context_id) {
 
-            sAPriv = (ViaXvMCSAreaPriv *) DRIGetSAREAPrivate(pScrn->pScreen);
+            sAPriv = pVia->saPrivXvMC;
             portPriv = (XvPortRecPrivatePtr) pContext->port_priv;
             pPriv = (viaPortPrivPtr) portPriv->DevPriv.ptr;
             vx = (ViaXvMCXVPriv *) pPriv->xvmc_priv;
@@ -726,7 +726,7 @@ ViaXvMCDestroySurface(ScrnInfoPtr pScrn, XvMCSurfacePtr pSurf)
     VIAPtr pVia = VIAPTR(pScrn);
     ViaXvMCPtr vXvMC = &(pVia->xvmc);
     int i;
-    volatile ViaXvMCSAreaPriv *sAPriv;
+    volatile struct drm_via_sarea_xvmc *sAPriv;
     XvMCContextPtr pContext = pSurf->context;
     XvPortRecPrivatePtr portPriv = (XvPortRecPrivatePtr) pContext->port_priv;
     viaPortPrivPtr pPriv = (viaPortPrivPtr) portPriv->DevPriv.ptr;
@@ -735,10 +735,10 @@ ViaXvMCDestroySurface(ScrnInfoPtr pScrn, XvMCSurfacePtr pSurf)
     for (i = 0; i < VIA_XVMC_MAX_SURFACES; i++) {
         if (vXvMC->surfaces[i] == pSurf->surface_id) {
 
-            sAPriv = (ViaXvMCSAreaPriv *) DRIGetSAREAPrivate(pScrn->pScreen);
+            sAPriv = pVia->saPrivXvMC;
             {
                 DRM_CAS_RESULT(__ret);
-                DRM_CAS(&(sAPriv->XvMCDisplaying[vx->xvmc_port]),
+                DRM_CAS(&(sAPriv->xvmc_displaying[vx->xvmc_port]),
                         i | VIA_XVMC_VALID, 0, __ret);
                 if (!__ret)
                     ViaOverlayHide(pScrn);
@@ -760,7 +760,7 @@ ViaXvMCDestroySubpicture(ScrnInfoPtr pScrn, XvMCSubpicturePtr pSubp)
     VIAPtr pVia = VIAPTR(pScrn);
     ViaXvMCPtr vXvMC = &(pVia->xvmc);
     int i;
-    volatile ViaXvMCSAreaPriv *sAPriv;
+    volatile struct drm_via_sarea_xvmc *sAPriv;
     XvMCContextPtr pContext = pSubp->context;
     XvPortRecPrivatePtr portPriv = (XvPortRecPrivatePtr) pContext->port_priv;
     viaPortPrivPtr pPriv = (viaPortPrivPtr) portPriv->DevPriv.ptr;
@@ -769,12 +769,12 @@ ViaXvMCDestroySubpicture(ScrnInfoPtr pScrn, XvMCSubpicturePtr pSubp)
     for (i = 0; i < VIA_XVMC_MAX_SURFACES; i++) {
         if (vXvMC->surfaces[i] == pSubp->subpicture_id) {
 
-            sAPriv = (ViaXvMCSAreaPriv *) DRIGetSAREAPrivate(pScrn->pScreen);
+            sAPriv = pVia->saPrivXvMC;
 
             {
                 DRM_CAS_RESULT(__ret);
 
-                DRM_CAS(&(sAPriv->XvMCSubPicOn[vx->xvmc_port]),
+                DRM_CAS(&(sAPriv->xvmc_sub_pic_on[vx->xvmc_port]),
                         i | VIA_XVMC_VALID, 0, __ret);
                 if (!__ret) {
                     /* Turn subpicture off. */
@@ -805,18 +805,17 @@ static int
 viaXvMCSetDisplayLock(ScrnInfoPtr pScrn, ViaXvMCXVPriv * vx)
 {
     VIAPtr pVia = VIAPTR(pScrn);
-    ViaXvMCSAreaPriv *sAPriv = (ViaXvMCSAreaPriv *)
-            DRIGetSAREAPrivate(pScrn->pScreen);
+    volatile struct drm_via_sarea_xvmc *sAPriv = pVia->saPrivXvMC;
 
     if (vx->xvmc_port > 0) {
         if ((VIA_XVMC_MAX_SURFACES | VIA_XVMC_VALID) !=
-            sAPriv->XvMCDisplaying[vx->xvmc_port]) {
-            sAPriv->XvMCDisplaying[vx->xvmc_port] =
+            sAPriv->xvmc_displaying[vx->xvmc_port]) {
+            sAPriv->xvmc_displaying[vx->xvmc_port] =
                     (VIA_XVMC_MAX_SURFACES | VIA_XVMC_VALID);
         }
 
-        if (sAPriv->XvMCSubPicOn[vx->xvmc_port] & VIA_XVMC_VALID) {
-            sAPriv->XvMCSubPicOn[vx->xvmc_port] = 0;
+        if (sAPriv->xvmc_sub_pic_on[vx->xvmc_port] & VIA_XVMC_VALID) {
+            sAPriv->xvmc_sub_pic_on[vx->xvmc_port] = 0;
             while (VIDInD(V_COMPOSE_MODE) &
                    (V1_COMMAND_FIRE | V3_COMMAND_FIRE)) ;
             VIDOutD(SUBP_CONTROL_STRIDE,
@@ -938,16 +937,16 @@ viaXvMCInterceptPutImage(ScrnInfoPtr pScrn, short src_x, short src_y,
                          short height, Bool sync, RegionPtr clipBoxes,
                          pointer data, DrawablePtr pDraw)
 {
+    VIAPtr pVia = VIAPTR(pScrn);
     viaPortPrivPtr pPriv = (viaPortPrivPtr) data;
     ViaXvMCXVPriv *vx = (ViaXvMCXVPriv *) pPriv->xvmc_priv;
 
     if (VIAPTR(pScrn)->XvMCEnabled) {
         if (FOURCC_XVMC == id) {
-            volatile ViaXvMCSAreaPriv *sAPriv;
+            volatile struct drm_via_sarea_xvmc *sAPriv;
             ViaXvMCCommandBuffer *vXvMCData = (ViaXvMCCommandBuffer *) buf;
 
-            sAPriv = (ViaXvMCSAreaPriv *) DRIGetSAREAPrivate(pScrn->pScreen);
-
+            sAPriv = pVia->saPrivXvMC;
             switch (vXvMCData->command) {
             case VIA_XVMC_COMMAND_ATTRIBUTES:
                 if ((vXvMCData->ctxNo | VIA_XVMC_VALID) != vx->ctxDisplaying)
@@ -955,7 +954,7 @@ viaXvMCInterceptPutImage(ScrnInfoPtr pScrn, short src_x, short src_y,
                 viaXvMCDisplayAttributes(pScrn, &vXvMCData->attrib, pPriv);
                 return 0;
             case VIA_XVMC_COMMAND_FDISPLAY:
-                if (sAPriv->XvMCDisplaying[vx->xvmc_port] != vXvMCData->srfNo)
+                if (sAPriv->xvmc_displaying[vx->xvmc_port] != vXvMCData->srfNo)
                     return 1;
                 viaXvMCDisplayAttributes(pScrn, &vXvMCData->attrib, pPriv);
                 vx->ctxDisplaying = vXvMCData->ctxNo;
@@ -964,14 +963,14 @@ viaXvMCInterceptPutImage(ScrnInfoPtr pScrn, short src_x, short src_y,
                 if ((vXvMCData->ctxNo | VIA_XVMC_VALID) != vx->ctxDisplaying) {
                     viaXvMCDisplayAttributes(pScrn, &vXvMCData->attrib, pPriv);
                 }
-                if (sAPriv->XvMCDisplaying[vx->xvmc_port] != vXvMCData->srfNo)
+                if (sAPriv->xvmc_displaying[vx->xvmc_port] != vXvMCData->srfNo)
                     return 1;
                 vx->ctxDisplaying = vXvMCData->ctxNo;
                 break;
             case VIA_XVMC_COMMAND_UNDISPLAY:
                 {
                     DRM_CAS_RESULT(__ret);
-                    DRM_CAS(&(sAPriv->XvMCDisplaying[vx->xvmc_port]),
+                    DRM_CAS(&(sAPriv->xvmc_displaying[vx->xvmc_port]),
                         vXvMCData->srfNo, 0, __ret);
                     if (!__ret)
                         ViaOverlayHide(pScrn);

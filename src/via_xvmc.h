@@ -49,8 +49,6 @@
 #define VIA_XVMC_COMMAND_UNDISPLAY 2
 #define VIA_XVMC_COMMAND_ATTRIBUTES 3
 
-typedef struct drm_via_sarea ViaXvMCSAreaPriv;
-
 typedef struct
 {
     INT32 attribute;

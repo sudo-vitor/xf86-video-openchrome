@@ -453,17 +453,34 @@ VIADRIFinishScreenInit(ScreenPtr pScreen)
     /* Set SAREA value. */
     {
         struct drm_via_sarea *saPriv;
+	const char xvmc_ext[] = "via_dec_futex";
+	union drm_via_extension_arg arg;
+	int ret;
 
         saPriv = (struct drm_via_sarea *) DRIGetSAREAPrivate(pScreen);
         assert(saPriv);
         memset(saPriv, 0, sizeof(*saPriv));
-        saPriv->ctxOwner = -1;
+	pVia->saPriv = saPriv;
+       	strncpy(arg.extension, xvmc_ext, sizeof(arg.extension));
+	ret = drmCommandWriteRead(pVia->drmFD, DRM_VIA_EXTENSION, &arg,
+				  sizeof(arg));
+	if (ret != 0 || !arg.rep.exists) {
+	    xf86DrvMsg(pScrn->scrnIndex, X_ERROR, 
+		       "Failed to detect DRM extension \"%s\". Turning off XvMC.\n", 
+		       xvmc_ext);
+	    pVia->hasXvMCExtension = FALSE;
+	} else {
+	    pVia->hasXvMCExtension = TRUE;
+	    pVia->saPrivXvMC = (struct drm_via_sarea_xvmc *)
+		((unsigned long) saPriv + arg.rep.driver_sarea_offset);
+	}
     }
 
     pVIADRI = (VIADRIPtr) pVia->pDRIInfo->devPrivate;
     pVIADRI->deviceID = pVia->Chipset;
     pVIADRI->sarea_priv_offset = sizeof(XF86DRISAREARec);
     pVIADRI->bpp = pScrn->bitsPerPixel;
+
 
     return TRUE;
 }
