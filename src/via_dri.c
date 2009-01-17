@@ -66,8 +66,8 @@ typedef struct
 
 static char VIAKernelDriverName[] = "via";
 static char VIAClientDriverName[] = "unichrome";
-static const ViaDRMVersion drmExpected = { 3, 0, 0 };
-static const ViaDRMVersion drmCompat = { 3, 0, 0 };
+static const ViaDRMVersion drmExpected = { 4, 0, 0 };
+static const ViaDRMVersion drmCompat = { 4, 0, 0 };
 
 static Bool VIAInitVisualConfigs(ScreenPtr pScreen);
 static Bool VIADRIMapInit(ScreenPtr pScreen, VIAPtr pVia);
@@ -453,7 +453,7 @@ VIADRIFinishScreenInit(ScreenPtr pScreen)
     /* Set SAREA value. */
     {
         struct drm_via_sarea *saPriv;
-	const char xvmc_ext[] = "via_dec_futex";
+	const char xvmc_ext[] = "via_decoder_futex";
 	union drm_via_extension_arg arg;
 	int ret;
 

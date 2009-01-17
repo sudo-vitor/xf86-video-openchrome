@@ -809,6 +809,7 @@ static unsigned
 viaSetupAdaptors(ScreenPtr pScreen, XF86VideoAdaptorPtr ** adaptors)
 {
     ScrnInfoPtr pScrn = xf86Screens[pScreen->myNum];
+    VIAPtr pVia = VIAPTR(pScrn);
     viaPortPrivRec *viaPortPriv;
     DevUnion *pdevUnion;
     int i, j, usedPorts, numPorts;
