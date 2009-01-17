@@ -26,7 +26,7 @@
 #ifndef _VIA_XVMC_H
 #define _VIA_XVMC_H 1
 
-#include "via_drm.h"
+#include "ochr_drm.h"
 
 /*
  * This file contains the common definitions between the XvMC lib and the 

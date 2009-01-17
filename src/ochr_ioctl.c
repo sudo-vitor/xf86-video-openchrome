@@ -1,7 +1,7 @@
 #include <errno.h>
 #include "ochr_ioctl.h"
 #include "via_dmabuffer.h"
-#include "via_drm.h"
+#include "ochr_drm.h"
 #include "ochr_ws_driver.h"
 
 struct via_reloc_bufinfo

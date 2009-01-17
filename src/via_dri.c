@@ -40,7 +40,7 @@
 
 #include "via.h"
 #include "via_driver.h"
-#include "via_drm.h"
+#include "ochr_drm.h"
 #include "via_dri.h"
 #include "via_id.h"
 #include "xf86drm.h"
@@ -64,10 +64,10 @@ typedef struct
     int patchlevel;
 } ViaDRMVersion;
 
-static char VIAKernelDriverName[] = "via";
+static char VIAKernelDriverName[] = "openchrome";
 static char VIAClientDriverName[] = "unichrome";
-static const ViaDRMVersion drmExpected = { 4, 0, 0 };
-static const ViaDRMVersion drmCompat = { 4, 0, 0 };
+static const ViaDRMVersion drmExpected = { 0, 0, 0 };
+static const ViaDRMVersion drmCompat = { 0, 0, 0 };
 
 static Bool VIAInitVisualConfigs(ScreenPtr pScreen);
 static Bool VIADRIMapInit(ScreenPtr pScreen, VIAPtr pVia);

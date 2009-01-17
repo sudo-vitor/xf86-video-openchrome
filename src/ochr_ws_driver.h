@@ -3,7 +3,7 @@
 
 #include "wsbm_util.h"
 #include "wsbm_driver.h"
-#include "via_drm.h"
+#include "ochr_drm.h"
 
 struct _ViaDrmValidateNode
 {

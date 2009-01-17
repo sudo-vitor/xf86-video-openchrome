@@ -24,7 +24,7 @@
 #include <picturestr.h>
 #include "via_3d.h"
 #include "via_3d_reg.h"
-#include "via_drm.h"
+#include "ochr_drm.h"
 
 typedef struct
 {
