@@ -34,7 +34,7 @@
 
 #define UNICHROME_LOCK(fd, lockNo, saPriv, context, lastcontext, ret)	\
     do {								\
-	volatile drm_hw_lock_t *lockPtr = XVMCLOCKPTR((saPriv), (lockNo));	\
+	volatile drm_hw_lock_t *lockPtr = DRM_VIA_XVMCLOCKPTR((saPriv), (lockNo));	\
 	unsigned lockVal;						\
         DRM_CAS_RESULT(__ret);						\
 									\
@@ -71,7 +71,7 @@
     
 #define UNICHROME_UNLOCK(fd, lockNo, saPriv, context)			\
     do {								\
-      volatile drm_hw_lock_t *lockPtr = XVMCLOCKPTR((saPriv), (lockNo)); 	\
+      volatile drm_hw_lock_t *lockPtr = DRM_VIA_XVMCLOCKPTR((saPriv), (lockNo)); 	\
 									\
 	if ((lockPtr->lock & ~DRM_LOCK_CONT) ==				\
 	       ((context) | DRM_LOCK_HELD)) {				\

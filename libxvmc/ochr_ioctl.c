@@ -6,11 +6,11 @@
 
 struct via_reloc_bufinfo
 {
-    struct via_reloc_header *first_header;
-    struct via_reloc_header *cur_header;
-    struct via_reloc_header *save_first_header;
-    struct via_reloc_header *save_cur_header;
-    struct via_reloc_header save_old_header;
+    struct drm_via_reloc_header *first_header;
+    struct drm_via_reloc_header *cur_header;
+    struct drm_via_reloc_header *save_first_header;
+    struct drm_via_reloc_header *save_cur_header;
+    struct drm_via_reloc_header save_old_header;
 };
 
 /*
@@ -30,12 +30,12 @@ ochr_reloc_state_save(struct via_reloc_bufinfo *info)
  */
 
 static void
-ochr_free_reloc_header(struct via_reloc_header *header)
+ochr_free_reloc_header(struct drm_via_reloc_header *header)
 {
-    struct via_reloc_header *new_header;
+    struct drm_via_reloc_header *new_header;
 
     while (header) {
-	new_header = (struct via_reloc_header *)(unsigned long)
+	new_header = (struct drm_via_reloc_header *)(unsigned long)
 	    header->next_header;
 	free(header);
 	header = new_header;
@@ -48,11 +48,11 @@ ochr_free_reloc_header(struct via_reloc_header *header)
 void
 ochr_reloc_state_restore(struct via_reloc_bufinfo *info)
 {
-    struct via_reloc_header *added_chain;
+    struct drm_via_reloc_header *added_chain;
 
     assert(info->save_old_header.next_header == 0ULL);
 
-    added_chain = (struct via_reloc_header *)(unsigned long)
+    added_chain = (struct drm_via_reloc_header *)(unsigned long)
 	info->cur_header->next_header;
 
     if (added_chain)
@@ -68,7 +68,7 @@ ochr_reloc_state_restore(struct via_reloc_bufinfo *info)
 static int
 ochr_add_reloc_buffer(struct via_reloc_bufinfo *info)
 {
-    struct via_reloc_header *header;
+    struct drm_via_reloc_header *header;
 
     header = malloc(VIA_RELOC_BUF_SIZE);
 
@@ -91,7 +91,7 @@ ochr_add_reloc_buffer(struct via_reloc_bufinfo *info)
 static int
 ochr_reset_reloc_buffer(struct via_reloc_bufinfo *info)
 {
-    struct via_reloc_header *header;
+    struct drm_via_reloc_header *header;
 
     if (info->first_header == NULL) {
 	header = info->first_header = malloc(VIA_RELOC_BUF_SIZE);
@@ -99,7 +99,7 @@ ochr_reset_reloc_buffer(struct via_reloc_bufinfo *info)
 	    return -ENOMEM;
     } else {
 	header = info->first_header;
-	ochr_free_reloc_header((struct via_reloc_header *)(unsigned long)
+	ochr_free_reloc_header((struct drm_via_reloc_header *)(unsigned long)
 			       header->next_header);
     }
     header->next_header = 0ULL;
@@ -145,7 +145,7 @@ ochr_free_reloc_buffer(struct via_reloc_bufinfo *info)
 static int
 ochr_add_reloc(struct via_reloc_bufinfo *info, void *reloc, size_t size)
 {
-    struct via_reloc_header *header = info->cur_header;
+    struct drm_via_reloc_header *header = info->cur_header;
 
     if (header->used + size > VIA_RELOC_BUF_SIZE) {
 	int ret;
@@ -188,10 +188,10 @@ static int
 ochr_apply_yuv_reloc(uint32_t *cmdbuf,
 		    uint32_t num_buffers,
 		    struct via_validate_buffer *buffers,
-		    const struct via_yuv_reloc *reloc)
+		    const struct drm_via_yuv_reloc *reloc)
 {
 	uint32_t *buf = cmdbuf + reloc->base.offset;
-	const struct via_reloc_bufaddr *baddr = &reloc->addr;
+	const struct drm_via_reloc_bufaddr *baddr = &reloc->addr;
 	const struct via_validate_buffer *val_buf;
 	uint32_t val;
 	int i;
@@ -225,11 +225,11 @@ ochr_yuv_relocation(struct ochr_cmd_buffer *c_buf,
 		    uint32_t shift,
 		   uint64_t flags, uint64_t mask)
 {
-    struct via_yuv_reloc reloc;
+    struct drm_via_yuv_reloc reloc;
     struct via_validate_buffer fake;
     int itemLoc;
     struct _ValidateNode *node;
-    struct via_validate_req *val_req;
+    struct drm_via_validate_req *val_req;
     int ret;
     uint32_t tmp;
     uint32_t *cmdbuf = (uint32_t *) c_buf->buf + (c_buf->pos - planes * 2);
@@ -242,7 +242,7 @@ ochr_yuv_relocation(struct ochr_cmd_buffer *c_buf,
     val_req = ochrValReq(node);
 
     if (!(val_req->presumed_flags & VIA_USE_PRESUMED)) {
-	val_req->presumed_gpu_offset = (uint64_t) wsbmBOOffset(buffer) - 
+	val_req->presumed_gpu_offset = (uint64_t) wsbmBOOffsetHint(buffer) - 
 	    wsbmBOPoolOffset(buffer);
 	val_req->presumed_flags |= VIA_USE_PRESUMED;
     }
@@ -276,10 +276,10 @@ static int
 ochr_apply_2d_reloc(uint32_t * cmdbuf,
 		    uint32_t num_buffers,
 		    const struct via_validate_buffer *buffers,
-		    const struct via_2d_reloc *reloc)
+		    const struct drm_via_2d_reloc *reloc)
 {
-    uint32_t *buf = cmdbuf + reloc->offset;
-    const struct via_reloc_bufaddr *baddr = &reloc->addr;
+    uint32_t *buf = cmdbuf + reloc->base.offset;
+    const struct drm_via_reloc_bufaddr *baddr = &reloc->addr;
     const struct via_validate_buffer *val_buf;
     uint32_t val;
     uint32_t x;
@@ -312,11 +312,11 @@ ochr_2d_relocation(struct ochr_cmd_buffer *c_buf,
 		   uint32_t delta, uint32_t bpp, uint32_t pos,
 		   uint64_t flags, uint64_t mask)
 {
-    struct via_2d_reloc reloc;
+    struct drm_via_2d_reloc reloc;
     struct via_validate_buffer fake;
     int itemLoc;
     struct _ValidateNode *node;
-    struct via_validate_req *val_req;
+    struct drm_via_validate_req *val_req;
     int ret;
     uint32_t tmp;
     uint32_t *cmdbuf = (uint32_t *) c_buf->buf + (c_buf->pos - 4);
@@ -329,14 +329,14 @@ ochr_2d_relocation(struct ochr_cmd_buffer *c_buf,
     val_req = ochrValReq(node);
 
     if (!(val_req->presumed_flags & VIA_USE_PRESUMED)) {
-	val_req->presumed_gpu_offset = (uint64_t) wsbmBOOffset(buffer);
+	val_req->presumed_gpu_offset = (uint64_t) wsbmBOOffsetHint(buffer);
 	val_req->presumed_flags |= VIA_USE_PRESUMED;
     }
 
     fake.po_correct = 0;
     fake.offset = val_req->presumed_gpu_offset;
-    reloc.type = VIA_RELOC_2D;
-    reloc.offset = 1;
+    reloc.base.type = VIA_RELOC_2D;
+    reloc.base.offset = 1;
     reloc.addr.index = 0;
     reloc.addr.delta = delta;
     reloc.bpp = bpp;
@@ -347,7 +347,7 @@ ochr_2d_relocation(struct ochr_cmd_buffer *c_buf,
     ret = ochr_apply_2d_reloc(cmdbuf, 1, &fake, &reloc);
 
     reloc.addr.index = itemLoc;
-    reloc.offset = tmp + 1;
+    reloc.base.offset = tmp + 1;
 
     assert(ret == 0);
 
@@ -357,14 +357,14 @@ ochr_2d_relocation(struct ochr_cmd_buffer *c_buf,
 int
 ochr_execbuf(int fd, struct ochr_cmd_buffer *c_buf)
 {
-    union via_ttm_execbuf_arg arg;
-    struct via_ttm_execbuf_req *exec_req = &arg.req;
+    struct drm_via_ttm_execbuf_arg arg;
+    struct drm_via_ttm_execbuf_control control;
     struct _ValidateList *valList;
     struct _ValidateNode *node;
     struct _ViaDrmValidateNode *viaNode;
-    struct via_validate_arg *val_arg;
-    struct via_validate_req *req;
-    struct via_validate_rep *rep;
+    struct drm_via_validate_arg *val_arg;
+    struct drm_via_validate_req *req;
+    struct drm_via_validate_rep *rep;
 
     uint64_t first = 0ULL;
     uint64_t *prevNext = NULL;
@@ -396,7 +396,6 @@ ochr_execbuf(int fd, struct ochr_cmd_buffer *c_buf)
 
 	req->buffer_handle = wsbmKBufHandle((struct _WsbmKernelBuf *)
 					    node->buf);
-	req->group = 0;
 	req->set_flags = node->set_flags;
 	req->clear_flags = node->clr_flags;
 
@@ -404,33 +403,38 @@ ochr_execbuf(int fd, struct ochr_cmd_buffer *c_buf)
 	++count;
     }
 
+
+    memset(&control, 0, sizeof(control));
+
     /*
      * Fill in the execbuf arg itself.
      */
 
-    exec_req->buffer_list = first;
-    exec_req->num_buffers = count;
-    exec_req->reloc_list = (uint64_t) (unsigned long)
+    arg.buffer_list = first;
+    arg.num_buffers = count;
+    arg.reloc_list = (uint64_t) (unsigned long)
 	c_buf->reloc_info->first_header;
-    exec_req->cmd_buffer = (uint64_t) (unsigned long)
+    arg.cmd_buffer = (uint64_t) (unsigned long)
 	c_buf->buf;
-    exec_req->cmd_buffer_size = c_buf->pos << 2;
+    arg.control = (uint64_t) (unsigned long) &control;
+
+    arg.cmd_buffer_size = c_buf->pos << 2;
 
     /*
      * FIXME: Use AGP when we've resolved the locks that happen
      * when we run 3D DRI clients and X server AGP command submission.
      */
 
-    /*    exec_req->mechanism = (c_buf->needsPCI) ? 
+    /*    arg.mechanism = (c_buf->needsPCI) ? 
 	  _VIA_MECHANISM_PCI : _VIA_MECHANISM_AGP; */
-    exec_req->mechanism = (c_buf->needs_pci) ? _VIA_MECHANISM_PCI : 
+    arg.mechanism = (c_buf->needs_pci) ? _VIA_MECHANISM_PCI : 
       _VIA_MECHANISM_AGP;
-    exec_req->exec_flags = DRM_VIA_FENCE_NO_USER | c_buf->exec_flags;
-    exec_req->cliprect_offset = 0;
-    exec_req->num_cliprects = 0;
+    arg.exec_flags = DRM_VIA_FENCE_NO_USER | c_buf->exec_flags;
+    arg.cliprect_offset = 0;
+    arg.num_cliprects = 0;
 
     do {
-	ret = drmCommandWriteRead(fd, DRM_VIA_TTM_EXECBUF, &arg, sizeof(arg));
+	ret = drmCommandWrite(fd, DRM_VIA_TTM_EXECBUF, &arg, sizeof(arg));
     } while (ret == -EAGAIN || ret == -EINTR);
 
 

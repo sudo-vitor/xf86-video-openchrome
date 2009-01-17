@@ -2509,7 +2509,7 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
     pVia->directRenderingEnabled = VIADRIScreenInit(pScreen);
     pVia->vtNotified = FALSE;
     if (pVia->directRenderingEnabled && !pVia->IsSecondary) {
-	const char drm_ext[] = "via_ttm_placement_drop_080912";
+	const char drm_ext[] = "via_ttm_placement_081121";
 	union drm_via_extension_arg arg;
 	strncpy(arg.extension, drm_ext, sizeof(arg.extension));
 	ret = drmCommandWriteRead(pVia->drmFD, DRM_VIA_EXTENSION, &arg,

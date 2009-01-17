@@ -958,7 +958,7 @@ viaCmdBufferInit(struct _ViaCommandBuffer *buf,
     if (!buf->c_buf.reloc_info)
 	goto out_err0;
     
-    buf->c_buf.validate_list = wsbmBOCreateList(10);
+    buf->c_buf.validate_list = wsbmBOCreateList(10, 1);
     if (!buf->c_buf.validate_list)
 	goto out_err1;
 

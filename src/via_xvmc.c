@@ -381,7 +381,7 @@ ViaInitXVMC(ScreenPtr pScreen)
     saPriv = (ViaXvMCSAreaPriv *) DRIGetSAREAPrivate(pScreen);
     saPriv->XvMCCtxNoGrabbed = ~0;
 
-    XVMCLOCKPTR(saPriv, UNICHROME_LOCK_DECODER1)->lock = 0;
+    DRM_VIA_XVMCLOCKPTR(saPriv, UNICHROME_LOCK_DECODER1)->lock = 0;
 
     xf86DrvMsg(pScrn->scrnIndex, X_INFO,
                "[XvMC] Initialized XvMC extension.\n");
