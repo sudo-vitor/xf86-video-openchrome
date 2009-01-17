@@ -1,8 +1,15 @@
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include <errno.h>
+#include <xf86drm.h>
 #include "ochr_ioctl.h"
 #include "via_dmabuffer.h"
 #include "ochr_drm.h"
 #include "ochr_ws_driver.h"
+
+extern drm_context_t DRIGetContext(ScreenPtr pScreen);
 
 struct via_reloc_bufinfo
 {
