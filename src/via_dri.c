@@ -65,8 +65,8 @@ typedef struct
 } ViaDRMVersion;
 
 static char VIAKernelDriverName[] = "openchrome";
-static char VIAClientDriverName[] = "unichrome";
-static const ViaDRMVersion drmExpected = { 0, 0, 0 };
+static char VIAClientDriverName[] = "openchrome";
+static const ViaDRMVersion drmExpected = { 0, 1, 0 };
 static const ViaDRMVersion drmCompat = { 0, 0, 0 };
 
 static Bool VIAInitVisualConfigs(ScreenPtr pScreen);
@@ -274,11 +274,21 @@ VIADRIScreenInit(ScreenPtr pScreen)
     pDRIInfo->ddxDriverMinorVersion = VIA_DRIDDX_VERSION_MINOR;
     pDRIInfo->ddxDriverPatchVersion = VIA_DRIDDX_VERSION_PATCH;
 #if (DRIINFO_MAJOR_VERSION == 5)
+#ifdef XSERVER_LIBPCIACCESS
+    pDRIInfo->frameBufferPhysicalAddress = (pointer)
+      (unsigned long) pVia->PciInfo->regions[0].base_addr;
+#else
     pDRIInfo->frameBufferPhysicalAddress = (pointer) 
 	pVia->PciInfo->memBase[0];
+#endif
+#else
+#ifdef XSERVER_LIBPCIACCESS
+    pDRIInfo->frameBufferPhysicalAddress = 
+	pVia->PciInfo->regions[0].base_addr;
 #else
     pDRIInfo->frameBufferPhysicalAddress = 
 	pVia->PciInfo->memBase[0];
+#endif
 #endif
     pDRIInfo->frameBufferSize = 4096;
 
