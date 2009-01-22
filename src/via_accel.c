@@ -892,154 +892,6 @@ viaExpandablePixel(int format)
             formatType == PICT_TYPE_ABGR || formatType == PICT_TYPE_ARGB);
 }
 
-#ifdef XF86DRI
-
-#if 0
-
-static int
-viaAccelDMADownload(ScrnInfoPtr pScrn, unsigned long fbOffset,
-                    unsigned srcPitch, unsigned char *dst,
-                    unsigned dstPitch, unsigned w, unsigned h)
-{
-    VIAPtr pVia = VIAPTR(pScrn);
-    struct drm_via_dmablit blit[2], *curBlit;
-    unsigned char *sysAligned = NULL;
-    Bool doSync[2], useBounceBuffer;
-    unsigned pitch, numLines[2];
-    int curBuf, err, i, ret, blitHeight;
-
-    ret = 0;
-
-    useBounceBuffer = (((unsigned long)dst & 15) || (dstPitch & 15));
-    doSync[0] = FALSE;
-    doSync[1] = FALSE;
-    curBuf = 1;
-    blitHeight = h;
-    pitch = dstPitch;
-    if (useBounceBuffer) {
-        pitch = ALIGN_TO(dstPitch, 16);
-        blitHeight = VIA_DMA_DL_SIZE / pitch;
-    }
-
-    while (doSync[0] || doSync[1] || h != 0) {
-        curBuf = 1 - curBuf;
-        curBlit = &blit[curBuf];
-        if (doSync[curBuf]) {
-
-            do {
-                err = drmCommandWrite(pVia->drmFD, DRM_VIA_BLIT_SYNC,
-                                      &curBlit->sync, sizeof(curBlit->sync));
-            } while (err == -EAGAIN);
-
-            if (err)
-                return err;
-
-            doSync[curBuf] = FALSE;
-            if (useBounceBuffer) {
-                for (i = 0; i < numLines[curBuf]; ++i) {
-                    memcpy(dst, curBlit->mem_addr, w);
-                    dst += dstPitch;
-                    curBlit->mem_addr += pitch;
-                }
-            }
-        }
-
-        if (h == 0)
-            continue;
-
-        curBlit->num_lines = (h > blitHeight) ? blitHeight : h;
-        h -= curBlit->num_lines;
-        numLines[curBuf] = curBlit->num_lines;
-
-        sysAligned =
-                (unsigned char *)pVia->dBounce + (curBuf * VIA_DMA_DL_SIZE);
-        sysAligned = (unsigned char *)
-                ALIGN_TO((unsigned long)sysAligned, 16);
-
-        curBlit->mem_addr = (useBounceBuffer) ? sysAligned : dst;
-        curBlit->line_length = w;
-        curBlit->mem_stride = pitch;
-        curBlit->fb_addr = fbOffset;
-        curBlit->fb_stride = srcPitch;
-        curBlit->to_fb = 0;
-        fbOffset += curBlit->num_lines * srcPitch;
-
-        do {
-            err = drmCommandWriteRead(pVia->drmFD, DRM_VIA_DMA_BLIT, curBlit,
-                                      sizeof(*curBlit));
-        } while (err == -EAGAIN);
-
-        if (err) {
-            ret = err;
-            h = 0;
-            continue;
-        }
-
-        doSync[curBuf] = TRUE;
-    }
-
-    return ret;
-}
-
-/*
- * Use PCI DMA if we can. If the system alignments don't match, we're using
- * an aligned bounce buffer for pipelined PCI DMA and memcpy.
- * Throughput for large transfers is around 65 MB/s.
- */
-static Bool
-viaExaDownloadFromScreen(PixmapPtr pSrc, int x, int y, int w, int h,
-                         char *dst, int dst_pitch)
-{
-    ScrnInfoPtr pScrn = xf86Screens[pSrc->drawable.pScreen->myNum];
-    VIAPtr pVia = VIAPTR(pScrn);
-    unsigned srcPitch = exaGetPixmapPitch(pSrc);
-    unsigned wBytes = (pSrc->drawable.bitsPerPixel * w + 7) >> 3;
-    unsigned srcOffset;
-    char *bounceAligned = NULL;
-    unsigned totSize;
-
-    if (!w || !h)
-        return TRUE;
-
-    srcOffset = x * pSrc->drawable.bitsPerPixel;
-    if (srcOffset & 3)
-        return FALSE;
-    srcOffset = viaExaPixmapOffset(pSrc) + y * srcPitch + (srcOffset >> 3);
-
-    totSize = wBytes * h;
-
-    exaWaitSync(pScrn->pScreen);
-    if (totSize < VIA_MIN_DOWNLOAD) {
-	return FALSE;
-#if 0
-        bounceAligned = (char *)pVia->FBBase + srcOffset;
-        while (h--) {
-            memcpy(dst, bounceAligned, wBytes);
-            dst += dst_pitch;
-            bounceAligned += srcPitch;
-        }
-        return TRUE;
-#endif
-    }
-
-    if (!pVia->directRenderingEnabled)
-        return FALSE;
-
-    if ((srcPitch & 3) || (srcOffset & 3)) {
-        ErrorF("VIA EXA download src_pitch misaligned\n");
-        return FALSE;
-    }
-
-    if (viaAccelDMADownload(pScrn, srcOffset, srcPitch, (unsigned char *)dst,
-                            dst_pitch, wBytes, h))
-        return FALSE;
-
-    return TRUE;
-}
-#endif
-
-#endif
-
 static Bool
 viaExaUploadToScratch(PixmapPtr pSrc, PixmapPtr pDst)
 {
@@ -1121,25 +973,6 @@ viaExaCheckComposite(int op, PicturePtr pSrcPicture,
     VIAPtr pVia = VIAPTR(pScrn);
     Via3DState *v3d = &pVia->v3d;
 
-    /* Reject small composites early. They are done much faster in software. */
-    if (!pSrcPicture->repeat &&
-        pSrcPicture->pDrawable->width *
-        pSrcPicture->pDrawable->height < VIA_MIN_COMPOSITE) {
-#ifdef VIA_DEBUG_COMPOSITE
-        ErrorF("Size.\n");
-#endif
-        return FALSE;
-    }
-    if (pMaskPicture &&
-        !pMaskPicture->repeat &&
-        pMaskPicture->pDrawable->width *
-        pMaskPicture->pDrawable->height < VIA_MIN_COMPOSITE) {
-#ifdef VIA_DEBUG_COMPOSITE
-        ErrorF("Size.\n");
-#endif
-        return FALSE;
-    }
-
     if (pSrcPicture->repeat && 
 	(!viaIsPot(pSrcPicture->pDrawable->width) ||
 	 !viaIsPot(pSrcPicture->pDrawable->height)))
@@ -1209,6 +1042,60 @@ viaExaCheckComposite(int op, PicturePtr pSrcPicture,
     return FALSE;
 }
 
+static Bool 
+viaPrepareAccess(PixmapPtr pPix, int index, Bool noWait)
+{
+    ScrnInfoPtr pScrn = xf86Screens[pPix->drawable.pScreen->myNum];
+    VIAPtr pVia = VIAPTR(pScrn);
+    struct _ViaOffscreenBuffer *buf;
+    uint32_t flags;
+    void *ptr;
+    int ret = 0;
+
+    ptr = (void *) (exaGetPixmapOffset(pPix) + 
+		    (unsigned long) pVia->exaMem.virtual);
+
+    buf = viaInBuffer(&pVia->offscreen, ptr);
+    if (buf) {
+	flags = (index == EXA_PREPARE_DEST) ?
+	    WSBM_SYNCCPU_WRITE : WSBM_SYNCCPU_READ;
+	if (noWait)
+	    flags |= WSBM_SYNCCPU_DONT_BLOCK;
+	ret = wsbmBOSyncForCpu(buf->buf, flags);
+    }
+
+    pPix->devPrivate.ptr = ptr;
+
+    return (ret == 0);
+}
+
+static Bool 
+viaExaPrepareAccess(PixmapPtr pPix, int index)
+{
+    return viaPrepareAccess(pPix, index, 0);
+}
+
+static void
+viaExaFinishAccess(PixmapPtr pPix, int index)
+{
+    ScrnInfoPtr pScrn = xf86Screens[pPix->drawable.pScreen->myNum];
+    VIAPtr pVia = VIAPTR(pScrn);
+    struct _ViaOffscreenBuffer *buf;
+    void *ptr;
+    uint32_t flags;
+    
+    ptr = (void *) (exaGetPixmapOffset(pPix) + 
+		    (unsigned long) pVia->exaMem.virtual);
+
+    buf = viaInBuffer(&pVia->offscreen, ptr);
+
+    if (buf) {
+	flags = (index == EXA_PREPARE_DEST) ?
+	    WSBM_SYNCCPU_WRITE : WSBM_SYNCCPU_READ;
+	(void) wsbmBOReleaseFromCpu(buf->buf, flags);      
+    }
+}
+
 static Bool
 viaExaPrepareComposite(int op, PicturePtr pSrcPicture,
                        PicturePtr pMaskPicture, PicturePtr pDstPicture,
@@ -1246,11 +1133,22 @@ viaExaPrepareComposite(int op, PicturePtr pSrcPicture,
         (pMaskPicture->pDrawable->height == 1) &&
         (pMaskPicture->pDrawable->width == 1) &&
         pMaskPicture->repeat && viaExpandablePixel(pMaskPicture->format)) {
-        pVia->maskP = pMask->devPrivate.ptr;
-        pVia->maskFormat = pMaskPicture->format;
-        pVia->componentAlpha = pMaskPicture->componentAlpha;
-        srcMode = ((pMaskPicture->componentAlpha)
-                   ? via_src_onepix_comp_mask : via_src_onepix_mask);
+
+	/*
+	 * Only optimize if mask is currently idle.
+	 */
+
+	if (viaPrepareAccess(pMask, EXA_PREPARE_MASK, 1)) {
+	    pVia->maskP = pMask->devPrivate.ptr;
+	    pVia->maskFormat = pMaskPicture->format;
+	    pVia->componentAlpha = pMaskPicture->componentAlpha;
+	    srcMode = ((pMaskPicture->componentAlpha)
+		       ? via_src_onepix_comp_mask : via_src_onepix_mask);
+
+	    viaPixelARGB8888(pVia->maskFormat, pVia->maskP, &col);
+	    v3d->setTexBlendCol(v3d, 0, pVia->componentAlpha, col);
+	    viaExaFinishAccess(pMask, EXA_PREPARE_MASK);
+	}
     }
 
     /*
@@ -1263,8 +1161,14 @@ viaExaPrepareComposite(int op, PicturePtr pSrcPicture,
         && (pSrcPicture->pDrawable->height == 1)
         && (pSrcPicture->pDrawable->width == 1)
         && viaExpandablePixel(pSrcPicture->format)) {
-        pVia->srcP = pSrc->devPrivate.ptr;
-        pVia->srcFormat = pSrcPicture->format;
+
+	if (viaPrepareAccess(pSrc, EXA_PREPARE_SRC, 1)) {	
+	    pVia->srcP = pSrc->devPrivate.ptr;
+	    pVia->srcFormat = pSrcPicture->format;
+	    viaPixelARGB8888(pVia->srcFormat, pVia->srcP, &col);
+	    v3d->setDrawing(v3d, 0x0c, 0xFFFFFFFF, col & 0x00FFFFFF, col >> 24);
+	    viaExaFinishAccess(pSrc, EXA_PREPARE_SRC);
+	}
     }
 
     /* Exa should be smart enough to eliminate this IN operation. */
@@ -1312,14 +1216,7 @@ viaExaPrepareComposite(int op, PicturePtr pSrcPicture,
 
     v3d->setFlags(v3d, curTex, PICT_FORMAT_A(pDstPicture->format) != 0, 
 		  TRUE, TRUE);
-    if (pVia->maskP) {
-        viaPixelARGB8888(pVia->maskFormat, pVia->maskP, &col);
-        v3d->setTexBlendCol(v3d, 0, pVia->componentAlpha, col);
-    }
-    if (pVia->srcP) {
-        viaPixelARGB8888(pVia->srcFormat, pVia->srcP, &col);
-        v3d->setDrawing(v3d, 0x0c, 0xFFFFFFFF, col & 0x00FFFFFF, col >> 24);
-    }
+
     v3d->emitState(v3d, &pVia->cb, viaCheckUpload(pScrn, v3d));
     v3d->emitClipRect(v3d, &pVia->cb, 0, 0, pDst->drawable.width,
                       pDst->drawable.height);
@@ -1349,53 +1246,6 @@ viaExaComposite(PixmapPtr pDst, int srcX, int srcY, int maskX, int maskY,
     v3d->emitQuad(v3d, &pVia->cb, dstX, dstY, srcX, srcY, maskX, maskY,
                   width, height);
 }
-
-static Bool 
-viaExaPrepareAccess(PixmapPtr pPix, int index)
-{
-    ScrnInfoPtr pScrn = xf86Screens[pPix->drawable.pScreen->myNum];
-    VIAPtr pVia = VIAPTR(pScrn);
-    struct _ViaOffscreenBuffer *buf;
-    uint32_t flags;
-    void *ptr;
-    int ret = 0;
-
-    ptr = (void *) (exaGetPixmapOffset(pPix) + 
-		    (unsigned long) pVia->exaMem.virtual);
-
-    buf = viaInBuffer(&pVia->offscreen, ptr);
-    if (buf) {
-	flags = (index == EXA_PREPARE_DEST) ?
-	    WSBM_SYNCCPU_WRITE : WSBM_SYNCCPU_READ;
-	ret = wsbmBOSyncForCpu(buf->buf, flags);
-	if (ret) {
-	  ErrorF("Ret is %d: \"%s\".\n", ret, strerror(-ret));
-	}
-    }
-    return (ret == 0);
-}
-
-static void
-viaExaFinishAccess(PixmapPtr pPix, int index)
-{
-    ScrnInfoPtr pScrn = xf86Screens[pPix->drawable.pScreen->myNum];
-    VIAPtr pVia = VIAPTR(pScrn);
-    struct _ViaOffscreenBuffer *buf;
-    void *ptr;
-    uint32_t flags;
-    
-    ptr = (void *) (exaGetPixmapOffset(pPix) + 
-		    (unsigned long) pVia->exaMem.virtual);
-
-    buf = viaInBuffer(&pVia->offscreen, ptr);
-
-    if (buf) {
-	flags = (index == EXA_PREPARE_DEST) ?
-	    WSBM_SYNCCPU_WRITE : WSBM_SYNCCPU_READ;
-	(void) wsbmBOReleaseFromCpu(buf->buf, flags);      
-    }
-}
-
 
 static ExaDriverPtr
 viaInitExa(ScreenPtr pScreen)
