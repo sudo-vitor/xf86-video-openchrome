@@ -1910,21 +1910,17 @@ VIALeaveVT(int scrnIndex, int flags)
         viaSaveVideo(pScrn);
 
     /*
-     * Release the scanouts.
-     */
-
-    pVia->displayMap = NULL;
-
-    /*
      * First move out all buffers so any DRI references won't keep them
      * in VRAM.
      */
 
     wsbmBOUnmap(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY]);
+    pVia->displayMap = NULL;
     ret= wsbmBOSetStatus(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY],
 			 0,
 			 WSBM_PL_FLAG_NO_EVICT);
     wsbmBOUnmap(pVia->scanout.bufs[VIA_SCANOUT_CURSOR]);
+    pVia->cursorMap = NULL;
     ret = wsbmBOSetStatus(pVia->scanout.bufs[VIA_SCANOUT_CURSOR],
 			  0,
 			  WSBM_PL_FLAG_NO_EVICT);
@@ -2579,7 +2575,6 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
     }
 
     pVia->front.buf = wsbmBOReference(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY]);
-    pVia->displayMap = NULL;
     pVia->displayMap = wsbmBOMap(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY],
 				WSBM_SYNCCPU_READ | WSBM_SYNCCPU_WRITE);
     if (!pVia->displayMap) {
@@ -2971,10 +2966,15 @@ VIACloseScreen(int scrnIndex, ScreenPtr pScreen)
     wsbmBOUnreference(&pVia->front.buf);
     pVia->front.buf = NULL;
 
-    wsbmBOUnmap(pVia->scanout.bufs[VIA_SCANOUT_CURSOR]);
-    pVia->displayMap = NULL;
-    wsbmBOUnmap(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY]);
-    pVia->cursorMap = NULL;
+
+    if (pVia->displayMap) {
+	wsbmBOUnmap(pVia->scanout.bufs[VIA_SCANOUT_CURSOR]);
+	pVia->displayMap = NULL;
+    }
+    if (pVia->cursorMap) {
+	wsbmBOUnmap(pVia->scanout.bufs[VIA_SCANOUT_DISPLAY]);
+	pVia->cursorMap = NULL;
+    }
     wsbmDeleteBuffers(VIA_SCANOUT_NUM, pVia->scanout.bufs);
 
     if (pVia->mainPool && !pVia->IsSecondary) {
