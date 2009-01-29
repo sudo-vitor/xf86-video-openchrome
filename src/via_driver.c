@@ -916,6 +916,9 @@ VIAPreInit(ScrnInfoPtr pScrn, int flags)
             pVIAEnt->HasSecondary = FALSE;
             pVIAEnt->RestorePrimary = FALSE;
             pVIAEnt->IsSecondaryRestored = FALSE;
+	    if (wsbmIsInitialized()) {
+		FatalError("libwsbm was already initialized at startup.\n");
+	    }		
 	    ret = wsbmInit(wsbmNullThreadFuncs(), ochrVNodeFuncs());
 	    if (ret) {
 		xfree(pEnt);
@@ -925,6 +928,9 @@ VIAPreInit(ScrnInfoPtr pScrn, int flags)
         }
     } else {
         pVia->sharedData = xnfcalloc(sizeof(ViaSharedRec), 1);
+	if (wsbmIsInitialized()) {
+	    FatalError("libwsbm was already initialized at startup.\n");
+	}		
 	ret = wsbmInit(wsbmNullThreadFuncs(), ochrVNodeFuncs());
 	if (ret) {
 	    xfree(pEnt);
