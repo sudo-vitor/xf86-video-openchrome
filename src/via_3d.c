@@ -48,7 +48,7 @@ static ViaCompositeOperator viaOperatorModes[256];
 static Via3DFormat via3DFormats[256];
 
 #define VIA_NUM_3D_OPCODES 19
-#define VIA_NUM_3D_FORMATS 15
+#define VIA_NUM_3D_FORMATS 13
 #define VIA_FMT_HASH(arg) (((((arg) >> 1) + (arg)) >> 8) & 0xFF)
 
 /*
@@ -102,8 +102,8 @@ static const CARD32 viaFormats[VIA_NUM_3D_FORMATS][5] = {
     {PICT_x8b8g8r8, HC_HDBFM_ABGR0888, HC_HTXnFM_ABGR0888, 1, 1},
     {PICT_a8b8g8r8, HC_HDBFM_ABGR8888, HC_HTXnFM_ABGR8888, 1, 1},
     {PICT_a8, 0x00, HC_HTXnFM_A8, 0, 1},
-    {PICT_a4, 0x00, HC_HTXnFM_A4, 0, 1},
-    {PICT_a1, 0x00, HC_HTXnFM_A1, 0, 1}
+    //    {PICT_a4, 0x00, HC_HTXnFM_A4, 0, 1},
+    //    {PICT_a1, 0x00, HC_HTXnFM_A1, 0, 1}
 };
 
 /*

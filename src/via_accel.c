@@ -933,7 +933,9 @@ viaExaUploadToScratch(PixmapPtr pSrc, PixmapPtr pDst)
     
     pDst->devKind = dstPitch;
     pDst->devPrivate.ptr = dst;
-    src = pSrc->devPrivate.ptr;
+    src = (void *) exaGetPixmapOffset(pSrc) + 
+      (unsigned long) pVia->exaMem.virtual;
+
     srcPitch = exaGetPixmapPitch(pSrc);
 
     while (h--) {
