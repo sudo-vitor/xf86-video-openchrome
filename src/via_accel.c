@@ -46,15 +46,25 @@
 #include "via_dmabuffer.h"
 #include "ochr_ioctl.h"
 
-#ifdef X_HAVE_XAAGETROP
-#define VIAACCELPATTERNROP(vRop) (XAAGetPatternROP(vRop) << 24)
-#define VIAACCELCOPYROP(vRop) (XAAGetCopyROP(vRop) << 24)
-#else
-#define VIAACCELPATTERNROP(vRop) (XAAPatternROP[vRop] << 24)
-#define VIAACCELCOPYROP(vRop) (XAACopyROP[vRop] << 24)
-#endif
-
 #undef VIA_DEBUG_COMPOSITE
+
+static const int viaCopyRop[] = 
+    { 0x00, 0x88, 0x44, 0xCC, 0x22, 0xAA, 0x66, 0xEE, 0x11, 
+    0x99, 0x55, 0xDD, 0x33, 0xBB, 0x77, 0xFF 
+}; 
+static const int viaPatternRop[] = 
+    { 0x00, 0xA0, 0x50, 0xF0, 0x0A, 0xAA, 0x5A, 0xFA, 0x05, 
+      0xA5, 0x55, 0xF5, 0x0F, 0xAF, 0x5F, 0xFF 
+}; 
+
+static inline CARD32 viaAccelPatternRop(int alu)
+{
+    return viaPatternRop[alu] << 24;
+}
+static inline CARD32 viaAccelCopyRop(int alu)
+{
+    return viaCopyRop[alu] << 24;
+}
 
 /*
  * Use PCI MMIO to flush the command buffer when AGP DMA is not available.
@@ -610,7 +620,7 @@ viaExaPrepareSolid(PixmapPtr pPixmap, int alu, Pixel planeMask, Pixel fg)
     if (!viaAccelPlaneMaskHelper(tdc, planeMask))
         return FALSE;
 
-    tdc->cmd = VIA_GEC_BLT | VIA_GEC_FIXCOLOR_PAT | VIAACCELPATTERNROP(alu);
+    tdc->cmd = VIA_GEC_BLT | VIA_GEC_FIXCOLOR_PAT | viaAccelPatternRop(alu);
 
     tdc->fgColor = fg;
 
@@ -688,6 +698,8 @@ viaExaPrepareCopy(PixmapPtr pSrcPixmap, PixmapPtr pDstPixmap, int xdir,
     VIAPtr pVia = VIAPTR(pScrn);
     ViaTwodContext *tdc = &pVia->td;
 
+    return FALSE;
+
     if (pSrcPixmap->drawable.bitsPerPixel != pDstPixmap->drawable.bitsPerPixel)
         return FALSE;
 
@@ -697,7 +709,7 @@ viaExaPrepareCopy(PixmapPtr pSrcPixmap, PixmapPtr pDstPixmap, int xdir,
     if (exaGetPixmapPitch(pDstPixmap) & 7)
         return FALSE;
 
-    tdc->cmd = VIA_GEC_BLT | VIAACCELCOPYROP(alu);
+    tdc->cmd = VIA_GEC_BLT | viaAccelCopyRop(alu);
     if (xdir < 0)
         tdc->cmd |= VIA_GEC_DECX;
     if (ydir < 0)
@@ -1506,7 +1518,7 @@ viaAccelBlitRect(ScrnInfoPtr pScrn, int srcx, int srcy, int w, int h,
 
         int xdir = ((srcx < dstx) && (srcy == dsty)) ? -1 : 1;
         int ydir = (srcy < dsty) ? -1 : 1;
-        CARD32 cmd = VIA_GEC_BLT | VIAACCELCOPYROP(GXcopy);
+        CARD32 cmd = VIA_GEC_BLT | viaAccelCopyRop(GXcopy);
 
         if (xdir < 0)
             cmd |= VIA_GEC_DECX;
@@ -1529,7 +1541,7 @@ viaAccelFillRect(ScrnInfoPtr pScrn, int x, int y, int w, int h,
     VIAPtr pVia = VIAPTR(pScrn);
     ViaTwodContext *tdc = &pVia->td;
     CARD32 cmd = VIA_GEC_BLT | VIA_GEC_FIXCOLOR_PAT |
-            VIAACCELPATTERNROP(GXcopy);
+	viaAccelPatternRop(GXcopy);
     struct _WsbmBufferObject *buf;
     unsigned long delta;
     
@@ -1563,7 +1575,7 @@ viaAccelFillPixmap(ScrnInfoPtr pScrn,
     ViaTwodContext *tdc = &pVia->td;
 	
     CARD32 cmd = VIA_GEC_BLT | VIA_GEC_FIXCOLOR_PAT |
-            VIAACCELPATTERNROP(GXcopy);
+	viaAccelPatternRop(GXcopy);
     RING_VARS;
 
     if (!w || !h)

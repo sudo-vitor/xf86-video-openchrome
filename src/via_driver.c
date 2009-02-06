@@ -327,23 +327,6 @@ static const char *i2cSymbols[] = {
     NULL
 };
 
-static const char *xaaSymbols[] = {
-#ifdef X_HAVE_XAAGETROP
-    "XAAGetCopyROP",
-    "XAAGetCopyROP_PM",
-    "XAAGetPatternROP",
-#else
-    "XAACopyROP",
-    "XAACopyROP_PM",
-    "XAAPatternROP",
-#endif
-    "XAACreateInfoRec",
-    "XAADestroyInfoRec",
-    "XAAInit",
-    "XAAFillSolidRects",
-    NULL
-};
-
 static const char *exaSymbols[] = {
     "exaGetVersion",
     "exaDriverInit",
@@ -477,7 +460,6 @@ VIASetup(pointer module, pointer opts, int *errmaj, int *errmin)
                           cfbSymbols,
 #endif
                           ramdacSymbols,
-                          xaaSymbols,
                           exaSymbols,
                           shadowSymbols,
                           vbeSymbols,
@@ -1709,11 +1691,6 @@ VIAPreInit(ScrnInfoPtr pScrn, int flags)
             }
             xf86LoaderReqSymLists(exaSymbols, NULL);
         }
-        if (!xf86LoadSubModule(pScrn, "xaa")) {
-            VIAFreeRec(pScrn);
-            return FALSE;
-        }
-        xf86LoaderReqSymLists(xaaSymbols, NULL);
     }
 
     if (pVia->hwcursor) {
