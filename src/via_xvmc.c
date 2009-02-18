@@ -169,11 +169,22 @@ stride(int w)
 }
 
 static unsigned long
-size_yuv420(int w, int h)
+size_yv12(int w, int h, int *uoffset, int *voffset)
 {
     unsigned yPitch = stride(w);
 
-    return h * (yPitch + (yPitch >> 1));
+    *uoffset = h*yPitch;
+    *voffset = *uoffset + ((h >> 1) * (yPitch >> 1));
+    return *voffset + ((h >> 1) * (yPitch >> 1));
+}
+
+static unsigned long
+size_nv12(int w, int h, int *uoffset)
+{
+    unsigned yPitch = stride(w);
+
+    *uoffset = h*yPitch;
+    return (h >> 1) * yPitch;
 }
 
 static unsigned long
@@ -503,10 +514,12 @@ ViaXvMCCreateSurface(ScrnInfoPtr pScrn, XvMCSurfacePtr pSurf,
     VIAPtr pVia = VIAPTR(pScrn);
     ViaXvMCPtr vXvMC = &(pVia->xvmc);
     unsigned srfNo, numBuffers, i;
-    ViaXvMCSurfacePriv *sPriv;
+    struct _HQVBuffer *sPriv;
     XvMCContextPtr ctx;
     unsigned bufSize, yBufSize;
     unsigned char *map;
+    int uoffs;
+    int voffs = 0;
     int ret;
 
     if (VIA_XVMC_MAX_SURFACES == vXvMC->nSurfaces) {
@@ -515,7 +528,7 @@ ViaXvMCCreateSurface(ScrnInfoPtr pScrn, XvMCSurfacePtr pSurf,
         return BadAlloc;
     }
 
-    sPriv = (ViaXvMCSurfacePriv *) xcalloc(1, sizeof(ViaXvMCSurfacePriv));
+    sPriv = (struct _HQVBuffer *) xcalloc(1, sizeof(struct _HQVBuffer));
 
     if (!sPriv) {
         xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
@@ -525,28 +538,6 @@ ViaXvMCCreateSurface(ScrnInfoPtr pScrn, XvMCSurfacePtr pSurf,
     }
 
     numBuffers = 1;
-
-    /*
-     * Some chips require more than one buffer per surface (and a special
-     * flipping procedure; See Ivor Hewitt's ddmpeg.c version 1.6). The client
-     * lib will detect the number of buffers allocated and determine the
-     * flipping method from that.
-     */
-#if 0  /* Not enabled yet. */
-    switch (pVia->ChipSet) {
-        case VIA_CLE266:
-            switch (pVia->ChipRev) {
-                case 0x10:  /* CLE266 C0 only? Or all C? */
-                    numBuffers = 2;
-                    break;
-                default:
-                    break;
-            }
-            break;
-        default:
-            break;
-    }
-#endif
     *num_priv = numBuffers + 2;
 
     *priv = (INT32 *) xcalloc(*num_priv, sizeof(INT32));
@@ -567,7 +558,16 @@ ViaXvMCCreateSurface(ScrnInfoPtr pScrn, XvMCSurfacePtr pSurf,
     (*priv)[0] = srfNo;
 
     ctx = pSurf->context;
-    bufSize = size_yuv420(ctx->width, ctx->height);
+
+    if (pVia->VideoEngine == VIDEO_ENGINE_CME)
+	bufSize = size_nv12(ctx->width, ctx->height, &uoffs);
+    else
+	bufSize = size_yv12(ctx->width, ctx->height, &uoffs, &voffs);
+
+    sPriv->deltaY = 0;
+    sPriv->deltaU = uoffs;
+    sPriv->deltaV = voffs;
+
     ret = wsbmGenBuffers(pVia->mainPool, 1, &sPriv->buf, 0, 
 			 WSBM_PL_FLAG_VRAM);
     if (ret) {
@@ -618,7 +618,7 @@ ViaXvMCCreateSubpicture(ScrnInfoPtr pScrn, XvMCSubpicturePtr pSubp,
     VIAPtr pVia = VIAPTR(pScrn);
     ViaXvMCPtr vXvMC = &(pVia->xvmc);
     unsigned srfNo;
-    ViaXvMCSurfacePriv *sPriv;
+    struct _HQVBuffer *sPriv;
     XvMCContextPtr ctx;
     unsigned bufSize;
     int ret;
@@ -629,7 +629,7 @@ ViaXvMCCreateSubpicture(ScrnInfoPtr pScrn, XvMCSubpicturePtr pSubp,
         return BadAlloc;
     }
 
-    sPriv = (ViaXvMCSurfacePriv *) xcalloc(1, sizeof(ViaXvMCSurfacePriv));
+    sPriv = (struct _HQVBuffer *) xcalloc(1, sizeof(struct _HQVBuffer));
 
     if (!sPriv) {
         xf86DrvMsg(pScrn->scrnIndex, X_ERROR, "[XvMC] ViaXvMCCreateSubpicture:"
@@ -679,7 +679,7 @@ ViaXvMCCreateSubpicture(ScrnInfoPtr pScrn, XvMCSubpicturePtr pSubp,
         return BadAlloc;
     }
 
-    (*priv)[1] = sPriv->offsets[0] = wsbmKBufHandle(wsbmKBuf(sPriv->buf));
+    (*priv)[1] = wsbmKBufHandle(wsbmKBuf(sPriv->buf));
 
     vXvMC->sPrivs[srfNo] = sPriv;
     vXvMC->surfaces[srfNo] = pSubp->subpicture_id;

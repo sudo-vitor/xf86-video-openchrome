@@ -142,13 +142,7 @@ typedef struct {
 #define VIA_XVMC_MAX_BUFFERS 2
 #define VIA_XVMC_MAX_CONTEXTS 4
 #define VIA_XVMC_MAX_SURFACES 20
-
     
-typedef struct {
-    struct _WsbmBufferObject *buf;
-    unsigned long offsets[VIA_XVMC_MAX_BUFFERS];
-} ViaXvMCSurfacePriv;
-
 typedef struct {
     drm_context_t drmCtx;
 } ViaXvMCContextPriv;
@@ -157,7 +151,7 @@ typedef struct {
 typedef struct {
     XID contexts[VIA_XVMC_MAX_CONTEXTS];
     XID surfaces[VIA_XVMC_MAX_SURFACES];
-    ViaXvMCSurfacePriv *sPrivs[VIA_XVMC_MAX_SURFACES];
+    struct _HQVBuffer *sPrivs[VIA_XVMC_MAX_SURFACES];
     ViaXvMCContextPriv *cPrivs[VIA_XVMC_MAX_CONTEXTS];
     int nContexts,nSurfaces;
     drm_handle_t mmioBase,fbBase,sAreaBase;

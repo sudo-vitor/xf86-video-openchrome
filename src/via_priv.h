@@ -94,6 +94,7 @@ typedef struct _DDUPDATEOVERLAY
 
     unsigned long     dwFlags;        /* flags */
     unsigned long     dwColorSpaceLowValue;
+    struct _HQVBuffer *xvmcBuf;
 } DDUPDATEOVERLAY;
 typedef DDUPDATEOVERLAY * LPDDUPDATEOVERLAY;
 

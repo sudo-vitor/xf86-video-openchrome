@@ -1860,7 +1860,8 @@ Upd_Video(ScrnInfoPtr pScrn, unsigned long videoFlag,
     if (videoFlag & VIDEO_HQV_INUSE) {
         if (!pVia->swov.SWVideo_ON) {
 	    unsigned bufNum = 1 - (pVia->dwFrameNum & 1);
-	    struct _HQVBuffer *hqvBuf = &pVia->swov.SWDevice.hqvBuf[bufNum];
+	    struct _HQVBuffer *hqvBuf = (pUpdate->xvmcBuf) ?
+	      pUpdate->xvmcBuf : &pVia->swov.SWDevice.hqvBuf[bufNum];
 
             DBG_DD(ErrorF("    First HQV\n"));
 
