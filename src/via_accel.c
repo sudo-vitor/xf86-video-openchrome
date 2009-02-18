@@ -597,11 +597,15 @@ viaExaPixmapIsOffscreen(PixmapPtr p)
     ScreenPtr pScreen = p->drawable.pScreen;
     ScrnInfoPtr pScrn = xf86Screens[pScreen->myNum];
     VIAPtr pVia = VIAPTR(pScrn);
+    void *ptr;
 
     if (pVia->vtNotified == TRUE)
 	return FALSE;
 
-    return (viaInBuffer(&pVia->offscreen, p->devPrivate.ptr) != NULL);
+    ptr = (void *) (exaGetPixmapOffset(p) +
+		    (unsigned long) pVia->exaMem.virtual);
+
+    return (viaInBuffer(&pVia->offscreen, ptr) != NULL);
 }
 
 static Bool
