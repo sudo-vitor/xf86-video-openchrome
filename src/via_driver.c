@@ -2684,7 +2684,7 @@ VIAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
     if (!pVia->NoAccel)
         viaFinishInitAccel(pScreen);
 
-    if (!pVia->NoAccel) {
+    if (pVia->NoAccel) {
 	memset(pVia->displayMap, 0x00, pVia->Bpl * pScrn->virtualY);
     } else {
         viaAccelFillRect(pScrn, pScrn->frameX0, pScrn->frameY0,
