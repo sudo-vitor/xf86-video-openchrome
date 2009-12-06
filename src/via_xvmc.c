@@ -323,13 +323,7 @@ ViaInitXVMC(ScreenPtr pScreen)
 
     pVia->XvMCEnabled = 0;
 
-    if ((pVia->Chipset == VIA_KM400) ||
-        (pVia->Chipset == VIA_CX700) ||
-        (pVia->Chipset == VIA_K8M890) ||
-        (pVia->Chipset == VIA_P4M900) ||
-        (pVia->Chipset == VIA_VX800) ||
-        (pVia->Chipset == VIA_VX855) ||
-        (pVia->Chipset == VIA_VX900)) {
+    if (pVia->Chipset == VIA_KM400) {
         xf86DrvMsg(pScrn->scrnIndex, X_WARNING,
                    "[XvMC] XvMC is not supported on this chipset.\n");
         return;
@@ -377,19 +371,13 @@ ViaInitXVMC(ScreenPtr pScreen)
     {
         DRIInfoPtr pDRIInfo = pVia->pDRIInfo;
 
-        if (pVia->ChipId != PCI_CHIP_VT3259 &&
-            pVia->ChipId != PCI_CHIP_VT3364) {
-            xf86DrvMsg(pScrn->scrnIndex, X_INFO,
-                       "[XvMC] Registering chromeXvMC.\n");
-            xf86XvMCRegisterDRInfo(pScreen, "chromeXvMC", pDRIInfo->busIdString,
-                                   VIAXVMC_MAJOR, VIAXVMC_MINOR, VIAXVMC_PL);
-        } else {
-            xf86DrvMsg(pScrn->scrnIndex, X_INFO,
-                       "[XvMC] Registering chromeXvMCPro.\n");
-            xf86XvMCRegisterDRInfo(pScreen, "chromeXvMCPro",
-                                   pDRIInfo->busIdString, VIAXVMC_MAJOR,
-                                   VIAXVMC_MINOR, VIAXVMC_PL);
-        }
+        xf86DrvMsg(pScrn->scrnIndex, X_INFO,
+                   "[XvMC] Registering chromeXvMCPro.\n");
+        xf86DrvMsg(pScrn->scrnIndex, X_INFO,
+                   "[XvMC] Registering %d.\n", pVia->ChipId);
+        xf86XvMCRegisterDRInfo(pScreen, "chromeXvMCPro",
+                               pDRIInfo->busIdString, VIAXVMC_MAJOR,
+                               VIAXVMC_MINOR, VIAXVMC_PL);    
     }
 #endif
 
@@ -503,7 +491,8 @@ ViaXvMCCreateContext(ScrnInfoPtr pScrn, XvMCContextPtr pContext,
                           ((pVia->Chipset == VIA_CLE266) ||
                            (pVia->Chipset == VIA_KM400) ||
                            (pVia->Chipset == VIA_PM800) ||
-                           (pVia->Chipset == VIA_P4M900)));
+                           (pVia->Chipset == VIA_P4M900) ||
+                           (pVia->Chipset == VIA_CX700) ));
     contextRec->chipId = pVia->ChipId;
     contextRec->screen = pScrn->pScreen->myNum;
     contextRec->depth = pScrn->bitsPerPixel;
