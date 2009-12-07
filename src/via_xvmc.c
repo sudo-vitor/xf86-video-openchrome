@@ -374,7 +374,7 @@ ViaInitXVMC(ScreenPtr pScreen)
         xf86DrvMsg(pScrn->scrnIndex, X_INFO,
                    "[XvMC] Registering chromeXvMCPro.\n");
         xf86DrvMsg(pScrn->scrnIndex, X_INFO,
-                   "[XvMC] Registering %d.\n", pVia->ChipId);
+                   "[XvMC] Registering 0x%4X.\n", pVia->ChipId);
         xf86XvMCRegisterDRInfo(pScreen, "chromeXvMCPro",
                                pDRIInfo->busIdString, VIAXVMC_MAJOR,
                                VIAXVMC_MINOR, VIAXVMC_PL);    

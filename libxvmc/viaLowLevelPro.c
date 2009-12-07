@@ -839,10 +839,13 @@ syncMpeg(XvMCLowLevel * xl, unsigned int mode, unsigned int doSleep)
     }
 
 /* the busy flag seems to be irrelevant for cx700 engine*/
-    if (xl->chipId != PCI_CHIP_VT3324)
-    if (mode & LL_MODE_DECODER_IDLE) {
-	busyMask |= VIA_BUSYMASK;
-	idleVal = VIA_IDLEVAL;
+    if ( xl->chipId != PCI_CHIP_VT3324 &&
+         xl->chipId != PCI_CHIP_VT3353 &&
+         xl->chipId != PCI_CHIP_VT3409 ) {
+        if (mode & LL_MODE_DECODER_IDLE) {
+            busyMask |= VIA_BUSYMASK;
+            idleVal = VIA_IDLEVAL;
+        }
     }
 
     while (viaMpegIsBusy(xl, busyMask, idleVal)) {
@@ -1098,7 +1101,9 @@ viaVideoSetSWFLipLocked(void *xlp, unsigned yOffs, unsigned uOffs,
 
     if ( xl->chipId == PCI_CHIP_VT3324 || /* change to engine flag/enum */
          xl->chipId == PCI_CHIP_VT3259 ||
-         xl->chipId == PCI_CHIP_VT3364)
+         xl->chipId == PCI_CHIP_VT3364 ||
+         xl->chipId == PCI_CHIP_VT3353 ||
+         xl->chipId == PCI_CHIP_VT3409 )
         setHQVStartAddressCME(hqvShadow, yOffs, vOffs, yStride, 0);
     else
     {
@@ -1118,7 +1123,9 @@ viaVideoSWFlipLocked(void *xlp, unsigned flags, Bool progressiveSequence)
     XvMCLowLevel *xl = (XvMCLowLevel *) xlp;
 
 /* move this back, we want this straight after the last slice write */
-    if (xl->chipId == PCI_CHIP_VT3324)
+    if ( xl->chipId == PCI_CHIP_VT3324 ||
+         xl->chipId == PCI_CHIP_VT3353 ||
+         xl->chipId == PCI_CHIP_VT3409 )
     {
         if (xl->hasSlices)
             viaMpegNullCommand(xl);
@@ -1127,7 +1134,9 @@ viaVideoSWFlipLocked(void *xlp, unsigned flags, Bool progressiveSequence)
 
     if ( xl->chipId == PCI_CHIP_VT3324 || /* change to engine flag/enum */
          xl->chipId == PCI_CHIP_VT3259 ||
-         xl->chipId == PCI_CHIP_VT3364)
+         xl->chipId == PCI_CHIP_VT3364 ||
+         xl->chipId == PCI_CHIP_VT3353 ||
+         xl->chipId == PCI_CHIP_VT3409 )
     {
     setHQVDeinterlacing(hqvShadow, flags);
     setHQVDeblocking(hqvShadow,
@@ -1228,7 +1237,9 @@ viaMpegBeginPicture(void *xlp, ViaXvMCContext * ctx,
 
     WAITFLAGS(cb, LL_MODE_DECODER_IDLE);
 
-    if ( xl->chipId == PCI_CHIP_VT3324) /*change to engineid*/
+    if ( xl->chipId == PCI_CHIP_VT3324 || /*change to engineid*/
+         xl->chipId == PCI_CHIP_VT3353 ||
+         xl->chipId == PCI_CHIP_VT3409 )
 {
 /* I may have broken this with tidying - if so replace with 
 OUT_RING_QW_AGP(cb, 0xC00,
@@ -1440,7 +1451,9 @@ viaMpegReset(void *xlp)
 {
     XvMCLowLevel *xl = (XvMCLowLevel *) xlp;
 
-    if ( xl->chipId == PCI_CHIP_VT3324)
+    if ( xl->chipId == PCI_CHIP_VT3324 ||
+         xl->chipId == PCI_CHIP_VT3353 ||
+         xl->chipId == PCI_CHIP_VT3409 )
     {
         viaMpegResetCX(xlp);
     }
@@ -1802,7 +1815,9 @@ initXvMCLowLevel(int fd, drm_context_t * ctx,
         xl->hqv_offset = HQV_ENGINE_1;
 
 
-    if (chipId == PCI_CHIP_VT3324)
+    if ( chipId == PCI_CHIP_VT3324 ||
+         chipId == PCI_CHIP_VT3353 ||
+         chipId == PCI_CHIP_VT3409 )
     {
         xl->mpgRegs.mpgLineOff   = 0xC6C;
         xl->mpgRegs.mpgStatus    = 0xC70;
