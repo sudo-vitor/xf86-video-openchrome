@@ -324,8 +324,6 @@ ViaInitXVMC(ScreenPtr pScreen)
     pVia->XvMCEnabled = 0;
 
     if ((pVia->Chipset == VIA_KM400) ||
-        (pVia->Chipset == VIA_VX800) ||
-        (pVia->Chipset == VIA_VX855) ||
         (pVia->Chipset == VIA_K8M890) ||
         (pVia->Chipset == VIA_P4M900)) {
         xf86DrvMsg(pScrn->scrnIndex, X_WARNING,
@@ -378,7 +376,7 @@ ViaInitXVMC(ScreenPtr pScreen)
         xf86DrvMsg(pScrn->scrnIndex, X_INFO,
                    "[XvMC] Registering chromeXvMCPro.\n");
         xf86DrvMsg(pScrn->scrnIndex, X_INFO,
-                   "[XvMC] Registering %d.\n", pVia->ChipId);
+                   "[XvMC] Registering 0x%4X.\n", pVia->ChipId);
         xf86XvMCRegisterDRInfo(pScreen, "chromeXvMCPro",
                                pDRIInfo->busIdString, VIAXVMC_MAJOR,
                                VIAXVMC_MINOR, VIAXVMC_PL);    
