@@ -1,0 +1,31 @@
+--- via_verifier.c.orig	2009-12-07 11:34:45.000000000 +0000
++++ via_verifier.c	2009-12-03 14:43:54.000000000 +0000
+@@ -768,7 +768,7 @@
+ 		DRM_ERROR("Invalid VIDEO DMA command. "
+ 			  "Attempt to access 3D- or command burst area.\n");
+ 		return 1;
+-	} else if ((address > 0xCFF) && (address < 0x1300)) {
++	} else if ((address > 0xDFF) && (address < 0x1300)) {
+ 		DRM_ERROR("Invalid VIDEO DMA command. "
+ 			  "Attempt to access PCI DMA area.\n");
+ 		return 1;
+@@ -817,7 +817,7 @@
+ 				  "Attempt to access 3D- or command burst area.\n");
+ 			ret = state_error;
+ 			break;
+-		} else if (cmd > ((0xCFF >> 2) | HALCYON_HEADER1)) {
++		} else if (cmd > ((0xDFF >> 2) | HALCYON_HEADER1)) {
+ 			if ((cmd & HALCYON_HEADER1MASK) != HALCYON_HEADER1)
+ 				break;
+ 			DRM_ERROR("Invalid HALCYON_HEADER1 command. "
+@@ -974,8 +974,8 @@
+ 	int cme_video;
+ 	int supported_3d;
+ 
+-	cme_video = (dev_priv->chipset == VIA_PRO_GROUP_A ||
+-		     dev_priv->chipset == VIA_DX9_0);
++	cme_video = 1; //(dev_priv->chipset == VIA_PRO_GROUP_A ||
++		     //dev_priv->chipset == VIA_DX9_0);
+ 
+ 	supported_3d = dev_priv->chipset != VIA_DX9_0;
+ 
