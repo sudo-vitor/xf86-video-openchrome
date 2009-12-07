@@ -1,0 +1,7 @@
+xvmc-dev branch notes.
+---------------------
+
+Updates to xvmc library to add support for CX700 (and probably later) chipsets.
+
+For linux-2.6.32, via_verifier.c in via drm needs patching with drm-patch.diff to support extra register calls.
+
