@@ -124,6 +124,11 @@ extern void viaBlit(void *xlp, unsigned bpp, unsigned srcBase,
     unsigned w, unsigned h, int xdir, int ydir,
     unsigned blitMode, unsigned color);
 
+extern void viaBlit_H5(void *xlp, unsigned bpp, unsigned srcBase,
+    unsigned srcPitch, unsigned dstBase, unsigned dstPitch,
+    unsigned w, unsigned h, int xdir, int ydir,
+    unsigned blitMode, unsigned color);
+
 extern void viaVideoSWFlipLocked(void *xlp, unsigned flags,
     int progressiveSequence);
 
