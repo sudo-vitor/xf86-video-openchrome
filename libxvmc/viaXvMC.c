@@ -142,7 +142,7 @@ grabDecoder(ViaXvMCContext * ctx, int *hadLastLock)
     if (ctx->haveDecoder) {
 	flushXvMCLowLevel(ctx->xl);    /* Ignore errors here. */
 
-	/*fprintf(stderr,"ViaXvMC: ERROR: Trying to re-lock decoder.\n"); */
+	fprintf(stderr,"ViaXvMC: ERROR: Trying to re-lock decoder.\n"); 
 	*hadLastLock = 1;
 	return 0;
     }
@@ -202,6 +202,9 @@ releaseContextResources(Display * display, XvMCContext * context,
     ViaXvMCContext *pViaXvMC = (ViaXvMCContext *) context->privData;
 
     switch (pViaXvMC->resources) {
+    case context_unset:
+      return XvMCBadContext;
+      
     case context_drawHash:
 	driDestroyHashContents(pViaXvMC->drawHash);
 	drmHashDestroy(pViaXvMC->drawHash);
@@ -714,7 +717,7 @@ XvMCPutSlice2(Display * display, XvMCContext * context, char *slice,
 _X_EXPORT Status
 XvMCPutSlice(Display * display, XvMCContext * context, char *slice,
     int nBytes)
-{
+{ 
     ViaXvMCContext *pViaXvMC;
 
     if ((display == NULL) || (context == NULL)) {
@@ -821,6 +824,12 @@ XvMCPutSurface(Display * display, XvMCSurface * surface, Drawable draw,
     }
 
     ppthread_mutex_lock(&pViaXvMC->ctxMutex);
+
+#if 0
+    viaMpegNullCommand(pViaXvMC->xl);
+    flushPCIXvMCLowLevel(pViaXvMC->xl);    
+#endif
+
     pViaSubPic = pViaSurface->privSubPic;
     sAPriv = SAREAPTR(pViaXvMC);
 
@@ -1362,7 +1371,6 @@ XvMCClearSubpicture(Display * display,
     short x,
     short y, unsigned short width, unsigned short height, unsigned int color)
 {
-
     ViaXvMCContext *pViaXvMC;
     ViaXvMCSubPicture *pViaSubPic;
     short dummyX, dummyY;
@@ -1407,7 +1415,6 @@ XvMCCompositeSubpicture(Display * display,
     short srcy,
     unsigned short width, unsigned short height, short dstx, short dsty)
 {
-
     unsigned i;
     ViaXvMCContext *pViaXvMC;
     ViaXvMCSubPicture *pViaSubPic;
@@ -1645,6 +1652,7 @@ XvMCFlushSubpicture(Display * display, XvMCSubpicture * subpicture)
 _X_EXPORT Status
 XvMCDestroySubpicture(Display * display, XvMCSubpicture * subpicture)
 {
+
     ViaXvMCSubPicture *pViaSubPic;
     ViaXvMCContext *pViaXvMC;
     volatile ViaXvMCSAreaPriv *sAPriv;
@@ -1887,7 +1895,6 @@ XvMCGetAttribute(Display * display,
 _X_EXPORT Status
 XvMCHideSurface(Display * display, XvMCSurface * surface)
 {
-
     ViaXvMCSurface *pViaSurface;
     ViaXvMCContext *pViaXvMC;
     ViaXvMCSubPicture *pViaSubPic;

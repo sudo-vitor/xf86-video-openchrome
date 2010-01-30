@@ -61,6 +61,7 @@ extern Status _xvmc_destroy_subpicture(Display * dpy,
 
 typedef enum
 {
+    context_unset,
     context_drawHash,
     context_lowLevel,
     context_mutex,

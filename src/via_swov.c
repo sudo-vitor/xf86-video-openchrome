@@ -2010,12 +2010,25 @@ Upd_Video(ScrnInfoPtr pScrn, unsigned long videoFlag,
                 SaveVideoRegister(pVia, V3_STRIDE, srcPitch << 1);
 
             if (pVia->HWDiff.dwHQVFetchByteUnit)
-                SaveVideoRegister(pVia, HQV_SRC_STRIDE + proReg,
-                                  ((srcPitch >> 1) << 16) | srcPitch |
-                                  HQV_FIFO_DEPTH_1);
+                if (pVia->VideoEngine == VIDEO_ENGINE_CME) { 
+                    SaveVideoRegister(pVia, HQV_SRC_STRIDE + proReg,
+                                      srcPitch | HQV_FIFO_DEPTH_1);
+                }
+                else{
+                    SaveVideoRegister(pVia, HQV_SRC_STRIDE + proReg,
+                                      ((srcPitch >> 1) << 16) | srcPitch |
+                                      HQV_FIFO_DEPTH_1);
+                }
             else
-                SaveVideoRegister(pVia, HQV_SRC_STRIDE + proReg,
-                                  ((srcPitch >> 1) << 16) | srcPitch);
+                if (pVia->VideoEngine == VIDEO_ENGINE_CME) { 
+                    SaveVideoRegister(pVia, HQV_SRC_STRIDE + proReg,
+                                      srcPitch);
+                }
+                else{
+                    SaveVideoRegister(pVia, HQV_SRC_STRIDE + proReg,
+                                      ((srcPitch >> 1) << 16) | srcPitch);
+                }
+            
 
             SaveVideoRegister(pVia, HQV_DST_STRIDE + proReg, (srcPitch << 1));
         } else {

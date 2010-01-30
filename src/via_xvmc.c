@@ -492,6 +492,7 @@ ViaXvMCCreateContext(ScrnInfoPtr pScrn, XvMCContextPtr pContext,
                            (pVia->Chipset == VIA_KM400) ||
                            (pVia->Chipset == VIA_PM800) ||
                            (pVia->Chipset == VIA_P4M900) ||
+                           (pVia->Chipset == VIA_VX800 ) ||
                            (pVia->Chipset == VIA_CX700) ));
     contextRec->chipId = pVia->ChipId;
     contextRec->screen = pScrn->pScreen->myNum;

@@ -1,7 +1,7 @@
 /*****************************************************************************
  * VIA Unichrome XvMC extension client lib.
  *
- * Copyright (c) 2004 Thomas Hellstr�m. All rights reserved.
+ * Copyright (c) 2004 Thomas Hellström. All rights reserved.
  * Copyright (c) 2003 Andreas Robinson. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -31,10 +31,10 @@
  * Authors: 
  *  Andreas Robinson 2003. (Initial decoder interface functions).
  *  Thomas Hellstrom 2004, 2005 (Blitting functions, AGP and locking, Unichrome Pro Video AGP).
- *  Ivor Hewitt 2005, 2009 Unichrome Pro, CX700
+ *  Ivor Hewitt 2005, 2009 Unichrome Pro, CX700, VX800.
  */
 
-#undef VIDEO_DMA
+//#undef VIDEO_DMA
 #define HQV_USE_IRQ
 
 #include "viaXvMCPriv.h"
@@ -110,8 +110,7 @@ typedef struct _XvMCLowLevel
     CARD32 agpSyncTimeStamp;
     unsigned chipId;
     MpgRegs mpgRegs;
-    int hasSlices; /* state hacks for cx700 */
-    int needsInit;
+
     /*
      * Data for video-engine less display
      */
@@ -139,6 +138,11 @@ typedef struct _XvMCLowLevel
 
 #define HQV_CONTROL             0x3D0
 #define HQV_SRC_OFFSET          0x3CC
+
+#define HQV_SRC_DATA_OFFSET_CONTROL1        0x380
+#define HQV_SRC_DATA_OFFSET_CONTROL2        0x384
+#define HQV_SRC_DATA_OFFSET_CONTROL3        0x388
+#define HQV_SRC_DATA_OFFSET_CONTROL4        0x38C
 
 #define HQV_SRC_STARTADDR_Y     0x3D4
 #define HQV_SRC_STARTADDR_U     0x3D8
@@ -171,6 +175,7 @@ typedef struct _XvMCLowLevel
 #define HQV_YUV422          0x80000000
 #define HQV_ENABLE          0x08000000
 #define HQV_GEN_IRQ         0x00000080
+#define HQV_FIFO_DEPTH_1    0x00010000
 
 #define HQV_SCALE_ENABLE    0x00000800
 #define HQV_SCALE_DOWN      0x00001000
@@ -183,7 +188,6 @@ typedef struct _XvMCLowLevel
 #define SUBP_CONTROL_STRIDE     0x3C0
 #define SUBP_STARTADDR          0x3C4
 #define RAM_TABLE_CONTROL       0x3C8
-#define RAM_TABLE_READ          0x1CC
 
 #define SUBP_HQV_ENABLE             0x00010000
 #define SUBP_IA44                   0x00020000
@@ -194,7 +198,9 @@ typedef struct _XvMCLowLevel
 #define RAM_TABLE_RGB_ENABLE        0x00000007
 
 #define VIA_REG_STATUS          0x400
+#define VIA_REG_GECMD           0x000
 #define VIA_REG_GEMODE          0x004
+
 #define VIA_REG_SRCBASE         0x030
 #define VIA_REG_DSTBASE         0x034
 #define VIA_REG_PITCH           0x038
@@ -202,14 +208,31 @@ typedef struct _XvMCLowLevel
 #define VIA_REG_KEYCONTROL      0x02C
 #define VIA_REG_SRCPOS          0x008
 #define VIA_REG_DSTPOS          0x00C
-#define VIA_REG_GECMD           0x000
-#define VIA_REG_DIMENSION       0x010  /* width and height */
+#define VIA_REG_DIMENSION       0x010 /* width and height */
 #define VIA_REG_FGCOLOR         0x018
+
+#define VIA_REG_SRCBASE_H5      0x01c
+#define VIA_REG_DSTBASE_H5      0x014
+#define VIA_REG_PITCH_H5        0x008
+#define VIA_REG_SRCCOLORKEY_H5  0x050
+#define VIA_REG_KEYCONTROL_H5   0x048
+#define VIA_REG_SRCPOS_H5       0x018
+#define VIA_REG_DSTPOS_H5       0x010
+#define VIA_REG_DIMENSION_H5    0x00c  /* width and height */
+#define VIA_REG_FGCOLOR_H5      0x04c
 
 #define VIA_VR_QUEUE_BUSY       0x00020000	/* Virtual Queue is busy */
 #define VIA_CMD_RGTR_BUSY       0x00000080	/* Command Regulator is busy */
 #define VIA_2D_ENG_BUSY         0x00000002	/* 2D Engine is busy */
 #define VIA_3D_ENG_BUSY         0x00000001	/* 3D Engine is busy */
+
+/* VIA_REG_STATUS(0x400): Egine Status */
+#define VIA_CMD_RGTR_BUSY_H5    0x00000010  /* Command Regulator is busy */
+#define VIA_MPEG_ENG_BUSY_H5    0x00000008  /* 3D Engine is busy */
+#define VIA_2D_ENG_BUSY_H5      0x00000002  /* 2D Engine is busy */
+#define VIA_3D_ENG_BUSY_H5      0x00001FE1  /* 3D Engine is busy */
+#define VIA_VR_QUEUE_BUSY_H5    0x00000004  /* Virtual Queue is busy */
+
 #define VIA_GEM_8bpp            0x00000000
 #define VIA_GEM_16bpp           0x00000100
 #define VIA_GEM_32bpp           0x00000300
@@ -240,8 +263,6 @@ typedef struct
     Bool set;
 } HQVRegister;
 
-#define H1_ADDR(val) (((val) >> 2) | 0xF0000000)
-
 #define WAITFLAGS(cb, flags)			\
     (cb)->waitFlags |= (flags)
 #define BEGIN_RING_AGP(cb, xl, size)					\
@@ -256,7 +277,6 @@ typedef struct
 
 #define OUT_RING_QW_AGP(cb, val1, val2)			\
     do {						\
-fprintf(stderr,"%08x %08x\n", val1, val2); \
 	(cb)->buf[(cb)->pos++] = (val1);	\
 	(cb)->buf[(cb)->pos++] = (val2);	\
     } while (0)
@@ -306,8 +326,8 @@ fprintf(stderr,"%08x %08x\n", val1, val2); \
 	}								\
     }while(0)
 
-#define HQV_SHADOW_BASE 0x3CC
-#define HQV_SHADOW_SIZE 13
+#define HQV_SHADOW_BASE 0x380
+#define HQV_SHADOW_SIZE ((0x400 - 0x380)/4)
 
 #define SETHQVSHADOW(shadow, offset, value)				\
     do {								\
@@ -425,7 +445,7 @@ setHQVStartAddressCME(HQVRegister * shadow, unsigned yOffs, unsigned uOffs,
     SETHQVSHADOW(shadow, HQV_SRC_STARTADDR_U, tmp);
 
     tmp = GETHQVSHADOW(shadow, HQV_SRC_STRIDE);
-    tmp |= (stride & 0x1FF8);
+    tmp |= (stride & 0x3FF0);
     SETHQVSHADOW(shadow, HQV_SRC_STRIDE, tmp);
 
     tmp = GETHQVSHADOW(shadow, HQV_CONTROL);
@@ -445,11 +465,9 @@ setHQVStartAddressCME(HQVRegister * shadow, unsigned yOffs, unsigned uOffs,
 	 * RGB32
 	 */
 	;
-    }
+    } 
     SETHQVSHADOW(shadow, HQV_CONTROL, tmp);
 }
-
-#if 0
 
 static void
 setHQVColorSpaceConversion(HQVRegister * shadow, unsigned depth, Bool on)
@@ -476,12 +494,14 @@ setHQVFetchLine(HQVRegister * shadow, unsigned fetch, unsigned lines)
 	((lines - 1) & 0x7FF) | (((fetch - 1) & 0x1FFF) << 16));
 }
 
+/*
 static void
 setHQVScale(HQVRegister * shadow, unsigned horizontal, unsigned vertical)
 {
     SETHQVSHADOW(shadow, HQV_SCALE_CONTROL,
 	(horizontal & 0xFFFF) | ((vertical & 0xFFFF) << 16));
-}
+	}
+*/
 
 static void
 setHQVSingleDestination(HQVRegister * shadow, unsigned offset,
@@ -491,10 +511,10 @@ setHQVSingleDestination(HQVRegister * shadow, unsigned offset,
 
     tmp |= (1 << 6);
     SETHQVSHADOW(shadow, HQV_CONTROL, tmp);
-    SETHQVSHADOW(shadow, HQV_DST_DATA0, offset & 0x03FFFFF8);
-    SETHQVSHADOW(shadow, HQV_DST_STRIDE, stride & 0x1FF8);
+    SETHQVSHADOW(shadow, HQV_DST_DATA0, offset & 0x03FFFFF0);
+    SETHQVSHADOW(shadow, HQV_DST_STRIDE, stride & 0x3FF0);
 }
-#endif
+
 
 static void
 setHQVDeinterlacing(HQVRegister * shadow, CARD32 frameType)
@@ -595,8 +615,16 @@ viaDMATimeStampLowLevel(void *xlp)
     XvMCLowLevel *xl = (XvMCLowLevel *) xlp;
 
     if (xl->use_agp) {
+      if (xl->chipId != PCI_CHIP_VT3353)
+	{
 	viaBlit(xl, 32, xl->tsOffset, 1, xl->tsOffset, 1, 1, 1, 0, 0,
 	    VIABLIT_FILL, xl->curTimeStamp);
+	}
+      else
+	{
+	viaBlit_H5(xl, 32, xl->tsOffset, 1, xl->tsOffset, 1, 1, 1, 0, 0,
+		   VIABLIT_TRANSCOPY, xl->curTimeStamp);
+	}
 	return xl->curTimeStamp++;
     }
     return 0;
@@ -621,7 +649,7 @@ viaDMAWaitTimeStamp(XvMCLowLevel * xl, CARD32 timeStamp, int doSleep)
 	    if (timeDiff(&now, &then) > VIA_DMAWAITTIMEOUT) {
 		if (((xl->lastReadTimeStamp =
 			    *xl->tsP) - timeStamp) > (1 << 23)) {
-		    xl->errors |= LL_DMA_TIMEDOUT;
+		  xl->errors |= LL_DMA_TIMEDOUT;
 		    break;
 		}
 	    }
@@ -656,7 +684,6 @@ viaDMAInitTimeStamp(XvMCLowLevel * xl)
 static int
 viaDMACleanupTimeStamp(XvMCLowLevel * xl)
 {
-
     if (!(xl->tsMem.size) || !xl->use_agp)
 	return 0;
     return drmCommandWrite(xl->fd, DRM_VIA_FREEMEM, &xl->tsMem,
@@ -688,7 +715,6 @@ viaMpegIsBusy(XvMCLowLevel * xl, CARD32 mask, CARD32 idle)
 static void
 syncDMA(XvMCLowLevel * xl, unsigned int doSleep)
 {
-
     /*
      * Ideally, we'd like to have an interrupt wait here, but, according to second hand
      * information, the hardware does not support this, although earlier S3 chips do that.
@@ -704,28 +730,30 @@ syncDMA(XvMCLowLevel * xl, unsigned int doSleep)
     here.tz_minuteswest = 0;
     here.tz_dsttime = 0;
     gettimeofday(&then, &here);
-    while (!(REGIN(xl, VIA_REG_STATUS) & VIA_VR_QUEUE_BUSY)) {
-	gettimeofday(&now, &here);
-	if (timeDiff(&now, &then) > VIA_DMAWAITTIMEOUT) {
-	    if (!(REGIN(xl, VIA_REG_STATUS) & VIA_VR_QUEUE_BUSY)) {
-		xl->errors |= LL_DMA_TIMEDOUT;
-		break;
-	    }
+
+    CARD32 mask = (xl->cardId == VIA_ID_VT3353) ? VIA_CMD_RGTR_BUSY_H5 : VIA_CMD_RGTR_BUSY;
+    
+      while (REGIN(xl, VIA_REG_STATUS) & mask) {
+      gettimeofday(&now, &here);
+      if (timeDiff(&now, &then) > VIA_DMAWAITTIMEOUT) {
+	if (REGIN(xl, VIA_REG_STATUS) & mask) {
+	  xl->errors |= LL_DMA_TIMEDOUT;
+	  break;
 	}
-	if (doSleep)
-	    nanosleep(&sleep, &rem);
+      }
+      if (doSleep)
+	nanosleep(&sleep, &rem);
     }
-    while (REGIN(xl, VIA_REG_STATUS) & VIA_CMD_RGTR_BUSY) {
-	gettimeofday(&now, &here);
-	if (timeDiff(&now, &then) > VIA_DMAWAITTIMEOUT) {
-	    if (REGIN(xl, VIA_REG_STATUS) & VIA_CMD_RGTR_BUSY) {
-		xl->errors |= LL_DMA_TIMEDOUT;
-		break;
-	    }
-	}
-	if (doSleep)
-	    nanosleep(&sleep, &rem);
-    }
+    
+/*
+    if (REGIN(xl, VIA_REG_STATUS) & VIA_CMD_RGTR_BUSY_H5) {
+	drm_via_irqwait_t irqw;
+	irqw.request.irq = 3;
+	irqw.request.type = VIA_IRQ_ABSOLUTE;
+	if (drmCommandWriteRead(xl->fd, DRM_VIA_WAIT_IRQ, &irqw,
+		sizeof(irqw)) < 0)
+	    xl->errors |= LL_DMA_TIMEDOUT;
+    }*/
 }
 
 #ifdef HQV_USE_IRQ
@@ -737,11 +765,14 @@ syncVideo(XvMCLowLevel * xl, unsigned int doSleep)
      * Note that the interrupt handler clears the HQV_FLIP_STATUS bit, so we 
      * can't wait on that one.
      */
-
     if ((REGIN(xl, HQV_CONTROL | xl->hqv_offset) & (HQV_SW_FLIP | HQV_SUBPIC_FLIP))) {
 	drm_via_irqwait_t irqw;
 
-	irqw.request.irq = 1;
+	if (xl->hqv_offset == HQV_ENGINE_1)
+	  irqw.request.irq = 0;
+	else
+	  irqw.request.irq = 1;
+
 	irqw.request.type = VIA_IRQ_ABSOLUTE;
 	if (drmCommandWriteRead(xl->fd, DRM_VIA_WAIT_IRQ, &irqw,
 		sizeof(irqw)) < 0)
@@ -769,7 +800,8 @@ syncVideo(XvMCLowLevel * xl, unsigned int doSleep)
     here.tz_dsttime = 0;
     gettimeofday(&then, &here);
     while ((REGIN(xl,
-                  HQV_CONTROL | xl->hqv_offset) & (HQV_SW_FLIP | HQV_SUBPIC_FLIP))) {
+                  HQV_CONTROL | xl->hqv_offset) &
+	    (HQV_SW_FLIP | HQV_SUBPIC_FLIP))) {
 	gettimeofday(&now, &here);
 	if (timeDiff(&now, &then) > VIA_SYNCWAITTIMEOUT) {
             if ((REGIN(xl,
@@ -791,8 +823,21 @@ syncAccel(XvMCLowLevel * xl, unsigned int mode, unsigned int doSleep)
     struct timeval now, then;
     struct timezone here;
     struct timespec sleep, rem;
-    CARD32 mask = ((mode & LL_MODE_2D) ? VIA_2D_ENG_BUSY : 0) |
-	((mode & LL_MODE_3D) ? VIA_3D_ENG_BUSY : 0);
+
+    CARD32 mask;
+    
+    if (xl->cardId == VT_3353)
+      {
+	mask = ((mode & LL_MODE_2D) ? VIA_2D_ENG_BUSY_H5 : 0) |
+	  ((mode & LL_MODE_3D) ? VIA_3D_ENG_BUSY_H5 : 0);
+	mask |= VIA_CMD_RGTR_BUSY_H5;
+      }
+    else
+      {
+	mask = ((mode & LL_MODE_2D) ? VIA_2D_ENG_BUSY : 0) |
+	  ((mode & LL_MODE_3D) ? VIA_3D_ENG_BUSY : 0);
+	mask |= VIA_CMD_RGTR_BUSY;
+      }
 
     sleep.tv_nsec = 1;
     sleep.tv_sec = 0;
@@ -833,20 +878,42 @@ syncMpeg(XvMCLowLevel * xl, unsigned int mode, unsigned int doSleep)
     here.tz_minuteswest = 0;
     here.tz_dsttime = 0;
     gettimeofday(&then, &here);
-    if (mode & LL_MODE_DECODER_SLICE) {
+    if (mode & LL_MODE_DECODER_SLICE) 
+    {
 	busyMask = VIA_SLICEBUSYMASK;
 	idleVal = VIA_SLICEIDLEVAL;
     }
 
 /* the busy flag seems to be irrelevant for cx700 engine*/
     if ( xl->chipId != PCI_CHIP_VT3324 &&
-         xl->chipId != PCI_CHIP_VT3353 &&
-         xl->chipId != PCI_CHIP_VT3409 ) {
-        if (mode & LL_MODE_DECODER_IDLE) {
-            busyMask |= VIA_BUSYMASK;
-            idleVal = VIA_IDLEVAL;
-        }
+	 xl->chipId != PCI_CHIP_VT3353 &&
+	 xl->chipId != PCI_CHIP_VT3409 ) {
+      if (mode & LL_MODE_DECODER_IDLE) {
+	busyMask |= VIA_BUSYMASK;
+	idleVal = VIA_IDLEVAL;
+      }
     }
+    /*
+    CARD32 mask = VIA_MPEG_ENG_BUSY_H5;
+    mask |= VIA_CMD_RGTR_BUSY_H5;
+
+    sleep.tv_nsec = 1;
+    sleep.tv_sec = 0;
+    here.tz_minuteswest = 0;
+    here.tz_dsttime = 0;
+    gettimeofday(&then, &here);
+    while (REGIN(xl, VIA_REG_STATUS) & mask) {
+	gettimeofday(&now, &here);
+	if (timeDiff(&now, &then) > VIA_SYNCWAITTIMEOUT) {
+	    if (REGIN(xl, VIA_REG_STATUS) & mask) {
+		xl->errors |= LL_ACCEL_TIMEDOUT;
+		break;
+	    }
+	}
+	if (doSleep)
+	    nanosleep(&sleep, &rem);
+    }
+    */
 
     while (viaMpegIsBusy(xl, busyMask, idleVal)) {
 	gettimeofday(&now, &here);
@@ -854,7 +921,6 @@ syncMpeg(XvMCLowLevel * xl, unsigned int mode, unsigned int doSleep)
 	    if (viaMpegIsBusy(xl, busyMask, idleVal)) {
 		xl->errors |= LL_DECODER_TIMEDOUT;
                 fprintf(stderr, "Decoder timeout - mask %08x, idle %08x, stat %08x\n", busyMask, idleVal, viaMpegGetStatus(xl));
-
 	    }
 	    break;
 	}
@@ -880,8 +946,10 @@ pciFlush(ViaCommandBuffer * cb, XvMCLowLevel * xl)
     finish_header_agp(cb);
     b.buf = (char *)cb->buf;
     b.size = cb->pos * sizeof(CARD32);
+
     if (xl->performLocking)
 	hwlLock(xl, 0);
+
     if (((mode == LL_MODE_VIDEO) && (xl->videoBuf == &xl->agpBuf)) ||
 	((mode != LL_MODE_VIDEO) && (mode != 0)))
 	syncDMA(xl, 0);
@@ -894,9 +962,11 @@ pciFlush(ViaCommandBuffer * cb, XvMCLowLevel * xl)
     if (mode & (LL_MODE_DECODER_SLICE | LL_MODE_DECODER_IDLE)) {
 	syncMpeg(xl, mode, 0);
     }
+
     ret = drmCommandWrite(xl->fd, DRM_VIA_PCICMD, &b, sizeof(b));
     if (xl->performLocking)
 	hwlUnlock(xl, 0);
+
     if (ret) {
 	xl->errors |= LL_PCI_COMMAND_ERR;
     }
@@ -915,6 +985,7 @@ agpFlush(ViaCommandBuffer * cb, XvMCLowLevel * xl)
     if (xl->use_agp) {
 	b.buf = (char *)cb->buf;
 	b.size = cb->pos * sizeof(CARD32);
+
 	if (xl->agpSync) {
 	    syncXvMCLowLevel(xl, LL_MODE_DECODER_IDLE, 1,
 		xl->agpSyncTimeStamp);
@@ -922,9 +993,11 @@ agpFlush(ViaCommandBuffer * cb, XvMCLowLevel * xl)
 	}
 	if (xl->performLocking)
 	    hwlLock(xl, 0);
+
 	do {
 	    ret = drmCommandWrite(xl->fd, DRM_VIA_CMDBUFFER, &b, sizeof(b));
 	} while (-EAGAIN == ret);
+
 	if (xl->performLocking)
 	    hwlUnlock(xl, 0);
 
@@ -946,6 +1019,7 @@ agpFlush(ViaCommandBuffer * cb, XvMCLowLevel * xl)
 	b.size = cb->pos * sizeof(CARD32);
 	if (xl->performLocking)
 	    hwlLock(xl, 0);
+
 	if (((mode == LL_MODE_VIDEO) && (cb == &xl->agpBuf)) ||
 	    ((mode != LL_MODE_VIDEO) && (mode != 0)))
 	    syncDMA(xl, 0);
@@ -955,9 +1029,11 @@ agpFlush(ViaCommandBuffer * cb, XvMCLowLevel * xl)
 	    syncVideo(xl, 1);
 	if (mode & (LL_MODE_DECODER_SLICE | LL_MODE_DECODER_IDLE))
 	    syncMpeg(xl, mode, 0);
+
 	ret = drmCommandWrite(xl->fd, DRM_VIA_PCICMD, &b, sizeof(b));
 	if (xl->performLocking)
 	    hwlUnlock(xl, 0);
+
 	if (ret) {
             xl->errors |= LL_AGP_COMMAND_ERR;
 	}
@@ -1007,31 +1083,32 @@ uploadHQVShadow(XvMCLowLevel * xl, unsigned offset, HQVRegister * shadow,
     ViaCommandBuffer *cb = xl->videoBuf;
 
     BEGIN_HEADER6_DATA(cb, xl, HQV_SHADOW_SIZE);
-
     WAITFLAGS(cb, LL_MODE_VIDEO);
 
-    if (shadow[0].set)
-	OUT_RING_QW_AGP(cb, 0x3CC + offset, 0);
+    for (i = 0; i < HQV_SHADOW_SIZE; ++i) {
+	if (HQV_SHADOW_BASE+(i<<2) == HQV_CONTROL)
+	   continue;
 
-    for (i = 2; i < HQV_SHADOW_SIZE; ++i) {
 	if (shadow[i].set) {
-	    OUT_RING_QW_AGP(cb, offset + HQV_SHADOW_BASE + (i << 2),
+	  OUT_RING_QW_AGP(cb, offset + HQV_SHADOW_BASE + (i << 2),
 		shadow[i].data);
 	    shadow[i].set = FALSE;
 	}
     }
+    shadow[(HQV_CONTROL-HQV_SHADOW_BASE)>>2].set=FALSE;
 
     /*
      * Finally the control register for flip.
      */
-
     if (flip) {
         tmp = GETHQVSHADOW(shadow, HQV_CONTROL);
         OUT_RING_QW_AGP(cb, offset + HQV_CONTROL,
-	    HQV_ENABLE | HQV_GEN_IRQ | HQV_SUBPIC_FLIP | HQV_SW_FLIP | tmp);
+			HQV_ENABLE |
+			HQV_GEN_IRQ |
+			HQV_SUBPIC_FLIP | 
+			HQV_SW_FLIP |
+			tmp);
     }
-    shadow[0].set = FALSE;
-    shadow[1].set = FALSE;
 }
 
 void viaMpegNullCommand(void *xlp)
@@ -1042,9 +1119,9 @@ void viaMpegNullCommand(void *xlp)
 
     BEGIN_HEADER6_DATA(cb, xl, 0x14);
     for (i=0; i<0x14; i++)
-    {
-        OUT_RING_QW_AGP(cb, 0xca4,0);
-    }   
+      {
+	OUT_RING_QW_AGP(cb, 0xca4,0);
+      }   
     finish_header_agp(cb);
 }
 
@@ -1069,7 +1146,6 @@ flushXvMCLowLevel(void *xlp)
 void
 flushPCIXvMCLowLevel(void *xlp)
 {
-
     XvMCLowLevel *xl = (XvMCLowLevel *) xlp;
 
     if (xl->pciBuf.pos)
@@ -1087,7 +1163,6 @@ viaMpegSetSurfaceStride(void *xlp, ViaXvMCContext * ctx)
     ViaCommandBuffer *cb = &xl->agpBuf;
 
     BEGIN_HEADER6_DATA(cb, xl, 1);
-
     OUT_RING_QW_AGP(cb, xl->mpgRegs.mpgLineOff, (y_stride >> 3) | ((uv_stride >> 3) << 16));
     WAITFLAGS(cb, LL_MODE_DECODER_IDLE);
 }
@@ -1104,7 +1179,17 @@ viaVideoSetSWFLipLocked(void *xlp, unsigned yOffs, unsigned uOffs,
          xl->chipId == PCI_CHIP_VT3364 ||
          xl->chipId == PCI_CHIP_VT3353 ||
          xl->chipId == PCI_CHIP_VT3409 )
+      {
         setHQVStartAddressCME(hqvShadow, yOffs, vOffs, yStride, 0);
+
+	SETHQVSHADOW(hqvShadow,HQV_SRC_DATA_OFFSET_CONTROL1, 0);
+	SETHQVSHADOW(hqvShadow,HQV_SRC_DATA_OFFSET_CONTROL2, 0);
+
+	SETHQVSHADOW(hqvShadow,HQV_SRC_DATA_OFFSET_CONTROL3, 
+		     ((xl->width-1)<<16) | (xl->height-1));
+	SETHQVSHADOW(hqvShadow,HQV_SRC_DATA_OFFSET_CONTROL4,
+		     ((xl->width-1)<<16) | (xl->height-1));
+      }
     else
     {
         setHQVStartAddressCLE(hqvShadow, yOffs, uOffs, vOffs);
@@ -1122,26 +1207,16 @@ viaVideoSWFlipLocked(void *xlp, unsigned flags, Bool progressiveSequence)
 {
     XvMCLowLevel *xl = (XvMCLowLevel *) xlp;
 
-/* move this back, we want this straight after the last slice write */
-    if ( xl->chipId == PCI_CHIP_VT3324 ||
-         xl->chipId == PCI_CHIP_VT3353 ||
-         xl->chipId == PCI_CHIP_VT3409 )
-    {
-        if (xl->hasSlices)
-            viaMpegNullCommand(xl);
-        xl->hasSlices=0;
-    }
-
     if ( xl->chipId == PCI_CHIP_VT3324 || /* change to engine flag/enum */
          xl->chipId == PCI_CHIP_VT3259 ||
          xl->chipId == PCI_CHIP_VT3364 ||
          xl->chipId == PCI_CHIP_VT3353 ||
          xl->chipId == PCI_CHIP_VT3409 )
-    {
-    setHQVDeinterlacing(hqvShadow, flags);
-    setHQVDeblocking(hqvShadow,
-	((flags & XVMC_FRAME_PICTURE) == XVMC_FRAME_PICTURE), TRUE);
-    setHQVTripleBuffer(hqvShadow, TRUE);
+      {
+	setHQVDeinterlacing(hqvShadow, flags);
+	setHQVDeblocking(hqvShadow,
+			 ((flags & XVMC_FRAME_PICTURE) == XVMC_FRAME_PICTURE), TRUE);
+	setHQVTripleBuffer(hqvShadow, TRUE);
     }
     else
     {
@@ -1191,30 +1266,35 @@ viaMpegSetFB(void *xlp, unsigned i,
     XvMCLowLevel *xl = (XvMCLowLevel *) xlp;
     ViaCommandBuffer *cb = &xl->agpBuf;
 
-    BEGIN_HEADER6_DATA(cb, xl, 3);
+    BEGIN_HEADER6_DATA(cb, xl, 4);
+    if ( (xl->chipId == PCI_CHIP_VT3324) ||
+	 (xl->chipId == PCI_CHIP_VT3353) )
+    {
+      i *= (4 * 2);
+      OUT_RING_QW_AGP(cb, 0xc44 + i, yOffs);
+      OUT_RING_QW_AGP(cb, 0xc48 + i, vOffs); 
 
-    if ( xl->chipId == PCI_CHIP_VT3324 )
-    {
-        i *= (4 * 2);
-        OUT_RING_QW_AGP(cb, 0xc44 + i, yOffs );
-        OUT_RING_QW_AGP(cb, 0xc48 + i, vOffs );
+      if ((i == 0) && (xl->chipId == PCI_CHIP_VT3353))
+	{
+	  OUT_RING_QW_AGP(cb, 0xcd4 + i, yOffs);
+	  OUT_RING_QW_AGP(cb, 0xcd8 + i, vOffs); 
+	}
     }
-    else if (xl->chipId == PCI_CHIP_VT3259 ||
-             xl->chipId == PCI_CHIP_VT3364)
-    {
-        i *= (4 * 2);
-    OUT_RING_QW_AGP(cb, 0xc28 + i, yOffs >> 3);
-    OUT_RING_QW_AGP(cb, 0xc2c + i, vOffs >> 3);
-    }
+    else if ((xl->chipId == PCI_CHIP_VT3259) ||
+	     (xl->chipId == PCI_CHIP_VT3364))
+      {
+	i *= (4 * 2);
+	OUT_RING_QW_AGP(cb, 0xc28 + i, yOffs >> 3);
+	OUT_RING_QW_AGP(cb, 0xc2c + i, vOffs >> 3);
+      }
     else
-    {
+      {
         i *= (4 * 3);
         OUT_RING_QW_AGP(cb, 0xc20 + i, yOffs >> 3);
         OUT_RING_QW_AGP(cb, 0xc24 + i, uOffs >> 3);
         OUT_RING_QW_AGP(cb, 0xc28 + i, vOffs >> 3);
 
-    }
-/* VT3225 has two more at 0xCD4 and 0xCD8 */
+	}
     WAITFLAGS(cb, LL_MODE_DECODER_IDLE);
 }
 
@@ -1233,38 +1313,39 @@ viaMpegBeginPicture(void *xlp, ViaXvMCContext * ctx,
 	(control->flags & XVMC_PROGRESSIVE_SEQUENCE)) ?
 	2 * ((height + 31) >> 5) : (((height + 15) >> 4));
 
-    BEGIN_HEADER6_DATA(cb, xl, 72);
+    /* want this right after last slice actually 
+    if ( xl->chipId == PCI_CHIP_VT3324 ||
+         xl->chipId == PCI_CHIP_VT3353 ||
+         xl->chipId == PCI_CHIP_VT3409 )
+    {
+      viaMpegNullCommand(xl);
+      }*/
 
+    BEGIN_HEADER6_DATA(cb, xl, 72);
     WAITFLAGS(cb, LL_MODE_DECODER_IDLE);
 
     if ( xl->chipId == PCI_CHIP_VT3324 || /*change to engineid*/
          xl->chipId == PCI_CHIP_VT3353 ||
          xl->chipId == PCI_CHIP_VT3409 )
-{
-/* I may have broken this with tidying - if so replace with 
-OUT_RING_QW_AGP(cb, 0xC00,
-		0x30000000 | 
-                    ((control->picture_coding_type & 3) << 4) |
-                    ((control->flags & XVMC_ALTERNATE_SCAN) ? (1 << 6) : 0)); */
-
-    OUT_RING_QW_AGP(cb, 0xC00,
-                    ((control->picture_structure & XVMC_FRAME_PICTURE) << 28) |
-                    ((control->picture_coding_type & 3) << 4) |
-                    ((control->flags & XVMC_ALTERNATE_SCAN) ? (1 << 11) : 0));
-}
-else
-{
-    OUT_RING_QW_AGP(cb, 0xC00,
+      {
+	OUT_RING_QW_AGP(cb, 0xC00,
+			((control->picture_structure & XVMC_FRAME_PICTURE) << 28) |
+			((control->picture_coding_type & 3) << 4) |
+			((control->flags & XVMC_ALTERNATE_SCAN) ? (1 << 11) : 0));
+      }
+    else
+      {
+  OUT_RING_QW_AGP(cb, 0xC00,
                     ((control->picture_structure & XVMC_FRAME_PICTURE) << 2) |
                     ((control->picture_coding_type & 3) << 4) |
                     ((control->flags & XVMC_ALTERNATE_SCAN) ? (1 << 6) : 0));
 }
 
     if (!(ctx->intraLoaded)) {
-        OUT_RING_QW_AGP(cb, xl->mpgRegs.mpgQuantSel, 0);
+      OUT_RING_QW_AGP(cb, xl->mpgRegs.mpgQuantSel, 0);
         
 	for (j = 0; j < 64; j += 4) {
-            OUT_RING_QW_AGP(cb, xl->mpgRegs.mpgQuantDat,
+	  OUT_RING_QW_AGP(cb, xl->mpgRegs.mpgQuantDat,
 		ctx->intra_quantiser_matrix[j] |
 		(ctx->intra_quantiser_matrix[j + 1] << 8) |
 		(ctx->intra_quantiser_matrix[j + 2] << 16) |
@@ -1274,7 +1355,7 @@ else
     }
 
     if (!(ctx->nonIntraLoaded)) {
-        OUT_RING_QW_AGP(cb, xl->mpgRegs.mpgQuantSel, 1);
+      OUT_RING_QW_AGP(cb, xl->mpgRegs.mpgQuantSel, 1);
 	for (j = 0; j < 64; j += 4) {
             OUT_RING_QW_AGP(cb, xl->mpgRegs.mpgQuantDat,
 		ctx->non_intra_quantiser_matrix[j] |
@@ -1286,9 +1367,9 @@ else
     }
 
     if (!(ctx->chromaIntraLoaded)) {
-        OUT_RING_QW_AGP(cb, xl->mpgRegs.mpgQuantSel, 2);
+      OUT_RING_QW_AGP(cb, xl->mpgRegs.mpgQuantSel, 2);
 	for (j = 0; j < 64; j += 4) {
-            OUT_RING_QW_AGP(cb, xl->mpgRegs.mpgQuantDat,
+	  OUT_RING_QW_AGP(cb, xl->mpgRegs.mpgQuantDat,
 		ctx->chroma_intra_quantiser_matrix[j] |
 		(ctx->chroma_intra_quantiser_matrix[j + 1] << 8) |
 		(ctx->chroma_intra_quantiser_matrix[j + 2] << 16) |
@@ -1298,9 +1379,9 @@ else
     }
 
     if (!(ctx->chromaNonIntraLoaded)) {
-        OUT_RING_QW_AGP(cb, xl->mpgRegs.mpgQuantSel, 3);
+      OUT_RING_QW_AGP(cb, xl->mpgRegs.mpgQuantSel, 3);
 	for (j = 0; j < 64; j += 4) {
-            OUT_RING_QW_AGP(cb, xl->mpgRegs.mpgQuantDat,
+	  OUT_RING_QW_AGP(cb, xl->mpgRegs.mpgQuantDat,
 		ctx->chroma_non_intra_quantiser_matrix[j] |
 		(ctx->chroma_non_intra_quantiser_matrix[j + 1] << 8) |
 		(ctx->chroma_non_intra_quantiser_matrix[j + 2] << 16) |
@@ -1316,14 +1397,14 @@ else
 	((control->mpeg_coding == XVMC_MPEG_2) ? (1 << 16) : 0) |
 	((mb_width & 0xff) << 18));
 
-    OUT_RING_QW_AGP(cb, xl->mpgRegs.mpgSliceCtl2,
+OUT_RING_QW_AGP(cb, xl->mpgRegs.mpgSliceCtl2,
 	((control->flags & XVMC_CONCEALMENT_MOTION_VECTORS) ? 1 : 0) |
 	((control->flags & XVMC_Q_SCALE_TYPE) ? 2 : 0) |
 	((control->intra_dc_precision & 3) << 2) |
 	(((1 + 0x100000 / mb_width) & 0xfffff) << 4) |
 	((control->flags & XVMC_INTRA_VLC_FORMAT) ? (1 << 24) : 0));
 
-    OUT_RING_QW_AGP(cb, xl->mpgRegs.mpgSliceCtl3,
+OUT_RING_QW_AGP(cb, xl->mpgRegs.mpgSliceCtl3,
 	(((control->FHMV_range) & 0xf) << 0) |
 	(((control->FVMV_range) & 0xf) << 4) |
 	(((control->BHMV_range) & 0xf) << 8) |
@@ -1339,48 +1420,43 @@ viaMpegResetCX(void *xlp)
     XvMCLowLevel *xl = (XvMCLowLevel *) xlp;
     ViaCommandBuffer *cb = &xl->agpBuf;
 
-    if (xl->needsInit)
-    {
-        BEGIN_HEADER6_DATA(cb, xl, 35 );
-        WAITFLAGS(cb, LL_MODE_DECODER_IDLE);
-/* this might just be a first start reset - check */
-        for (i=0; i<5; i++)
-        {
-            OUT_RING_QW_AGP(cb, 0xc9c, 0);
-            OUT_RING_QW_AGP(cb, 0xc08, 0x1000);
+    BEGIN_HEADER6_DATA(cb, xl, 35 );
+    WAITFLAGS(cb, LL_MODE_DECODER_IDLE);
+    /* this might just be a first start reset - check */
+    for (i=0; i<5; i++)
+      {
+	OUT_RING_QW_AGP(cb, (xl->mpgRegs.mpgSliceCtl4), 0);
+	OUT_RING_QW_AGP(cb, (0xc08), 0x1000);
 /* 10000003 or 1000001 or 1000083 */
-            if (i<5)
-                OUT_RING_QW_AGP(cb, MPG_CONTROL, 0x10000043);
-            else
-                OUT_RING_QW_AGP(cb, MPG_CONTROL, 0x10000143);
-            OUT_RING_QW_AGP(cb, 0xc10, 0);
-            OUT_RING_QW_AGP(cb, 0xc14, 0);
-            OUT_RING_QW_AGP(cb, 0xc20, 0);
-            OUT_RING_QW_AGP(cb, 0xc24, 0);
-        }
-        xl->needsInit=0;
-        finish_header_agp(cb);
-    }
-
+	OUT_RING_QW_AGP(cb, (MPG_CONTROL), 0x10000043);
+	//x	    OUT_RING_QW_AGP(cb, (MPG_CONTROL), 0x0000043|0x20);
+	OUT_RING_QW_AGP(cb, (0xc10), 0);
+	OUT_RING_QW_AGP(cb, (0xc14), 0);
+	OUT_RING_QW_AGP(cb, (0xc20), 0);
+	OUT_RING_QW_AGP(cb, (0xc24), 0);
+      }
+    finish_header_agp(cb);
+    
     BEGIN_HEADER6_DATA(cb, xl, 64+2+42 );
     WAITFLAGS(cb, LL_MODE_DECODER_IDLE);
 
     for (i = 0; i < 64; i++)
-        OUT_RING_QW_AGP(cb, 0xc7c, 0);
+      OUT_RING_QW_AGP(cb, (0xc7c), 0);
 
-    OUT_RING_QW_AGP(cb, xl->mpgRegs.mpgSliceCtl3, 0x400000);
+    OUT_RING_QW_AGP(cb, (xl->mpgRegs.mpgSliceCtl3), 0x400000);
 
     for (i=0; i<6; i++)
     {
-        OUT_RING_QW_AGP(cb, xl->mpgRegs.mpgSliceCtl4, 0);
-        OUT_RING_QW_AGP(cb, 0xc08, 0x1000);
-        OUT_RING_QW_AGP(cb, MPG_CONTROL, 0x10000143); 
-        OUT_RING_QW_AGP(cb, 0xc10, 0);
-        OUT_RING_QW_AGP(cb, 0xc14, 0);
-        OUT_RING_QW_AGP(cb, 0xc20, 0);
-        OUT_RING_QW_AGP(cb, 0xc24, 0);
+      OUT_RING_QW_AGP(cb, (xl->mpgRegs.mpgSliceCtl4), 0);
+      OUT_RING_QW_AGP(cb, (0xc08), 0x1000);
+      OUT_RING_QW_AGP(cb, (MPG_CONTROL), 0x10000143); 
+      //x      OUT_RING_QW_AGP(cb, (MPG_CONTROL), 0x00001c3|0x20); 
+      OUT_RING_QW_AGP(cb, (0xc10), 0);
+      OUT_RING_QW_AGP(cb, (0xc14), 0);
+      OUT_RING_QW_AGP(cb, (0xc20), 0);
+      OUT_RING_QW_AGP(cb, (0xc24), 0);
     }    
-    OUT_RING_QW_AGP(cb, 0xc78, 0x0);
+    OUT_RING_QW_AGP(cb, (0xc78), 0x0);
 }
 
 void
@@ -1393,31 +1469,31 @@ viaMpegResetCME(void *xlp)
     BEGIN_HEADER6_DATA(cb, xl, 99);
     WAITFLAGS(cb, LL_MODE_DECODER_IDLE);
 
-    OUT_RING_QW_AGP(cb, 0xcf0, 0);
+    OUT_RING_QW_AGP(cb, (0xcf0), 0);
 
     for (i = 0; i < 6; i++) {
-	OUT_RING_QW_AGP(cb, 0xcc0, 0);
-        OUT_RING_QW_AGP(cb, MPG_CONTROL, 0x43 | 0x20);
+      OUT_RING_QW_AGP(cb, (0xcc0), 0);
+      OUT_RING_QW_AGP(cb, (MPG_CONTROL), 0x43 | 0x20);
 	for (j = 0xc10; j < 0xc20; j += 4)
-	    OUT_RING_QW_AGP(cb, j, 0);
+	  OUT_RING_QW_AGP(cb, (j), 0);
     }
 
-    OUT_RING_QW_AGP(cb, MPG_CONTROL, 0x1c3);
+    OUT_RING_QW_AGP(cb, (MPG_CONTROL), 0x1c3);
     for (j = 0xc10; j < 0xc20; j += 4)
-	OUT_RING_QW_AGP(cb, j, 0);
+      OUT_RING_QW_AGP(cb, (j), 0);
 
     for (i = 0; i < 19; i++)
-	OUT_RING_QW_AGP(cb, 0xc08, 0);
+      OUT_RING_QW_AGP(cb, (0xc08), 0);
 
-    OUT_RING_QW_AGP(cb, xl->mpgRegs.mpgSliceCtl3, 0x400000);
+    OUT_RING_QW_AGP(cb, (xl->mpgRegs.mpgSliceCtl3), 0x400000);
 
     for (i = 0; i < 6; i++) {
-	OUT_RING_QW_AGP(cb, 0xcc0, 0);
-        OUT_RING_QW_AGP(cb, MPG_CONTROL, 0x1c3 | 0x20);
+      OUT_RING_QW_AGP(cb, (0xcc0), 0);
+      OUT_RING_QW_AGP(cb, (MPG_CONTROL), 0x1c3 | 0x20);
 	for (j = 0xc10; j < 0xc20; j += 4)
-	    OUT_RING_QW_AGP(cb, j, 0);
+	  OUT_RING_QW_AGP(cb, (j), 0);
     }
-    OUT_RING_QW_AGP(cb, 0xcf0, 0);
+    OUT_RING_QW_AGP(cb, (0xcf0), 0);
 }
 
 void
@@ -1427,23 +1503,23 @@ viaMpegResetCLE(void *xlp)
    XvMCLowLevel *xl = (XvMCLowLevel *) xlp;
     ViaCommandBuffer *cb = &xl->agpBuf;
 
-   BEGIN_RING_AGP(cb, xl, 100);
+   BEGIN_HEADER6_DATA(cb, xl, 50);
    WAITFLAGS(cb, LL_MODE_DECODER_IDLE);
 
    for (i = 0; i < 14; i++)
-       OUT_RING_QW_AGP(cb, H1_ADDR(0xc08), 0);
+       OUT_RING_QW_AGP(cb, (0xc08), 0);
 
-   OUT_RING_QW_AGP(cb, H1_ADDR(xl->mpgRegs.mpgSliceCtl3), 0x400000);
+   OUT_RING_QW_AGP(cb, (xl->mpgRegs.mpgSliceCtl3), 0x400000);
 
    for (i = 0; i < 6; i++) {
-       OUT_RING_QW_AGP(cb, H1_ADDR(0xc0c), 0x43 | 0x20);
+       OUT_RING_QW_AGP(cb, (MPG_CONTROL), 0x43 | 0x20);
        for (j = 0xc10; j < 0xc20; j += 4)
-           OUT_RING_QW_AGP(cb, H1_ADDR(j), 0);
+           OUT_RING_QW_AGP(cb, (j), 0);
    }
 
-   OUT_RING_QW_AGP(cb, H1_ADDR(0xc0c), 0xc3 | 0x20);
+   OUT_RING_QW_AGP(cb, (MPG_CONTROL), 0xc3 | 0x20);
    for (j = 0xc10; j < 0xc20; j += 4)
-       OUT_RING_QW_AGP(cb, H1_ADDR(j), 0);
+       OUT_RING_QW_AGP(cb, (j), 0);
 }
 
 void
@@ -1496,10 +1572,10 @@ viaMpegWriteSlice(void *xlp, CARD8 * slice, int nBytes, CARD32 sCode)
 
     WAITFLAGS(cb, LL_MODE_DECODER_IDLE);
     
-    OUT_RING_QW_AGP(cb, xl->mpgRegs.mpgSliceCtl4, nBytes);
+    OUT_RING_QW_AGP(cb, (xl->mpgRegs.mpgSliceCtl4), nBytes);
 
     if (sCode)
-        OUT_RING_QW_AGP(cb, xl->mpgRegs.mpgSliceData, sCode);
+      OUT_RING_QW_AGP(cb, (xl->mpgRegs.mpgSliceData), sCode);
 
     i = 0;
     count = 0;
@@ -1525,7 +1601,6 @@ viaMpegWriteSlice(void *xlp, CARD8 * slice, int nBytes, CARD32 sCode)
     OUT_RING_AGP(cb, 0);
     OUT_RING_AGP(cb, 0);
     finish_header_agp(cb);
-    xl->hasSlices++;
 }
 
 void
@@ -1542,7 +1617,7 @@ viaVideoSubPictureOffLocked(void *xlp)
 
     BEGIN_HEADER6_DATA(cb, xl, 1);
 
-    OUT_RING_QW_AGP(cb, xl->hqv_offset | SUBP_CONTROL_STRIDE,
+    OUT_RING_QW_AGP(cb, (xl->hqv_offset | SUBP_CONTROL_STRIDE),
 	stride & ~SUBP_HQV_ENABLE);
 }
 
@@ -1560,14 +1635,14 @@ viaVideoSubPictureLocked(void *xlp, ViaXvMCSubPicture * pViaSubPic)
     BEGIN_HEADER6_DATA(cb, xl, VIA_SUBPIC_PALETTE_SIZE + 2);
 
     for (i = 0; i < VIA_SUBPIC_PALETTE_SIZE; ++i) {
-        OUT_RING_QW_AGP(cb, xl->hqv_offset | RAM_TABLE_CONTROL,
+      OUT_RING_QW_AGP(cb, (xl->hqv_offset | RAM_TABLE_CONTROL),
 	    pViaSubPic->palette[i]);
     }
 
     cWord = (pViaSubPic->stride & SUBP_STRIDE_MASK) | SUBP_HQV_ENABLE;
     cWord |= (pViaSubPic->ia44) ? SUBP_IA44 : SUBP_AI44;
-    OUT_RING_QW_AGP(cb, xl->hqv_offset | SUBP_STARTADDR, pViaSubPic->offset);
-    OUT_RING_QW_AGP(cb, xl->hqv_offset | SUBP_CONTROL_STRIDE, cWord);
+    OUT_RING_QW_AGP(cb, (xl->hqv_offset | SUBP_STARTADDR), pViaSubPic->offset);
+    OUT_RING_QW_AGP(cb, (xl->hqv_offset | SUBP_CONTROL_STRIDE), cWord);
 }
 
 void
@@ -1616,9 +1691,9 @@ viaBlit(void *xlp, unsigned bpp, unsigned srcBase,
 	break;
     }
 
-    BEGIN_RING_AGP(cb, xl, 20);
+    BEGIN_HEADER6_DATA(cb, xl, 3);
     WAITFLAGS(cb, LL_MODE_2D);
-    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_GEMODE), dwGEMode);
+    OUT_RING_QW_AGP(cb, (VIA_REG_GEMODE), dwGEMode);
     cmd = 0;
 
     if (xdir < 0) {
@@ -1634,29 +1709,118 @@ viaBlit(void *xlp, unsigned bpp, unsigned srcBase,
 
     switch (blitMode) {
     case VIABLIT_TRANSCOPY:
-	OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_SRCCOLORKEY), color);
-	OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_KEYCONTROL), 0x4000);
+	OUT_RING_QW_AGP(cb, VIA_REG_SRCCOLORKEY, color);
+	OUT_RING_QW_AGP(cb, VIA_REG_KEYCONTROL, 0x4000);
 	cmd |= VIA_GEC_BLT | (VIA_BLIT_COPY << 24);
 	break;
     case VIABLIT_FILL:
-	OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_FGCOLOR), color);
+	OUT_RING_QW_AGP(cb, VIA_REG_FGCOLOR, color);
 	cmd |= VIA_GEC_BLT | VIA_GEC_FIXCOLOR_PAT | (VIA_BLIT_FILL << 24);
 	break;
     default:
-	OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_KEYCONTROL), 0x0);
+	OUT_RING_QW_AGP(cb, VIA_REG_KEYCONTROL, 0x0);
 	cmd |= VIA_GEC_BLT | (VIA_BLIT_COPY << 24);
     }
 
-    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_SRCBASE), (srcBase & ~31) >> 3);
-    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_DSTBASE), (dstBase & ~31) >> 3);
-    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_PITCH), VIA_PITCH_ENABLE |
+    OUT_RING_QW_AGP(cb, VIA_REG_SRCBASE, (srcBase & ~31) >> 3);
+    OUT_RING_QW_AGP(cb, VIA_REG_DSTBASE, (dstBase & ~31) >> 3);
+    OUT_RING_QW_AGP(cb, VIA_REG_PITCH, VIA_PITCH_ENABLE |
 	(srcPitch >> 3) | (((dstPitch) >> 3) << 16));
-    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_SRCPOS), ((srcY << 16) | srcX));
-    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_DSTPOS), ((dstY << 16) | dstX));
-    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_DIMENSION),
+    OUT_RING_QW_AGP(cb, VIA_REG_SRCPOS, ((srcY << 16) | srcX));
+    OUT_RING_QW_AGP(cb, VIA_REG_DSTPOS, ((dstY << 16) | dstX));
+    OUT_RING_QW_AGP(cb, VIA_REG_DIMENSION,
 	(((h - 1) << 16) | (w - 1)));
-    OUT_RING_QW_AGP(cb, H1_ADDR(VIA_REG_GECMD), cmd);
+    OUT_RING_QW_AGP(cb, VIA_REG_GECMD, cmd);
 }
+
+void
+viaBlit_H5(void *xlp, unsigned bpp, unsigned srcBase,
+    unsigned srcPitch, unsigned dstBase, unsigned dstPitch,
+    unsigned w, unsigned h, int xdir, int ydir, unsigned blitMode,
+    unsigned color)
+{
+    CARD32 dwGEMode = 0, srcY = 0, srcX, dstY = 0, dstX;
+    CARD32 cmd;
+    XvMCLowLevel *xl = (XvMCLowLevel *) xlp;
+    ViaCommandBuffer *cb = &xl->agpBuf;
+
+    if (!w || !h)
+	return;
+
+    finish_header_agp(cb);
+
+    switch (bpp) {
+    case 16:
+	dwGEMode |= VIA_GEM_16bpp;
+	break;
+    case 32:
+	dwGEMode |= VIA_GEM_32bpp;
+	break;
+    default:
+	dwGEMode |= VIA_GEM_8bpp;
+	break;
+    }
+
+    srcX = srcBase & 31;
+    dstX = dstBase & 31;
+    switch (bpp) {
+    case 16:
+	dwGEMode |= VIA_GEM_16bpp;
+	srcX >>= 2;
+	dstX >>= 2;
+	break;
+    case 32:
+	dwGEMode |= VIA_GEM_32bpp;
+	srcX >>= 4;
+	dstX >>= 4;
+	break;
+    default:
+	dwGEMode |= VIA_GEM_8bpp;
+	break;
+    }
+
+    BEGIN_HEADER6_DATA(cb, xl, 3);
+    WAITFLAGS(cb, LL_MODE_2D);
+    OUT_RING_QW_AGP(cb, VIA_REG_GEMODE, dwGEMode);
+    cmd = 0;
+
+    if (xdir < 0) {
+	cmd |= VIA_GEC_DECX;
+	srcX += (w - 1);
+	dstX += (w - 1);
+    }
+    if (ydir < 0) {
+	cmd |= VIA_GEC_DECY;
+	srcY += (h - 1);
+	dstY += (h - 1);
+    }
+
+    switch (blitMode) {
+    case VIABLIT_TRANSCOPY:
+	OUT_RING_QW_AGP(cb, VIA_REG_SRCCOLORKEY_H5, color);
+	OUT_RING_QW_AGP(cb, VIA_REG_KEYCONTROL_H5, 0x4000);
+	cmd |= VIA_GEC_BLT | (VIA_BLIT_COPY << 24);
+	break;
+    case VIABLIT_FILL:
+	OUT_RING_QW_AGP(cb, VIA_REG_FGCOLOR_H5, color);
+	cmd |= VIA_GEC_BLT | VIA_GEC_FIXCOLOR_PAT | (VIA_BLIT_FILL << 24);
+	break;
+    default:
+	OUT_RING_QW_AGP(cb, VIA_REG_KEYCONTROL_H5, 0x0);
+	cmd |= VIA_GEC_BLT | (VIA_BLIT_COPY << 24);
+    }
+
+    OUT_RING_QW_AGP(cb, VIA_REG_SRCBASE_H5, (srcBase & ~31) >> 3);
+    OUT_RING_QW_AGP(cb, VIA_REG_DSTBASE_H5, (dstBase & ~31) >> 3);
+    OUT_RING_QW_AGP(cb, VIA_REG_PITCH_H5,/* VIA_PITCH_ENABLE |*/
+	(srcPitch >> 3) | (((dstPitch) >> 3) << 16));
+    OUT_RING_QW_AGP(cb, VIA_REG_SRCPOS_H5, ((srcY << 16) | srcX));
+    OUT_RING_QW_AGP(cb, VIA_REG_DSTPOS_H5, ((dstY << 16) | dstX));
+    OUT_RING_QW_AGP(cb, VIA_REG_DIMENSION_H5,
+	(((h - 1) << 16) | (w - 1)));
+    OUT_RING_QW_AGP(cb, VIA_REG_GECMD, cmd);
+}
+
 
 unsigned
 syncXvMCLowLevel(void *xlp, unsigned int mode, unsigned int doSleep,
@@ -1672,24 +1836,25 @@ syncXvMCLowLevel(void *xlp, unsigned int mode, unsigned int doSleep,
     }
 
     if ((mode & (LL_MODE_VIDEO | LL_MODE_3D)) || !xl->use_agp) {
-	if (xl->performLocking)
-	    hwlLock(xl, 0);
+      if (xl->performLocking)
+	hwlLock(xl, 0);
+
 	if ((xl->videoBuf == &xl->agpBuf) || (mode != LL_MODE_VIDEO))
 	    syncDMA(xl, doSleep);
 	if (mode & LL_MODE_3D)
 	    syncAccel(xl, mode, doSleep);
 	if (mode & LL_MODE_VIDEO)
 	    syncVideo(xl, doSleep);
+
 	if (xl->performLocking)
-	    hwlUnlock(xl, 0);
+	  hwlUnlock(xl, 0);
+
     } else {
 	viaDMAWaitTimeStamp(xl, timeStamp, doSleep);
     }
-
+    
     if (mode & (LL_MODE_DECODER_SLICE | LL_MODE_DECODER_IDLE))
-    {
-	syncMpeg(xl, mode, doSleep);
-    }
+      syncMpeg(xl, mode, doSleep);
 
     errors = xl->errors;
     xl->errors = 0;
@@ -1805,11 +1970,9 @@ initXvMCLowLevel(int fd, drm_context_t * ctx,
     xl->errors = 0;
     xl->agpSync = 0;
     xl->chipId = chipId;
-    xl->hasSlices = 0;
-    xl->needsInit = 1;
 
     if (chipId == PCI_CHIP_VT3259 ||
-        chipId == PCI_CHIP_VT3364)
+        chipId == PCI_CHIP_VT3364 )
         xl->hqv_offset = HQV_ENGINE_2;
     else
         xl->hqv_offset = HQV_ENGINE_1;
@@ -1820,7 +1983,8 @@ initXvMCLowLevel(int fd, drm_context_t * ctx,
          chipId == PCI_CHIP_VT3409 )
     {
         xl->mpgRegs.mpgLineOff   = 0xC6C;
-        xl->mpgRegs.mpgStatus    = 0xC70;
+        xl->mpgRegs.mpgStatus    = 0xCE0;
+        
         xl->mpgRegs.mpgQuantSel  = 0xD80;
         xl->mpgRegs.mpgQuantDat  = 0xD84;
         xl->mpgRegs.mpgSliceCtl1 = 0xD90;
