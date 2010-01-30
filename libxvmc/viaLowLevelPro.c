@@ -731,7 +731,7 @@ syncDMA(XvMCLowLevel * xl, unsigned int doSleep)
     here.tz_dsttime = 0;
     gettimeofday(&then, &here);
 
-    CARD32 mask = (xl->cardId == VIA_ID_VT3353) ? VIA_CMD_RGTR_BUSY_H5 : VIA_CMD_RGTR_BUSY;
+    CARD32 mask = (xl->chipId == PCI_CHIP_VT3353) ? VIA_CMD_RGTR_BUSY_H5 : VIA_CMD_RGTR_BUSY;
     
       while (REGIN(xl, VIA_REG_STATUS) & mask) {
       gettimeofday(&now, &here);
@@ -826,7 +826,7 @@ syncAccel(XvMCLowLevel * xl, unsigned int mode, unsigned int doSleep)
 
     CARD32 mask;
     
-    if (xl->cardId == VT_3353)
+    if (xl->chipId == PCI_CHIP_VT3353)
       {
 	mask = ((mode & LL_MODE_2D) ? VIA_2D_ENG_BUSY_H5 : 0) |
 	  ((mode & LL_MODE_3D) ? VIA_3D_ENG_BUSY_H5 : 0);
