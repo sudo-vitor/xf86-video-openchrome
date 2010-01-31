@@ -615,7 +615,8 @@ viaDMATimeStampLowLevel(void *xlp)
     XvMCLowLevel *xl = (XvMCLowLevel *) xlp;
 
     if (xl->use_agp) {
-      if (xl->chipId != PCI_CHIP_VT3353)
+      if ( (xl->chipId != PCI_CHIP_VT3353) &&
+           (xl->chipId != PCI_CHIP_VT3409) )
 	{
 	viaBlit(xl, 32, xl->tsOffset, 1, xl->tsOffset, 1, 1, 1, 0, 0,
 	    VIABLIT_FILL, xl->curTimeStamp);
@@ -731,7 +732,8 @@ syncDMA(XvMCLowLevel * xl, unsigned int doSleep)
     here.tz_dsttime = 0;
     gettimeofday(&then, &here);
 
-    CARD32 mask = (xl->chipId == PCI_CHIP_VT3353) ? VIA_CMD_RGTR_BUSY_H5 : VIA_CMD_RGTR_BUSY;
+    CARD32 mask = ( (xl->chipId == PCI_CHIP_VT3353) ||
+                    (xl->chipId == PCI_CHIP_VT3409) ) ? VIA_CMD_RGTR_BUSY_H5 : VIA_CMD_RGTR_BUSY;
     
       while (REGIN(xl, VIA_REG_STATUS) & mask) {
       gettimeofday(&now, &here);
@@ -826,7 +828,8 @@ syncAccel(XvMCLowLevel * xl, unsigned int mode, unsigned int doSleep)
 
     CARD32 mask;
     
-    if (xl->chipId == PCI_CHIP_VT3353)
+    if ( (xl->chipId == PCI_CHIP_VT3353) ||
+         (xl->chipId == PCI_CHIP_VT3409) )
       {
 	mask = ((mode & LL_MODE_2D) ? VIA_2D_ENG_BUSY_H5 : 0) |
 	  ((mode & LL_MODE_3D) ? VIA_3D_ENG_BUSY_H5 : 0);
@@ -1268,13 +1271,15 @@ viaMpegSetFB(void *xlp, unsigned i,
 
     BEGIN_HEADER6_DATA(cb, xl, 4);
     if ( (xl->chipId == PCI_CHIP_VT3324) ||
-	 (xl->chipId == PCI_CHIP_VT3353) )
+         (xl->chipId == PCI_CHIP_VT3353) ||
+         (xl->chipId == PCI_CHIP_VT3409) )
     {
       i *= (4 * 2);
       OUT_RING_QW_AGP(cb, 0xc44 + i, yOffs);
       OUT_RING_QW_AGP(cb, 0xc48 + i, vOffs); 
 
-      if ((i == 0) && (xl->chipId == PCI_CHIP_VT3353))
+      if ((i == 0) && ( (xl->chipId == PCI_CHIP_VT3353) ||
+                        (xl->chipId == PCI_CHIP_VT3409) ))
 	{
 	  OUT_RING_QW_AGP(cb, 0xcd4 + i, yOffs);
 	  OUT_RING_QW_AGP(cb, 0xcd8 + i, vOffs); 
