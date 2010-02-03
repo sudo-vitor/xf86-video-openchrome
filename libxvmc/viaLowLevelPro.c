@@ -34,7 +34,7 @@
  *  Ivor Hewitt 2005, 2009 Unichrome Pro, CX700, VX800.
  */
 
-//#undef VIDEO_DMA
+#undef VIDEO_DMA
 #define HQV_USE_IRQ
 
 #include "viaXvMCPriv.h"
@@ -58,7 +58,6 @@ typedef struct
 
 struct _XvMCLowLevel;
 
-/* might do this differently */
 typedef struct
 {
     unsigned mpgStatus;
@@ -197,9 +196,9 @@ typedef struct _XvMCLowLevel
 
 #define RAM_TABLE_RGB_ENABLE        0x00000007
 
-#define VIA_REG_STATUS          0x400
 #define VIA_REG_GECMD           0x000
 #define VIA_REG_GEMODE          0x004
+#define VIA_REG_STATUS          0x400
 
 #define VIA_REG_SRCBASE         0x030
 #define VIA_REG_DSTBASE         0x034
@@ -211,15 +210,15 @@ typedef struct _XvMCLowLevel
 #define VIA_REG_DIMENSION       0x010 /* width and height */
 #define VIA_REG_FGCOLOR         0x018
 
-#define VIA_REG_SRCBASE_H5      0x01c
-#define VIA_REG_DSTBASE_H5      0x014
-#define VIA_REG_PITCH_H5        0x008
-#define VIA_REG_SRCCOLORKEY_H5  0x050
-#define VIA_REG_KEYCONTROL_H5   0x048
-#define VIA_REG_SRCPOS_H5       0x018
-#define VIA_REG_DSTPOS_H5       0x010
-#define VIA_REG_DIMENSION_H5    0x00c  /* width and height */
-#define VIA_REG_FGCOLOR_H5      0x04c
+#define VIA_REG_SRCBASE_M1      0x01c
+#define VIA_REG_DSTBASE_M1      0x014
+#define VIA_REG_PITCH_M1        0x008
+#define VIA_REG_SRCCOLORKEY_M1  0x050
+#define VIA_REG_KEYCONTROL_M1   0x048
+#define VIA_REG_SRCPOS_M1       0x018
+#define VIA_REG_DSTPOS_M1       0x010
+#define VIA_REG_DIMENSION_M1    0x00c  /* width and height */
+#define VIA_REG_FGCOLOR_M1      0x04c
 
 #define VIA_VR_QUEUE_BUSY       0x00020000	/* Virtual Queue is busy */
 #define VIA_CMD_RGTR_BUSY       0x00000080	/* Command Regulator is busy */
@@ -257,11 +256,57 @@ typedef struct _XvMCLowLevel
 #define VIA_AGP_HEADER5 0xFE040000
 #define VIA_AGP_HEADER6 0xFE050000
 
+enum VIA_2D_Regs {
+  GECMD,
+  GEMODE,
+  STATUS,
+  SRCBASE,
+  DSTBASE,
+  PITCH,
+  SRCCOLORKEY,
+  KEYCONTROL,
+  SRCPOS,
+  DSTPOS,
+  DIMENSION,
+  FGCOLOR
+};
+
+static const unsigned via_2d_regs[] = {
+  [GECMD]       = VIA_REG_GECMD,
+  [GEMODE]      = VIA_REG_GEMODE,
+  [STATUS]      = VIA_REG_STATUS,
+  [SRCBASE]     = VIA_REG_SRCBASE,
+  [DSTBASE]     = VIA_REG_DSTBASE,
+  [PITCH]       = VIA_REG_PITCH,
+  [SRCCOLORKEY] = VIA_REG_SRCCOLORKEY,
+  [KEYCONTROL]  = VIA_REG_KEYCONTROL,
+  [SRCPOS]      = VIA_REG_SRCPOS,
+  [DSTPOS]      = VIA_REG_DSTPOS,
+  [DIMENSION]   = VIA_REG_DIMENSION,
+  [FGCOLOR]     = VIA_REG_FGCOLOR
+};
+static const unsigned via_2d_regs_m1[] = {
+  [GECMD]       = VIA_REG_GECMD,
+  [GEMODE]      = VIA_REG_GEMODE,
+  [STATUS]      = VIA_REG_STATUS,
+  [SRCBASE]     = VIA_REG_SRCBASE_M1,
+  [DSTBASE]     = VIA_REG_DSTBASE_M1,
+  [PITCH]       = VIA_REG_PITCH_M1,
+  [SRCCOLORKEY] = VIA_REG_SRCCOLORKEY_M1,
+  [KEYCONTROL]  = VIA_REG_KEYCONTROL_M1,
+  [SRCPOS]      = VIA_REG_SRCPOS_M1,
+  [DSTPOS]      = VIA_REG_DSTPOS_M1,
+  [DIMENSION]   = VIA_REG_DIMENSION_M1,
+  [FGCOLOR]     = VIA_REG_FGCOLOR_M1
+};
+
 typedef struct
 {
     CARD32 data;
     Bool set;
 } HQVRegister;
+
+#define H1_ADDR(val) (((val)>>2)|0xF0000000)
 
 #define WAITFLAGS(cb, flags)			\
     (cb)->waitFlags |= (flags)
@@ -615,17 +660,8 @@ viaDMATimeStampLowLevel(void *xlp)
     XvMCLowLevel *xl = (XvMCLowLevel *) xlp;
 
     if (xl->use_agp) {
-      if ( (xl->chipId != PCI_CHIP_VT3353) &&
-           (xl->chipId != PCI_CHIP_VT3409) )
-	{
 	viaBlit(xl, 32, xl->tsOffset, 1, xl->tsOffset, 1, 1, 1, 0, 0,
 	    VIABLIT_FILL, xl->curTimeStamp);
-	}
-      else
-	{
-	viaBlit_H5(xl, 32, xl->tsOffset, 1, xl->tsOffset, 1, 1, 1, 0, 0,
-		   VIABLIT_TRANSCOPY, xl->curTimeStamp);
-	}
 	return xl->curTimeStamp++;
     }
     return 0;
@@ -732,10 +768,10 @@ syncDMA(XvMCLowLevel * xl, unsigned int doSleep)
     here.tz_dsttime = 0;
     gettimeofday(&then, &here);
 
-    CARD32 mask = ( (xl->chipId == PCI_CHIP_VT3353) ||
-                    (xl->chipId == PCI_CHIP_VT3409) ) ? VIA_CMD_RGTR_BUSY_H5 : VIA_CMD_RGTR_BUSY;
+
+    CARD32 mask = VIA_VR_QUEUE_BUSY;
     
-      while (REGIN(xl, VIA_REG_STATUS) & mask) {
+    while (REGIN(xl, VIA_REG_STATUS) & mask) {
       gettimeofday(&now, &here);
       if (timeDiff(&now, &then) > VIA_DMAWAITTIMEOUT) {
 	if (REGIN(xl, VIA_REG_STATUS) & mask) {
@@ -747,15 +783,20 @@ syncDMA(XvMCLowLevel * xl, unsigned int doSleep)
 	nanosleep(&sleep, &rem);
     }
     
-/*
-    if (REGIN(xl, VIA_REG_STATUS) & VIA_CMD_RGTR_BUSY_H5) {
-	drm_via_irqwait_t irqw;
-	irqw.request.irq = 3;
-	irqw.request.type = VIA_IRQ_ABSOLUTE;
-	if (drmCommandWriteRead(xl->fd, DRM_VIA_WAIT_IRQ, &irqw,
-		sizeof(irqw)) < 0)
-	    xl->errors |= LL_DMA_TIMEDOUT;
-    }*/
+    mask = ( (xl->chipId == PCI_CHIP_VT3353) ||
+                    (xl->chipId == PCI_CHIP_VT3409) ) ? VIA_CMD_RGTR_BUSY_H5 : VIA_CMD_RGTR_BUSY;
+    
+    while (REGIN(xl, VIA_REG_STATUS) & mask) {
+      gettimeofday(&now, &here);
+      if (timeDiff(&now, &then) > VIA_DMAWAITTIMEOUT) {
+	if (REGIN(xl, VIA_REG_STATUS) & mask) {
+	  xl->errors |= LL_DMA_TIMEDOUT;
+	  break;
+	}
+      }
+      if (doSleep)
+	nanosleep(&sleep, &rem);
+    }
 }
 
 #ifdef HQV_USE_IRQ
@@ -839,7 +880,7 @@ syncAccel(XvMCLowLevel * xl, unsigned int mode, unsigned int doSleep)
       {
 	mask = ((mode & LL_MODE_2D) ? VIA_2D_ENG_BUSY : 0) |
 	  ((mode & LL_MODE_3D) ? VIA_3D_ENG_BUSY : 0);
-	mask |= VIA_CMD_RGTR_BUSY;
+		mask |= VIA_CMD_RGTR_BUSY; //x
       }
 
     sleep.tv_nsec = 1;
@@ -923,7 +964,7 @@ syncMpeg(XvMCLowLevel * xl, unsigned int mode, unsigned int doSleep)
 	if (timeDiff(&now, &then) > VIA_XVMC_DECODERTIMEOUT) {
 	    if (viaMpegIsBusy(xl, busyMask, idleVal)) {
 		xl->errors |= LL_DECODER_TIMEDOUT;
-                fprintf(stderr, "Decoder timeout - mask %08x, idle %08x, stat %08x\n", busyMask, idleVal, viaMpegGetStatus(xl));
+                fprintf(stderr, "Decoder timeout - mask %08lx, idle %08lx, stat %08lx\n", busyMask, idleVal, viaMpegGetStatus(xl));
 	    }
 	    break;
 	}
@@ -1038,7 +1079,7 @@ agpFlush(ViaCommandBuffer * cb, XvMCLowLevel * xl)
 	    hwlUnlock(xl, 0);
 
 	if (ret) {
-            xl->errors |= LL_AGP_COMMAND_ERR;
+            xl->errors |= LL_PCI_COMMAND_ERR;
 	}
 	cb->pos = 0;
 	cb->waitFlags = 0;
@@ -1185,13 +1226,17 @@ viaVideoSetSWFLipLocked(void *xlp, unsigned yOffs, unsigned uOffs,
       {
         setHQVStartAddressCME(hqvShadow, yOffs, vOffs, yStride, 0);
 
-	SETHQVSHADOW(hqvShadow,HQV_SRC_DATA_OFFSET_CONTROL1, 0);
-	SETHQVSHADOW(hqvShadow,HQV_SRC_DATA_OFFSET_CONTROL2, 0);
-
-	SETHQVSHADOW(hqvShadow,HQV_SRC_DATA_OFFSET_CONTROL3, 
-		     ((xl->width-1)<<16) | (xl->height-1));
-	SETHQVSHADOW(hqvShadow,HQV_SRC_DATA_OFFSET_CONTROL4,
-		     ((xl->width-1)<<16) | (xl->height-1));
+	if (xl->chipId == PCI_CHIP_VT3353
+	    || xl->chipId == PCI_CHIP_VT3409)
+	  {
+	    SETHQVSHADOW(hqvShadow,HQV_SRC_DATA_OFFSET_CONTROL1, 0);
+	    SETHQVSHADOW(hqvShadow,HQV_SRC_DATA_OFFSET_CONTROL2, 0);
+	    
+	    SETHQVSHADOW(hqvShadow,HQV_SRC_DATA_OFFSET_CONTROL3, 
+			 ((xl->width-1)<<16) | (xl->height-1));
+	    SETHQVSHADOW(hqvShadow,HQV_SRC_DATA_OFFSET_CONTROL4,
+			 ((xl->width-1)<<16) | (xl->height-1));
+	  }
       }
     else
     {
@@ -1223,6 +1268,8 @@ viaVideoSWFlipLocked(void *xlp, unsigned flags, Bool progressiveSequence)
     }
     else
     {
+//TODO tidy
+
     CARD32 andWd, orWd;
     andWd = 0;
     orWd = 0;
@@ -1661,93 +1708,17 @@ viaBlit(void *xlp, unsigned bpp, unsigned srcBase,
     XvMCLowLevel *xl = (XvMCLowLevel *) xlp;
     ViaCommandBuffer *cb = &xl->agpBuf;
 
-    if (!w || !h)
-	return;
+    const unsigned *via_regs;
 
-    finish_header_agp(cb);
-
-    switch (bpp) {
-    case 16:
-	dwGEMode |= VIA_GEM_16bpp;
-	break;
-    case 32:
-	dwGEMode |= VIA_GEM_32bpp;
-	break;
-    default:
-	dwGEMode |= VIA_GEM_8bpp;
-	break;
-    }
-
-    srcX = srcBase & 31;
-    dstX = dstBase & 31;
-    switch (bpp) {
-    case 16:
-	dwGEMode |= VIA_GEM_16bpp;
-	srcX >>= 2;
-	dstX >>= 2;
-	break;
-    case 32:
-	dwGEMode |= VIA_GEM_32bpp;
-	srcX >>= 4;
-	dstX >>= 4;
-	break;
-    default:
-	dwGEMode |= VIA_GEM_8bpp;
-	break;
-    }
-
-    BEGIN_HEADER6_DATA(cb, xl, 3);
-    WAITFLAGS(cb, LL_MODE_2D);
-    OUT_RING_QW_AGP(cb, (VIA_REG_GEMODE), dwGEMode);
-    cmd = 0;
-
-    if (xdir < 0) {
-	cmd |= VIA_GEC_DECX;
-	srcX += (w - 1);
-	dstX += (w - 1);
-    }
-    if (ydir < 0) {
-	cmd |= VIA_GEC_DECY;
-	srcY += (h - 1);
-	dstY += (h - 1);
-    }
-
-    switch (blitMode) {
-    case VIABLIT_TRANSCOPY:
-	OUT_RING_QW_AGP(cb, VIA_REG_SRCCOLORKEY, color);
-	OUT_RING_QW_AGP(cb, VIA_REG_KEYCONTROL, 0x4000);
-	cmd |= VIA_GEC_BLT | (VIA_BLIT_COPY << 24);
-	break;
-    case VIABLIT_FILL:
-	OUT_RING_QW_AGP(cb, VIA_REG_FGCOLOR, color);
-	cmd |= VIA_GEC_BLT | VIA_GEC_FIXCOLOR_PAT | (VIA_BLIT_FILL << 24);
-	break;
-    default:
-	OUT_RING_QW_AGP(cb, VIA_REG_KEYCONTROL, 0x0);
-	cmd |= VIA_GEC_BLT | (VIA_BLIT_COPY << 24);
-    }
-
-    OUT_RING_QW_AGP(cb, VIA_REG_SRCBASE, (srcBase & ~31) >> 3);
-    OUT_RING_QW_AGP(cb, VIA_REG_DSTBASE, (dstBase & ~31) >> 3);
-    OUT_RING_QW_AGP(cb, VIA_REG_PITCH, VIA_PITCH_ENABLE |
-	(srcPitch >> 3) | (((dstPitch) >> 3) << 16));
-    OUT_RING_QW_AGP(cb, VIA_REG_SRCPOS, ((srcY << 16) | srcX));
-    OUT_RING_QW_AGP(cb, VIA_REG_DSTPOS, ((dstY << 16) | dstX));
-    OUT_RING_QW_AGP(cb, VIA_REG_DIMENSION,
-	(((h - 1) << 16) | (w - 1)));
-    OUT_RING_QW_AGP(cb, VIA_REG_GECMD, cmd);
-}
-
-void
-viaBlit_H5(void *xlp, unsigned bpp, unsigned srcBase,
-    unsigned srcPitch, unsigned dstBase, unsigned dstPitch,
-    unsigned w, unsigned h, int xdir, int ydir, unsigned blitMode,
-    unsigned color)
-{
-    CARD32 dwGEMode = 0, srcY = 0, srcX, dstY = 0, dstX;
-    CARD32 cmd;
-    XvMCLowLevel *xl = (XvMCLowLevel *) xlp;
-    ViaCommandBuffer *cb = &xl->agpBuf;
+    if ( (xl->chipId == PCI_CHIP_VT3353) ||
+	 (xl->chipId == PCI_CHIP_VT3409) )
+      {
+	via_regs = via_2d_regs_m1;
+      }
+    else
+      {
+	via_regs = via_2d_regs;
+      }
 
     if (!w || !h)
 	return;
@@ -1784,9 +1755,10 @@ viaBlit_H5(void *xlp, unsigned bpp, unsigned srcBase,
 	break;
     }
 
-    BEGIN_HEADER6_DATA(cb, xl, 3);
+    //BEGIN_HEADER6_DATA(cb, xl, 3);
+    BEGIN_RING_AGP(cb, xl, 20);
     WAITFLAGS(cb, LL_MODE_2D);
-    OUT_RING_QW_AGP(cb, VIA_REG_GEMODE, dwGEMode);
+    OUT_RING_QW_AGP(cb, H1_ADDR(via_regs[GEMODE]), dwGEMode);
     cmd = 0;
 
     if (xdir < 0) {
@@ -1802,30 +1774,40 @@ viaBlit_H5(void *xlp, unsigned bpp, unsigned srcBase,
 
     switch (blitMode) {
     case VIABLIT_TRANSCOPY:
-	OUT_RING_QW_AGP(cb, VIA_REG_SRCCOLORKEY_H5, color);
-	OUT_RING_QW_AGP(cb, VIA_REG_KEYCONTROL_H5, 0x4000);
+	OUT_RING_QW_AGP(cb, H1_ADDR(via_regs[SRCCOLORKEY]), color);
+	OUT_RING_QW_AGP(cb, H1_ADDR(via_regs[KEYCONTROL]), 0x4000);
 	cmd |= VIA_GEC_BLT | (VIA_BLIT_COPY << 24);
 	break;
     case VIABLIT_FILL:
-	OUT_RING_QW_AGP(cb, VIA_REG_FGCOLOR_H5, color);
+	OUT_RING_QW_AGP(cb, H1_ADDR(via_regs[FGCOLOR]), color);
 	cmd |= VIA_GEC_BLT | VIA_GEC_FIXCOLOR_PAT | (VIA_BLIT_FILL << 24);
 	break;
     default:
-	OUT_RING_QW_AGP(cb, VIA_REG_KEYCONTROL_H5, 0x0);
+	OUT_RING_QW_AGP(cb, H1_ADDR(via_regs[KEYCONTROL]), 0x0);
 	cmd |= VIA_GEC_BLT | (VIA_BLIT_COPY << 24);
     }
 
-    OUT_RING_QW_AGP(cb, VIA_REG_SRCBASE_H5, (srcBase & ~31) >> 3);
-    OUT_RING_QW_AGP(cb, VIA_REG_DSTBASE_H5, (dstBase & ~31) >> 3);
-    OUT_RING_QW_AGP(cb, VIA_REG_PITCH_H5,/* VIA_PITCH_ENABLE |*/
-	(srcPitch >> 3) | (((dstPitch) >> 3) << 16));
-    OUT_RING_QW_AGP(cb, VIA_REG_SRCPOS_H5, ((srcY << 16) | srcX));
-    OUT_RING_QW_AGP(cb, VIA_REG_DSTPOS_H5, ((dstY << 16) | dstX));
-    OUT_RING_QW_AGP(cb, VIA_REG_DIMENSION_H5,
-	(((h - 1) << 16) | (w - 1)));
-    OUT_RING_QW_AGP(cb, VIA_REG_GECMD, cmd);
-}
+    OUT_RING_QW_AGP(cb, H1_ADDR(via_regs[SRCBASE]), (srcBase & ~31) >> 3);
+    OUT_RING_QW_AGP(cb, H1_ADDR(via_regs[DSTBASE]), (dstBase & ~31) >> 3);
 
+    if ( (xl->chipId == PCI_CHIP_VT3353) ||
+	 (xl->chipId == PCI_CHIP_VT3409) )
+      {
+    OUT_RING_QW_AGP(cb, H1_ADDR(via_regs[PITCH]),
+	(srcPitch >> 3) | (((dstPitch) >> 3) << 16));
+      }
+    else
+      {
+    OUT_RING_QW_AGP(cb, H1_ADDR(via_regs[PITCH]), VIA_PITCH_ENABLE |
+	(srcPitch >> 3) | (((dstPitch) >> 3) << 16));
+      }
+
+    OUT_RING_QW_AGP(cb, H1_ADDR(via_regs[SRCPOS]), ((srcY << 16) | srcX));
+    OUT_RING_QW_AGP(cb, H1_ADDR(via_regs[DSTPOS]), ((dstY << 16) | dstX));
+    OUT_RING_QW_AGP(cb, H1_ADDR(via_regs[DIMENSION]),
+	(((h - 1) << 16) | (w - 1)));
+    OUT_RING_QW_AGP(cb, H1_ADDR(via_regs[GECMD]), cmd);
+}
 
 unsigned
 syncXvMCLowLevel(void *xlp, unsigned int mode, unsigned int doSleep,
