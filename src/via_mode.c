@@ -380,6 +380,7 @@ ViaOutputsDetect(ScrnInfoPtr pScrn)
         case VIA_CX700:
         case VIA_VX800:
         case VIA_VX855:
+        case VIA_VX900:
             if (ViaDFPDetect(pScrn)) {
                 pBIOSInfo->DfpPresent = TRUE;
                 xf86DrvMsg(pScrn->scrnIndex, X_INFO,
