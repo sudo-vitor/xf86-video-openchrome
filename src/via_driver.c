@@ -143,6 +143,7 @@ static const struct pci_id_match via_device_match[] = {
    VIA_DEVICE_MATCH (PCI_CHIP_VT3327, 0 ),
    VIA_DEVICE_MATCH (PCI_CHIP_VT3353, 0 ),
    VIA_DEVICE_MATCH (PCI_CHIP_VT3409, 0 ),
+   VIA_DEVICE_MATCH (PCI_CHIP_VT3410, 0 ),
     { 0, 0, 0 },
 };
 
@@ -180,6 +181,7 @@ static SymTabRec VIAChipsets[] = {
     {VIA_P4M890,   "P4M890"},
     {VIA_VX800,    "VX800/VX820"},
     {VIA_VX855,    "VX855/VX875"},
+    {VIA_VX900,    "VX900"},
     {-1,            NULL }
 };
 
@@ -196,6 +198,7 @@ static PciChipsets VIAPciChipsets[] = {
     {VIA_P4M890,   PCI_CHIP_VT3327,    VIA_RES_SHARED},
     {VIA_VX800,    PCI_CHIP_VT3353,    VIA_RES_SHARED},
     {VIA_VX855,    PCI_CHIP_VT3409,    VIA_RES_SHARED},
+    {VIA_VX900,    PCI_CHIP_VT3410,    VIA_RES_SHARED},
     {-1,           -1,                 VIA_RES_UNDEF}
 };
 
