@@ -514,6 +514,7 @@ ViaOutputsSelect(ScrnInfoPtr pScrn)
                 case VIA_CX700:
                 case VIA_VX800:
                 case VIA_VX855:
+                case VIA_VX900:
                     pVia->pBIOSInfo->Lvds->IsActive = TRUE ;
                     break;
             }
@@ -1002,8 +1003,8 @@ ViaSetDotclock(ScrnInfoPtr pScrn, CARD32 clock, int base, int probase)
         dn  = pll.params.dn;
         dm  = pll.params.dm;
 
-        /* The VX855 does not modify dm/dn, but earlier chipsets do. */
-        if (pVia->Chipset != VIA_VX855) {
+        /* The VX855 and VX900 do not modify dm/dn, but earlier chipsets do. */
+        if ((pVia->Chipset != VIA_VX855) && (pVia->Chipset != VIA_VX900)) {
             dm -= 2;
             dn -= 2;
         }

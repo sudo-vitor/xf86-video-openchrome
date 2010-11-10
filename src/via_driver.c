@@ -764,6 +764,7 @@ VIASetupDefaultOptions(ScrnInfoPtr pScrn)
             break;
         case VIA_VX800:
         case VIA_VX855:
+        case VIA_VX900:
             pVia->VideoEngine = VIDEO_ENGINE_CME;
             pVia->agpEnable = FALSE;
             pVia->dmaXV = FALSE;
@@ -1038,6 +1039,7 @@ VIAPreInit(ScrnInfoPtr pScrn, int flags)
         case VIA_CX700:
         case VIA_VX800:
         case VIA_VX855:
+        case VIA_VX900:
 #ifdef XSERVER_LIBPCIACCESS
             pci_device_cfg_read_u8(vgaDevice, &videoRam, 0xA1);
 #else
@@ -1883,6 +1885,7 @@ VIALeaveVT(int scrnIndex, int flags)
         case VIA_P4M900:
         case VIA_VX800:
         case VIA_VX855:
+        case VIA_VX900:
             break;
         default:
             hwp->writeSeq(hwp, 0x1A, pVia->SavedReg.SR1A | 0x40);
@@ -2097,6 +2100,7 @@ VIASave(ScrnInfoPtr pScrn)
             case VIA_CX700:
             case VIA_VX800:
             case VIA_VX855:
+            case VIA_VX900:
                 Regs->CRD2 = hwp->readCrtc(hwp, 0xD2);
                 break;
         }
@@ -2260,6 +2264,7 @@ VIARestore(ScrnInfoPtr pScrn)
         case VIA_CX700:
         case VIA_VX800:
         case VIA_VX855:
+        case VIA_VX900:
             /* LVDS Control Register */
             hwp->writeCrtc(hwp, 0xD2, Regs->CRD2);
             break;
@@ -2289,6 +2294,7 @@ ViaMMIOEnable(ScrnInfoPtr pScrn)
         case VIA_P4M900:
         case VIA_VX800:
         case VIA_VX855:
+        case VIA_VX900:
             ViaSeqMask(hwp, 0x1A, 0x08, 0x08);
             break;
         default:
@@ -2312,6 +2318,7 @@ ViaMMIODisable(ScrnInfoPtr pScrn)
         case VIA_P4M900:
         case VIA_VX800:
         case VIA_VX855:
+        case VIA_VX900:
             ViaSeqMask(hwp, 0x1A, 0x00, 0x08);
             break;
         default:
@@ -2428,10 +2435,18 @@ VIAMapFB(ScrnInfoPtr pScrn)
     VIAPtr pVia = VIAPTR(pScrn);
 
 #ifdef XSERVER_LIBPCIACCESS
-    pVia->FrameBufferBase = pVia->PciInfo->regions[0].base_addr;
+    if (pVia->Chipset == VIA_VX900) {
+        pVia->FrameBufferBase = pVia->PciInfo->regions[2].base_addr;
+    } else {
+        pVia->FrameBufferBase = pVia->PciInfo->regions[0].base_addr;
+    }
     int err;
 #else
-    pVia->FrameBufferBase = pVia->PciInfo->memBase[0];
+    if (pVia->Chipset == VIA_VX900) {
+        pVia->FrameBufferBase = pVia->PciInfo->memBase[2];
+    } else {
+        pVia->FrameBufferBase = pVia->PciInfo->memBase[0];
+    }
 #endif
 
     DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "VIAMapFB\n"));
@@ -3015,6 +3030,7 @@ VIAWriteMode(ScrnInfoPtr pScrn, DisplayModePtr mode)
                 case VIA_P4M900:
                 case VIA_VX800:
                 case VIA_VX855:
+                case VIA_VX900:
                     /*
                      * Since we are using virtual, we need to adjust
                      * the offset to match the framebuffer alignment.
@@ -3061,6 +3077,7 @@ VIACloseScreen(int scrnIndex, ScreenPtr pScreen)
             case VIA_P4M900:
             case VIA_VX800:
             case VIA_VX855:
+            case VIA_VX900:
                 break;
             default :
                 hwp->writeSeq(hwp, 0x1A, pVia->SavedReg.SR1A | 0x40);
