@@ -859,6 +859,9 @@ ViaGetMemoryBandwidth(ScrnInfoPtr pScrn)
         case VIA_MEM_DDR533:
         case VIA_MEM_DDR667:
             return VIA_BW_DDR667;
+        case VIA_MEM_DDR800:
+        case VIA_MEM_DDR1066:
+            return VIA_BW_DDR1066;
         default:
             xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
                        "ViaBandwidthAllowed: Unknown memory type: %d\n", pVia->MemClk);
