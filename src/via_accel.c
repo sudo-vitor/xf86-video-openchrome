@@ -196,6 +196,7 @@ viaFlushPCI(ViaCommandBuffer * buf)
 					switch (pVia->Chipset) {
 					    case VIA_VX800:
 					    case VIA_VX855:
+					    case VIA_VX900:
 							while ((VIAGETREG(VIA_REG_STATUS) &
 							       (VIA_CMD_RGTR_BUSY_H5 | VIA_2D_ENG_BUSY_H5))
 									&& (loop++ < MAXLOOP)) ;
@@ -419,6 +420,7 @@ viaDisableVQ(ScrnInfoPtr pScrn)
         case VIA_P4M900:
         case VIA_VX800:
         case VIA_VX855:
+        case VIA_VX900:
             VIASETREG(0x41c, 0x00100000);
             VIASETREG(0x420, 0x74301000);
             break;
@@ -474,7 +476,9 @@ viaInitialize2DEngine(ScrnInfoPtr pScrn)
         VIASETREG(i, 0x0);
     }
 
-    if (pVia->Chipset == VIA_VX800 || pVia->Chipset == VIA_VX855) {
+    if (pVia->Chipset == VIA_VX800 || 
+        pVia->Chipset == VIA_VX855 ||
+        pVia->Chipset == VIA_VX900) {
         for (i = 0x44; i < 0x5c; i += 4) {
             VIASETREG(i, 0x0);
         }
@@ -484,6 +488,7 @@ viaInitialize2DEngine(ScrnInfoPtr pScrn)
     switch (pVia->Chipset) {
     case VIA_VX800:
     case VIA_VX855:
+    case VIA_VX900:
         pVia->TwodRegs = via_2d_regs_m1;
         break;
     default:
@@ -496,6 +501,7 @@ viaInitialize2DEngine(ScrnInfoPtr pScrn)
         case VIA_P4M900:
         case VIA_VX800:
         case VIA_VX855:
+        case VIA_VX900:
             viaInitPCIe(pVia);
             break;
         default:
@@ -509,6 +515,7 @@ viaInitialize2DEngine(ScrnInfoPtr pScrn)
             case VIA_P4M900:
             case VIA_VX800:
             case VIA_VX855:
+            case VIA_VX900:
                 viaEnablePCIeVQ(pVia);
                 break;
             default:
@@ -536,6 +543,7 @@ viaAccelSync(ScrnInfoPtr pScrn)
     switch (pVia->Chipset) {
         case VIA_VX800:
         case VIA_VX855:
+        case VIA_VX900:
             while ((VIAGETREG(VIA_REG_STATUS) &
                     (VIA_CMD_RGTR_BUSY_H5 | VIA_2D_ENG_BUSY_H5 | VIA_3D_ENG_BUSY_H5))
                    && (loop++ < MAXLOOP)) ;
@@ -596,7 +604,9 @@ viaPitchHelper(VIAPtr pVia, unsigned dstPitch, unsigned srcPitch)
     unsigned val = (dstPitch >> 3) << 16 | (srcPitch >> 3);
     RING_VARS;
 
-    if (pVia->Chipset != VIA_VX800 && pVia->Chipset != VIA_VX855) {
+    if (pVia->Chipset != VIA_VX800 &&
+        pVia->Chipset != VIA_VX855 && 
+        pVia->Chipset != VIA_VX900) {
         val |= VIA_PITCH_ENABLE;
     }
     OUT_RING_H1(VIA_REG(pVia, PITCH), val);
@@ -1236,7 +1246,7 @@ viaInitXAA(ScreenPtr pScreen)
                              HARDWARE_CLIP_COLOR_8x8_FILL |
                              HARDWARE_CLIP_SCREEN_TO_SCREEN_COLOR_EXPAND | 0);
 
-    if (pVia->Chipset != VIA_VX855)
+    if (pVia->Chipset != VIA_VX855 || pVia->Chipset != VIA_VX900)
     	xaaptr->ClippingFlags |= (HARDWARE_CLIP_SOLID_FILL |
                                   HARDWARE_CLIP_SOLID_LINE |
                                   HARDWARE_CLIP_DASHED_LINE);
@@ -1300,7 +1310,9 @@ viaInitXAA(ScreenPtr pScreen)
     xaaptr->SubsequentScanlineCPUToScreenColorExpandFill =
             viaSubsequentScanlineCPUToScreenColorExpandFill;
     xaaptr->ColorExpandBase = pVia->BltBase;
-    if (pVia->Chipset == VIA_VX800 || pVia->Chipset == VIA_VX855)
+    if (pVia->Chipset == VIA_VX800 ||
+        pVia->Chipset == VIA_VX855 ||
+        pVia->Chipset == VIA_VX900)
         xaaptr->ColorExpandRange = VIA_MMIO_BLTSIZE;
     else
         xaaptr->ColorExpandRange = (64 * 1024);
@@ -1326,7 +1338,9 @@ viaInitXAA(ScreenPtr pScreen)
     xaaptr->SubsequentImageWriteRect = viaSubsequentImageWriteRect;
     xaaptr->ImageWriteBase = pVia->BltBase;
 
-    if (pVia->Chipset == VIA_VX800 || pVia->Chipset == VIA_VX855)
+    if (pVia->Chipset == VIA_VX800 ||
+        pVia->Chipset == VIA_VX855 ||
+        pVia->Chipset == VIA_VX900)
         xaaptr->ImageWriteRange = VIA_MMIO_BLTSIZE;
     else
         xaaptr->ImageWriteRange = (64 * 1024);
