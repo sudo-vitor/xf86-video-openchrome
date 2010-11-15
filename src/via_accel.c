@@ -479,9 +479,15 @@ viaInitialize2DEngine(ScrnInfoPtr pScrn)
     if (pVia->Chipset == VIA_VX800 || 
         pVia->Chipset == VIA_VX855 ||
         pVia->Chipset == VIA_VX900) {
-        for (i = 0x44; i < 0x5c; i += 4) {
+        for (i = 0x44; i <= 0x5c; i += 4) {
             VIASETREG(i, 0x0);
         }
+    }
+
+    if (pVia->Chipset == VIA_VX900)
+    {
+        /*410 redefine 0x30 34 38*/
+        VIASETREG(0x60, 0x0); /*already useable here*/
     }
 
     /* Make the VIA_REG() macro magic work */

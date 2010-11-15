@@ -2043,6 +2043,9 @@ VIASave(ScrnInfoPtr pScrn)
                 Regs->SR4C = hwp->readSeq(hwp, 0x4C);
                 break;
         }
+
+        /* Save Preemptive Arbiter Control Register */
+        Regs->SR4C = hwp->readSeq(hwp, 0x4D);
         DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "Crtc...\n"));
 
         Regs->CR13 = hwp->readCrtc(hwp, 0x13);
@@ -2208,6 +2211,15 @@ VIARestore(ScrnInfoPtr pScrn)
             hwp->writeSeq(hwp, 0x40, hwp->readSeq(hwp, 0x40) | 0x04); /* Set SR40[2] to 1 */
             hwp->writeSeq(hwp, 0x40, hwp->readSeq(hwp, 0x40) & 0xFB); /* Set SR40[2] to 0 */
             break;
+    }
+
+    /* Restore Preemptive Arbiter Control Register
+     * VX800 and VX855 should restore this register too,
+     * but I don't do that for I don't want to affect any
+     * chips now.
+     */
+    if (pVia->Chipset == VIA_VX900) {
+        hwp->writeSeq(hwp, 0x4D, Regs->SR4D);
     }
 
     /* Reset dotclocks. */
