@@ -355,11 +355,11 @@ DecideOverlaySupport(ScrnInfoPtr pScrn)
                 memEfficiency = (float)SINGLE_3205_133;
                 break;
             case VIA_MEM_DDR800:
-                mClock = 333;
+                mClock = 400;
                 memEfficiency = (float)SINGLE_3205_133;
                 break;
             case VIA_MEM_DDR1066:
-                mClock = 333;
+                mClock = 533;
                 memEfficiency = (float)SINGLE_3205_133;
                 break;
             default:
@@ -434,7 +434,7 @@ DecideOverlaySupport(ScrnInfoPtr pScrn)
             DBG_DD(ErrorF(" via_video.c : totalBandwidth= %f : \n",
                 totalBandWidth));
             if (needBandWidth < totalBandWidth)
-            return TRUE;
+                return TRUE;
         }
         return FALSE;
     }
