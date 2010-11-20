@@ -147,6 +147,9 @@ ViaPanelScaleDisable(ScrnInfoPtr pScrn)
     vgaHWPtr hwp = VGAHWPTR(pScrn);
 
     ViaCrtcMask(hwp, 0x79, 0x00, 0x01);
+    /* Disable VX900 down scaling */
+    if (pVia->Chipset == VIA_VX900)
+        ViaCrtcMask(hwp, 0x89, 0x00, 0x01);
     if (pVia->Chipset != VIA_CLE266 && pVia->Chipset != VIA_KM400)
         ViaCrtcMask(hwp, 0xA2, 0x00, 0xC8);
 }

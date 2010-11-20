@@ -1713,7 +1713,11 @@ ViaModeSet(ScrnInfoPtr pScrn, DisplayModePtr mode)
         ViaModeSecondCRTC(pScrn, mode);
         ViaSecondDisplayChannelEnable(pScrn);
     }
-
+    
+    //FIXME Workaround to enable LCD on VX900 chipset
+    if (pVia->Chipset == VIA_VX900) 
+        ViaModeFirstCRTC(pScrn, mode);
+    
     if (pBIOSInfo->FirstCRTC->IsActive) {
         if (pBIOSInfo->CrtActive) {
             /* CRT on FirstCRTC */
@@ -1736,7 +1740,7 @@ ViaModeSet(ScrnInfoPtr pScrn, DisplayModePtr mode)
         
         ViaModeFirstCRTC(pScrn, mode);
     } else {
-        ViaDisplayDisableCRT(pScrn);
+        //ViaDisplayDisableCRT(pScrn);
     }
 
     if (pBIOSInfo->Simultaneous->IsActive) {
