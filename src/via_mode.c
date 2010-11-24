@@ -346,7 +346,7 @@ ViaOutputsDetect(ScrnInfoPtr pScrn)
     }
 
     /* Crt */
-    if (pVia->DDC1)
+    if (pVia->monPtr1)
         pBIOSInfo->CrtPresent = TRUE;
     /* If any of the unichromes support this, add CRT detection here */
     else if (!pBIOSInfo->PanelPresent) {
@@ -1714,10 +1714,6 @@ ViaModeSet(ScrnInfoPtr pScrn, DisplayModePtr mode)
         ViaSecondDisplayChannelEnable(pScrn);
     }
     
-    //FIXME Workaround to enable LCD on VX900 chipset
-    if (pVia->Chipset == VIA_VX900) 
-        ViaModeFirstCRTC(pScrn, mode);
-    
     if (pBIOSInfo->FirstCRTC->IsActive) {
         if (pBIOSInfo->CrtActive) {
             /* CRT on FirstCRTC */
@@ -1740,8 +1736,12 @@ ViaModeSet(ScrnInfoPtr pScrn, DisplayModePtr mode)
         
         ViaModeFirstCRTC(pScrn, mode);
     } else {
-        //ViaDisplayDisableCRT(pScrn);
+        ViaDisplayDisableCRT(pScrn);
     }
+
+    //FIXME Workaround to enable LCD on VX900 chipset
+    if (pVia->Chipset == VIA_VX900) 
+        ViaModeFirstCRTC(pScrn, mode);
 
     if (pBIOSInfo->Simultaneous->IsActive) {
         ViaDisplayEnableSimultaneous(pScrn);

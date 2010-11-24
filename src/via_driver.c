@@ -843,6 +843,7 @@ VIAPreInit(ScrnInfoPtr pScrn, int flags)
             VIAEntPtr pVIAEnt;
             VIAPtr pVia1;
 
+            pBIOSInfo->SecondCRTC->IsActive=TRUE;
             pVia->IsSecondary = TRUE;
             pPriv = xf86GetEntityPrivate(pScrn->entityList[0], gVIAEntityIndex);
             pVIAEnt = pPriv->ptr;
@@ -856,6 +857,8 @@ VIAPreInit(ScrnInfoPtr pScrn, int flags)
             pVia1 = VIAPTR(pVIAEnt->pPrimaryScrn);
             pVia1->HasSecondary = TRUE;
             pVia->sharedData = pVia1->sharedData;
+            xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
+                           "Secondary\n");
         } else {
             DevUnion *pPriv;
             VIAEntPtr pVIAEnt;
@@ -870,6 +873,10 @@ VIAPreInit(ScrnInfoPtr pScrn, int flags)
             pVIAEnt->HasSecondary = FALSE;
             pVIAEnt->RestorePrimary = FALSE;
             pVIAEnt->IsSecondaryRestored = FALSE;
+            pBIOSInfo->FirstCRTC->IsActive = TRUE;
+            xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
+                           "Primary\n");
+           
         }
     } else {
         pVia->sharedData = xnfcalloc(sizeof(ViaSharedRec), 1);
@@ -1590,10 +1597,12 @@ VIAPreInit(ScrnInfoPtr pScrn, int flags)
     } else {
 
         if (pVia->pI2CBus1) {
-            pVia->DDC1 = xf86DoEDID_DDC2(pScrn->scrnIndex, pVia->pI2CBus1);
-            if (pVia->DDC1) {
-                xf86PrintEDID(pVia->DDC1);
-                xf86SetDDCproperties(pScrn, pVia->DDC1);
+            pVia->monPtr1 = xf86DoEEDID(pScrn->scrnIndex, pVia->pI2CBus1, TRUE);
+            if (pVia->monPtr1) {
+                xf86PrintEDID(pVia->monPtr1);
+                xf86SetDDCproperties(pScrn, pVia->monPtr1);
+                //Check if it is correct
+                pBIOSInfo->SecondCRTC->IsActive=TRUE;
             }
         }
     }

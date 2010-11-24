@@ -422,13 +422,13 @@ ViaPanelGetSizeFromDDCv1(ScrnInfoPtr pScrn, int *width, int *height)
     if (!xf86I2CProbeAddress(pVia->pI2CBus2, 0xA0))
         return FALSE;
 
-    pMon = xf86DoEDID_DDC2(pScrn->scrnIndex, pVia->pI2CBus2);
+    pMon = xf86DoEEDID(pScrn->scrnIndex, pVia->pI2CBus2, TRUE);
     if (!pMon)
         return FALSE;
 
-    pVia->DDC2 = pMon;
+    pVia->monPtr2 = pMon;
 
-    if (!pVia->DDC1) {
+    if (!pVia->monPtr1) {
         xf86PrintEDID(pMon);
         xf86SetDDCproperties(pScrn, pMon);
     }
