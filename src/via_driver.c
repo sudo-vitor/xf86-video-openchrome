@@ -843,7 +843,6 @@ VIAPreInit(ScrnInfoPtr pScrn, int flags)
             VIAEntPtr pVIAEnt;
             VIAPtr pVia1;
 
-            pBIOSInfo->SecondCRTC->IsActive=TRUE;
             pVia->IsSecondary = TRUE;
             pPriv = xf86GetEntityPrivate(pScrn->entityList[0], gVIAEntityIndex);
             pVIAEnt = pPriv->ptr;
@@ -857,8 +856,6 @@ VIAPreInit(ScrnInfoPtr pScrn, int flags)
             pVia1 = VIAPTR(pVIAEnt->pPrimaryScrn);
             pVia1->HasSecondary = TRUE;
             pVia->sharedData = pVia1->sharedData;
-            xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
-                           "Secondary\n");
         } else {
             DevUnion *pPriv;
             VIAEntPtr pVIAEnt;
@@ -873,9 +870,6 @@ VIAPreInit(ScrnInfoPtr pScrn, int flags)
             pVIAEnt->HasSecondary = FALSE;
             pVIAEnt->RestorePrimary = FALSE;
             pVIAEnt->IsSecondaryRestored = FALSE;
-            pBIOSInfo->FirstCRTC->IsActive = TRUE;
-            xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
-                           "Primary\n");
            
         }
     } else {
