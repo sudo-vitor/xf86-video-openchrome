@@ -1591,12 +1591,10 @@ VIAPreInit(ScrnInfoPtr pScrn, int flags)
     } else {
 
         if (pVia->pI2CBus1) {
-            pVia->monPtr1 = xf86DoEEDID(pScrn->scrnIndex, pVia->pI2CBus1, TRUE);
-            if (pVia->monPtr1) {
-                xf86PrintEDID(pVia->monPtr1);
-                xf86SetDDCproperties(pScrn, pVia->monPtr1);
-                //Check if it is correct
-                pBIOSInfo->SecondCRTC->IsActive=TRUE;
+            pVia->DDC1 = xf86DoEEDID(pScrn->scrnIndex, pVia->pI2CBus1, TRUE);
+            if (pVia->DDC1) {
+                xf86PrintEDID(pVia->DDC1);
+                xf86SetDDCproperties(pScrn, pVia->DDC1);
             }
         }
     }

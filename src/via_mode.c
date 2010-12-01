@@ -346,7 +346,7 @@ ViaOutputsDetect(ScrnInfoPtr pScrn)
     }
 
     /* Crt */
-    if (pVia->monPtr1)
+    if (pVia->DDC1)
         pBIOSInfo->CrtPresent = TRUE;
     /* If any of the unichromes support this, add CRT detection here */
     else if (!pBIOSInfo->PanelPresent) {

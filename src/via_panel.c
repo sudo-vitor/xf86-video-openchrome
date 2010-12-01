@@ -307,7 +307,7 @@ ViaPanelPreInit(ScrnInfoPtr pScrn)
         int width, height;
         Bool ret;
 
-        ret = ViaPanelGetSizeFromDDCv1(pScrn, &width, &height);
+        ret = ViaPanelGetSizeFromDDC(pScrn, &width, &height);
 /*
         if (!ret)
             ret = ViaPanelGetSizeFromDDCv2(pScrn, &width);
@@ -411,8 +411,7 @@ ViaPanelGetSizeFromEDID(ScrnInfoPtr pScrn, xf86MonPtr pMon,
 }
 
 Bool
-ViaPanelGetSizeFromDDCv1(ScrnInfoPtr pScrn, int *width, int *height)
-
+ViaPanelGetSizeFromDDC(ScrnInfoPtr pScrn, int *width, int *height)
 {
     VIAPtr pVia = VIAPTR(pScrn);
     xf86MonPtr pMon;
@@ -426,9 +425,9 @@ ViaPanelGetSizeFromDDCv1(ScrnInfoPtr pScrn, int *width, int *height)
     if (!pMon)
         return FALSE;
 
-    pVia->monPtr2 = pMon;
+    pVia->DDC2 = pMon;
 
-    if (!pVia->monPtr1) {
+    if (!pVia->DDC1) {
         xf86PrintEDID(pMon);
         xf86SetDDCproperties(pScrn, pMon);
     }
