@@ -1595,6 +1595,9 @@ VIAPreInit(ScrnInfoPtr pScrn, int flags)
             if (pVia->DDC1) {
                 xf86PrintEDID(pVia->DDC1);
                 xf86SetDDCproperties(pScrn, pVia->DDC1);
+                DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_PROBED,
+                    "DDC pI2CBus1 detected a %s\n", DIGITAL(pVia->DDC1->features.input_type) ?
+                    "DFP" : "CRT"));
             }
         }
     }

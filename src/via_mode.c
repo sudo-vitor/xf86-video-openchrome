@@ -308,11 +308,14 @@ ViaDFPDetect(ScrnInfoPtr pScrn)
     xf86MonPtr          monPtr = NULL;
 
     if (pVia->pI2CBus2)
-        monPtr = xf86DoEDID_DDC2(pScrn->scrnIndex, pVia->pI2CBus2);
+        monPtr = xf86DoEEDID(pScrn->scrnIndex, pVia->pI2CBus2, TRUE);
     
     if (monPtr) {
         xf86PrintEDID(monPtr);
         xf86SetDDCproperties(pScrn, monPtr);
+        DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_PROBED,
+                   "DDC pI2CBus2 detected a %s\n", DIGITAL(monPtr->features.input_type) ?
+                   "DFP" : "CRT"));
         return TRUE;
     } else {
         return FALSE;
