@@ -1742,10 +1742,21 @@ ViaModeSet(ScrnInfoPtr pScrn, DisplayModePtr mode)
         ViaDisplayDisableCRT(pScrn);
     }
 
-    //FIXME Workaround to enable LCD on VX900 chipset
-    if (pVia->Chipset == VIA_VX900) 
+    // Enable panel support on VM800, K8M800 and VX900 chipset
+    // See: https://bugs.launchpad.net/openchrome/+bug/186103
+    if (pBIOSInfo->Panel->IsActive &&
+       ((pVia->Chipset == VIA_VM800) ||
+        (pVia->Chipset == VIA_K8M800) || 
+        (pVia->Chipset == VIA_VX900) )) {
+        pBIOSInfo->FirstCRTC->IsActive=TRUE;
+        if (pVia->DDC1) {
+	    pBIOSInfo->SecondCRTC->IsActive=TRUE;
+        } else { 
+            //We need to disable the secondary to properly work XVideo on VX900
+            pBIOSInfo->SecondCRTC->IsActive=FALSE;
+        }
         ViaModeFirstCRTC(pScrn, mode);
-
+    }
     if (pBIOSInfo->Simultaneous->IsActive) {
         ViaDisplayEnableSimultaneous(pScrn);
     } else {
