@@ -278,11 +278,12 @@ DecideOverlaySupport(ScrnInfoPtr pScrn)
     if (pVia->ChipId != PCI_CHIP_VT3205 &&
         pVia->ChipId != PCI_CHIP_VT3204 &&
         pVia->ChipId != PCI_CHIP_VT3259 &&
-        pVia->ChipId != PCI_CHIP_VT3314 && 
-        pVia->ChipId != PCI_CHIP_VT3327 && 
-        pVia->ChipId != PCI_CHIP_VT3336 && 
-        pVia->ChipId != PCI_CHIP_VT3409 && 
-        pVia->ChipId != PCI_CHIP_VT3364 && 
+        pVia->ChipId != PCI_CHIP_VT3314 &&
+        pVia->ChipId != PCI_CHIP_VT3327 &&
+        pVia->ChipId != PCI_CHIP_VT3336 &&
+        pVia->ChipId != PCI_CHIP_VT3409 &&
+        pVia->ChipId != PCI_CHIP_VT3410 &&
+        pVia->ChipId != PCI_CHIP_VT3364 &&
         pVia->ChipId != PCI_CHIP_VT3324 &&
 	pVia->ChipId != PCI_CHIP_VT3353) {
         CARD32 bandwidth = (mode->HDisplay >> 4) * (mode->VDisplay >> 5) *
@@ -519,6 +520,7 @@ viaRestoreVideo(ScrnInfoPtr pScrn)
     viaVidEng->alphafb_addr    = localVidEng->alphafb_addr;
     viaVidEng->chroma_low      = localVidEng->chroma_low;
     viaVidEng->chroma_up       = localVidEng->chroma_up;
+    viaVidEng->interruptflag   = localVidEng->interruptflag;
 
     if (pVia->ChipId != PCI_CHIP_VT3314)
     {
@@ -599,15 +601,15 @@ viaExitVideo(ScrnInfoPtr pScrn)
                             (viaPortPrivPtr) curAdapt->pPortPrivates->ptr + j,
                             TRUE);
                     }
-                    xfree(curAdapt->pPortPrivates->ptr);
+                    free(curAdapt->pPortPrivates->ptr);
                 }
-                xfree(curAdapt->pPortPrivates);
+                free(curAdapt->pPortPrivates);
             }
-            xfree(curAdapt);
+            free(curAdapt);
         }
     }
     if (allAdaptors)
-        xfree(allAdaptors);
+        free(allAdaptors);
 }
 
 void
@@ -637,6 +639,7 @@ viaInitVideo(ScreenPtr pScreen)
         (pVia->Chipset == VIA_CX700) ||
         (pVia->Chipset == VIA_VX800) ||
         (pVia->Chipset == VIA_VX855) ||
+        (pVia->Chipset == VIA_VX900) ||
         (pVia->Chipset == VIA_P4M890));
     if ((pVia->drmVerMajor < 2) ||
         ((pVia->drmVerMajor == 2) && (pVia->drmVerMinor < 9)))
@@ -655,8 +658,8 @@ viaInitVideo(ScreenPtr pScreen)
         (pVia->Chipset == VIA_K8M800) || (pVia->Chipset == VIA_PM800) ||
         (pVia->Chipset == VIA_VM800) || (pVia->Chipset == VIA_K8M890) ||
         (pVia->Chipset == VIA_P4M900) || (pVia->Chipset == VIA_CX700) ||
-        (pVia->Chipset == VIA_P4M890) || (pVia->Chipset == VIA_VX800) || 
-        (pVia->Chipset == VIA_VX855)) {
+        (pVia->Chipset == VIA_P4M890) || (pVia->Chipset == VIA_VX800) ||
+        (pVia->Chipset == VIA_VX855) || (pVia->Chipset == VIA_VX900)) {
         num_new = viaSetupAdaptors(pScreen, &newAdaptors);
         num_adaptors = xf86XVListGenericAdaptors(pScrn, &adaptors);
     } else {
@@ -668,7 +671,7 @@ viaInitVideo(ScreenPtr pScreen)
 
     DBG_DD(ErrorF(" via_video.c : num_adaptors : %d\n", num_adaptors));
     if (newAdaptors) {
-        allAdaptors = xalloc((num_adaptors + num_new) *
+        allAdaptors = malloc((num_adaptors + num_new) *
                 sizeof(XF86VideoAdaptorPtr *));
         if (allAdaptors) {
             if (num_adaptors)
@@ -866,7 +869,7 @@ viaStopVideo(ScrnInfoPtr pScrn, pointer data, Bool exit)
     if (exit) {
         ViaSwovSurfaceDestroy(pScrn, pPriv);
         if (pPriv->dmaBounceBuffer)
-            xfree(pPriv->dmaBounceBuffer);
+            free(pPriv->dmaBounceBuffer);
         pPriv->dmaBounceBuffer = 0;
         pPriv->dmaBounceStride = 0;
         pPriv->dmaBounceLines = 0;
@@ -1114,7 +1117,7 @@ viaDmaBlitImage(VIAPtr pVia,
             pPort->dmaBounceStride != bounceStride ||
             pPort->dmaBounceLines != bounceLines) {
             if (pPort->dmaBounceBuffer) {
-                xfree(pPort->dmaBounceBuffer);
+                free(pPort->dmaBounceBuffer);
                 pPort->dmaBounceBuffer = 0;
             }
             size = bounceStride * bounceLines + 16;
