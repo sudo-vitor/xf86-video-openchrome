@@ -145,6 +145,7 @@ extern void viaVideoSubPictureOffLocked(void *xlp);
 #define PCI_CHIP_VT3324         0x3157 /* CX700 */
 #define PCI_CHIP_VT3353         0x1122 /* VX800 */
 #define PCI_CHIP_VT3409         0x5122 /* VX855 */
+#define PCI_CHIP_VT3410         0x7122 /* VX900 */
 #define PCI_CHIP_VT3336         0x3230 /* K8M890 */
 
 #endif

@@ -226,7 +226,7 @@ typedef struct _XvMCLowLevel
 #define VIA_2D_ENG_BUSY         0x00000002	/* 2D Engine is busy */
 #define VIA_3D_ENG_BUSY         0x00000001	/* 3D Engine is busy */
 
-/* VIA_REG_STATUS(0x400): Egine Status */
+/* VIA_REG_STATUS(0x400): Engine Status */
 #define VIA_CMD_RGTR_BUSY_H5    0x00000010  /* Command Regulator is busy */
 #define VIA_MPEG_ENG_BUSY_H5    0x00000008  /* 3D Engine is busy */
 #define VIA_2D_ENG_BUSY_H5      0x00000002  /* 2D Engine is busy */
@@ -616,7 +616,8 @@ viaDMATimeStampLowLevel(void *xlp)
 
     if (xl->use_agp) {
       if ( (xl->chipId != PCI_CHIP_VT3353) &&
-           (xl->chipId != PCI_CHIP_VT3409) )
+           (xl->chipId != PCI_CHIP_VT3409) &&
+           (xl->chipId != PCI_CHIP_VT3410) )
 	{
 	viaBlit(xl, 32, xl->tsOffset, 1, xl->tsOffset, 1, 1, 1, 0, 0,
 	    VIABLIT_FILL, xl->curTimeStamp);
@@ -733,7 +734,8 @@ syncDMA(XvMCLowLevel * xl, unsigned int doSleep)
     gettimeofday(&then, &here);
 
     CARD32 mask = ( (xl->chipId == PCI_CHIP_VT3353) ||
-                    (xl->chipId == PCI_CHIP_VT3409) ) ? VIA_CMD_RGTR_BUSY_H5 : VIA_CMD_RGTR_BUSY;
+                    (xl->chipId == PCI_CHIP_VT3409) ||
+                    (xl->chipId == PCI_CHIP_VT3410) ) ? VIA_CMD_RGTR_BUSY_H5 : VIA_CMD_RGTR_BUSY;
     
       while (REGIN(xl, VIA_REG_STATUS) & mask) {
       gettimeofday(&now, &here);
@@ -829,7 +831,8 @@ syncAccel(XvMCLowLevel * xl, unsigned int mode, unsigned int doSleep)
     CARD32 mask;
     
     if ( (xl->chipId == PCI_CHIP_VT3353) ||
-         (xl->chipId == PCI_CHIP_VT3409) )
+         (xl->chipId == PCI_CHIP_VT3409) ||
+         (xl->chipId == PCI_CHIP_VT3410) )
       {
 	mask = ((mode & LL_MODE_2D) ? VIA_2D_ENG_BUSY_H5 : 0) |
 	  ((mode & LL_MODE_3D) ? VIA_3D_ENG_BUSY_H5 : 0);
@@ -890,7 +893,8 @@ syncMpeg(XvMCLowLevel * xl, unsigned int mode, unsigned int doSleep)
 /* the busy flag seems to be irrelevant for cx700 engine*/
     if ( xl->chipId != PCI_CHIP_VT3324 &&
 	 xl->chipId != PCI_CHIP_VT3353 &&
-	 xl->chipId != PCI_CHIP_VT3409 ) {
+	 xl->chipId != PCI_CHIP_VT3409 &&
+	 xl->chipId != PCI_CHIP_VT3410 ) {
       if (mode & LL_MODE_DECODER_IDLE) {
 	busyMask |= VIA_BUSYMASK;
 	idleVal = VIA_IDLEVAL;
@@ -1181,7 +1185,8 @@ viaVideoSetSWFLipLocked(void *xlp, unsigned yOffs, unsigned uOffs,
          xl->chipId == PCI_CHIP_VT3259 ||
          xl->chipId == PCI_CHIP_VT3364 ||
          xl->chipId == PCI_CHIP_VT3353 ||
-         xl->chipId == PCI_CHIP_VT3409 )
+         xl->chipId == PCI_CHIP_VT3409 ||
+         xl->chipId == PCI_CHIP_VT3410 )
       {
         setHQVStartAddressCME(hqvShadow, yOffs, vOffs, yStride, 0);
 
@@ -1214,7 +1219,8 @@ viaVideoSWFlipLocked(void *xlp, unsigned flags, Bool progressiveSequence)
          xl->chipId == PCI_CHIP_VT3259 ||
          xl->chipId == PCI_CHIP_VT3364 ||
          xl->chipId == PCI_CHIP_VT3353 ||
-         xl->chipId == PCI_CHIP_VT3409 )
+         xl->chipId == PCI_CHIP_VT3409 ||
+         xl->chipId == PCI_CHIP_VT3410 )
       {
 	setHQVDeinterlacing(hqvShadow, flags);
 	setHQVDeblocking(hqvShadow,
@@ -1272,14 +1278,16 @@ viaMpegSetFB(void *xlp, unsigned i,
     BEGIN_HEADER6_DATA(cb, xl, 4);
     if ( (xl->chipId == PCI_CHIP_VT3324) ||
          (xl->chipId == PCI_CHIP_VT3353) ||
-         (xl->chipId == PCI_CHIP_VT3409) )
+         (xl->chipId == PCI_CHIP_VT3409) ||
+         (xl->chipId == PCI_CHIP_VT3410) )
     {
       i *= (4 * 2);
       OUT_RING_QW_AGP(cb, 0xc44 + i, yOffs);
       OUT_RING_QW_AGP(cb, 0xc48 + i, vOffs); 
 
       if ((i == 0) && ( (xl->chipId == PCI_CHIP_VT3353) ||
-                        (xl->chipId == PCI_CHIP_VT3409) ))
+                        (xl->chipId == PCI_CHIP_VT3409) ||
+                        (xl->chipId == PCI_CHIP_VT3410) ))
 	{
 	  OUT_RING_QW_AGP(cb, 0xcd4 + i, yOffs);
 	  OUT_RING_QW_AGP(cb, 0xcd8 + i, vOffs); 
@@ -1534,7 +1542,8 @@ viaMpegReset(void *xlp)
 
     if ( xl->chipId == PCI_CHIP_VT3324 ||
          xl->chipId == PCI_CHIP_VT3353 ||
-         xl->chipId == PCI_CHIP_VT3409 )
+         xl->chipId == PCI_CHIP_VT3409 ||
+         xl->chipId == PCI_CHIP_VT3410 )
     {
         viaMpegResetCX(xlp);
     }
@@ -1985,7 +1994,8 @@ initXvMCLowLevel(int fd, drm_context_t * ctx,
 
     if ( chipId == PCI_CHIP_VT3324 ||
          chipId == PCI_CHIP_VT3353 ||
-         chipId == PCI_CHIP_VT3409 )
+         chipId == PCI_CHIP_VT3409 ||
+         chipId == PCI_CHIP_VT3410 )
     {
         xl->mpgRegs.mpgLineOff   = 0xC6C;
         xl->mpgRegs.mpgStatus    = 0xCE0;
