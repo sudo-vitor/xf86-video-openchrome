@@ -110,7 +110,7 @@ AM_CONDITIONAL(DRI, test x$DRI = xyes)
 if test "$DRI" = yes; then
         AC_DEFINE(XF86DRI,1,[Enable DRI driver support])
 
-	AC_CHECK_HEADER([damage.h],
+        AC_CHECK_HEADER([damage.h],
 		[have_damage_h="yes"], [have_damage_h="no"],[-])
         if test "$have_damage_h" = yes; then
                 AC_DEFINE(DAMAGE,1,[Use Damage extension])
@@ -119,6 +119,21 @@ if test "$DRI" = yes; then
         PKG_CHECK_MODULES(LIBUDEV, [libudev], [LIBUDEV=yes], [LIBUDEV=no])
         if test "x$LIBUDEV" = xyes; then
         	AC_DEFINE(HAVE_LIBUDEV, 1,[libudev support])
+        fi
+        PKG_CHECK_MODULES(DRI2, [dri2proto >= 2.6],, DRI2=no)
+
+        AC_MSG_CHECKING([whether to include GLAMOR support])
+        AC_ARG_ENABLE(glamor,
+        	AS_HELP_STRING([--enable-glamor],
+                		[Enable glamor, a new GL-based acceleration [default=no]]),
+		[GLAMOR="$enableval"],
+		[GLAMOR=no])
+        AC_MSG_RESULT([$GLAMOR])
+        AM_CONDITIONAL(GLAMOR, test x$GLAMOR != xno)
+        if test "x$GLAMOR" != "xno"; then
+            PKG_CHECK_MODULES(LIBGLAMOR, [glamor >= 0.3.1])
+            PKG_CHECK_MODULES(LIBGLAMOR_EGL, [glamor-egl])
+            AC_DEFINE(USE_GLAMOR, 1, [Enable glamor acceleration])
         fi
 
         case "$host_cpu" in

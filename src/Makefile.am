@@ -85,6 +85,12 @@ openchrome_drv_la_SOURCES += \
          via_xvmc.c \
          via_xvmc.h \
          drm_fourcc.h
+
+if GLAMOR
+AM_CFLAGS += @LIBGLAMOR_CFLAGS@
+openchrome_drv_la_LDFLAGS += @LIBGLAMOR_LIBS@
+endif
+
 else
 EXTRA_DIST += \
          via_dri.c \
