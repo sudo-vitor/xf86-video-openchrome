@@ -86,6 +86,8 @@
 #endif
 #include <errno.h>
 
+#include "via_vt1632.h"
+
 #include "compat-api.h"
 #define VIA_AGP_UPL_SIZE    (1024*128)
 #define VIA_DMA_DL_SIZE     (1024*128)
@@ -518,5 +520,13 @@ void viaDRIOffscreenSave(ScrnInfoPtr pScrn);
 Bool VIADRIBufferInit(ScrnInfoPtr pScrn);
 
 #endif /* HAVE_DRI */
+
+int viaOffScreenLinear(struct buffer_object *obj, ScrnInfoPtr pScrn, unsigned long size);
+void viaShowCursor(ScrnInfoPtr pScrn);
+void viaHideCursor(ScrnInfoPtr pScrn);
+Bool viaHWCursorInit(ScreenPtr pScreen);
+void ViaDisplaySetStreamOnCRT(ScrnInfoPtr pScrn, Bool primary);
+void ViaDisplaySetStreamOnDFP(ScrnInfoPtr pScrn, Bool primary);
+void ViaDisplayEnableSimultaneous(ScrnInfoPtr pScrn);
 
 #endif /* _VIA_DRIVER_H_ */
