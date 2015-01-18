@@ -91,6 +91,7 @@ openchrome_drv_la_SOURCES += \
 if GLAMOR
 AM_CFLAGS += @LIBGLAMOR_CFLAGS@
 openchrome_drv_la_LDFLAGS += @LIBGLAMOR_LIBS@
+openchrome_drv_la_SOURCES += via_glamor.c
 endif
 
 else

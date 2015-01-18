@@ -1279,8 +1279,10 @@ VIAPreInit(ScrnInfoPtr pScrn, int flags)
     }
 
     /* Disable EXA for KMS case */
-    if (pVia->KMS)
+    if (pVia->KMS) {
         pVia->NoAccel = TRUE;
+        pVia->useEXA = FALSE;
+    }
 
     xf86DrvMsg(pScrn->scrnIndex, from, "Hardware acceleration is %s.\n",
                !pVia->NoAccel ? "enabled" : "disabled");
@@ -1612,6 +1614,21 @@ VIAPreInit(ScrnInfoPtr pScrn, int flags)
         return FALSE;
     }
 
+	if (pVia->shadowFB) {
+		if (!xf86LoadSubModule(pScrn, "shadow")) {
+			VIAFreeRec(pScrn);
+			return FALSE;
+		}
+	}
+
+#ifdef USE_GLAMOR
+	if (!via_glamor_pre_init(pScrn)) {
+		xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
+				   "Failed to pre init glamor display.\n");
+		return FALSE;
+	}
+#endif
+
     if (!pVia->NoAccel) {
         XF86ModReqInfo req;
         int errmaj, errmin;
@@ -1622,13 +1639,6 @@ VIAPreInit(ScrnInfoPtr pScrn, int flags)
         if (!LoadSubModule(pScrn->module, "exa", NULL, NULL, NULL, &req,
                             &errmaj, &errmin)) {
             LoaderErrorMsg(NULL, "exa", errmaj, errmin);
-            VIAFreeRec(pScrn);
-            return FALSE;
-        }
-    }
-
-    if (pVia->shadowFB) {
-        if (!xf86LoadSubModule(pScrn, "shadow")) {
             VIAFreeRec(pScrn);
             return FALSE;
         }
