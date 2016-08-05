@@ -558,12 +558,12 @@ ViaLVDSSoftwarePowerFirstSequence(ScrnInfoPtr pScrn, Bool on)
     DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "ViaLVDSSoftwarePowerFirstSequence: %d\n", on));
     if (on) {
 
-        /* Software control power sequence ON*/
+        /* Software control power sequence ON */
         hwp->writeCrtc(hwp, 0x91, hwp->readCrtc(hwp, 0x91) & 0x7F);
         hwp->writeCrtc(hwp, 0x91, hwp->readCrtc(hwp, 0x91) | 0x01);
         usleep(TD0);
 
-        /* VDD ON*/
+        /* VDD ON */
         hwp->writeCrtc(hwp, 0x91, hwp->readCrtc(hwp, 0x91) | 0x10);
         usleep(TD1);
 
@@ -571,7 +571,7 @@ ViaLVDSSoftwarePowerFirstSequence(ScrnInfoPtr pScrn, Bool on)
         hwp->writeCrtc(hwp, 0x91, hwp->readCrtc(hwp, 0x91) | 0x08);
         usleep(TD2);
 
-        /* VEE ON (unused on vt3353)*/
+        /* VEE ON (unused on vt3353) */
         hwp->writeCrtc(hwp, 0x91, hwp->readCrtc(hwp, 0x91) | 0x04);
         usleep(TD3);
 
@@ -582,7 +582,7 @@ ViaLVDSSoftwarePowerFirstSequence(ScrnInfoPtr pScrn, Bool on)
         hwp->writeCrtc(hwp, 0x91, hwp->readCrtc(hwp, 0x91) & 0xFD);
         usleep(TD3);
 
-        /* VEE OFF (unused on vt3353)*/
+        /* VEE OFF (unused on vt3353) */
         hwp->writeCrtc(hwp, 0x91, hwp->readCrtc(hwp, 0x91) & 0xFB);
         usleep(TD2);
 
@@ -609,7 +609,7 @@ ViaLVDSSoftwarePowerSecondSequence(ScrnInfoPtr pScrn, Bool on)
         hwp->writeCrtc(hwp, 0xD3, hwp->readCrtc(hwp, 0xD3) | 0x01);
         usleep(TD0);
 
-        /* VDD ON*/
+        /* VDD ON */
         hwp->writeCrtc(hwp, 0xD3, hwp->readCrtc(hwp, 0xD3) | 0x10);
         usleep(TD1);
 
@@ -617,7 +617,7 @@ ViaLVDSSoftwarePowerSecondSequence(ScrnInfoPtr pScrn, Bool on)
         hwp->writeCrtc(hwp, 0xD3, hwp->readCrtc(hwp, 0xD3) | 0x08);
         usleep(TD2);
 
-        /* VEE ON (unused on vt3353)*/
+        /* VEE ON (unused on vt3353) */
         hwp->writeCrtc(hwp, 0xD3, hwp->readCrtc(hwp, 0xD3) | 0x04);
         usleep(TD3);
 
