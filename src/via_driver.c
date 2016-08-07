@@ -60,9 +60,9 @@
 
 typedef struct
 {
-	int major;
-	int minor;
-	int patchlevel;
+    int major;
+    int minor;
+    int patchlevel;
 } ViaDRMVersion;
 
 static const ViaDRMVersion drmExpected = { 1, 3, 0 };
@@ -470,9 +470,9 @@ via_pci_probe(DriverPtr driver, int entity_num,
         scrn->ScreenInit = VIAScreenInit;
         scrn->SwitchMode = VIASwitchMode;
         scrn->AdjustFrame = VIAAdjustFrame;
-		scrn->EnterVT = VIAEnterVT;
-		scrn->LeaveVT = VIALeaveVT;
-		scrn->FreeScreen = VIAFreeScreen;
+        scrn->EnterVT = VIAEnterVT;
+        scrn->LeaveVT = VIALeaveVT;
+        scrn->FreeScreen = VIAFreeScreen;
 
         xf86Msg(X_NOTICE,
                 "VIA Technologies does not support this driver in any way.\n");
@@ -534,18 +534,18 @@ VIAProbe(DriverPtr drv, int flags)
 
             if ((pScrn = xf86ConfigPciEntity(pScrn, 0, usedChips[i],
                                              VIAPciChipsets, 0, 0, 0, 0, 0))) {
-				pScrn->driverVersion = VIA_VERSION;
-				pScrn->driverName = DRIVER_NAME;
-				pScrn->name = "CHROME";
-				pScrn->Probe = VIAProbe;
-				pScrn->PreInit = viaPreInit;
-				pScrn->ScreenInit = VIAScreenInit;
-				pScrn->SwitchMode = VIASwitchMode;
-				pScrn->AdjustFrame = VIAAdjustFrame;
-				pScrn->EnterVT = VIAEnterVT;
-				pScrn->LeaveVT = VIALeaveVT;
-				pScrn->FreeScreen = VIAFreeScreen;
-				foundScreen = TRUE;
+                pScrn->driverVersion = VIA_VERSION;
+                pScrn->driverName = DRIVER_NAME;
+                pScrn->name = "CHROME";
+                pScrn->Probe = VIAProbe;
+                pScrn->PreInit = viaPreInit;
+                pScrn->ScreenInit = VIAScreenInit;
+                pScrn->SwitchMode = VIASwitchMode;
+                pScrn->AdjustFrame = VIAAdjustFrame;
+                pScrn->EnterVT = VIAEnterVT;
+                pScrn->LeaveVT = VIALeaveVT;
+                pScrn->FreeScreen = VIAFreeScreen;
+                foundScreen = TRUE;
             }
 #if 0
             xf86ConfigActivePciEntity(pScrn,
@@ -741,30 +741,30 @@ VIAGetRec(ScrnInfoPtr pScrn)
 static int
 map_legacy_formats(int bpp, int depth)
 {
-	int fmt = DRM_FORMAT_XRGB8888;
+    int fmt = DRM_FORMAT_XRGB8888;
 
-	switch (bpp) {
-	case 8:
-		fmt = DRM_FORMAT_C8;
-		break;
-	case 16:
-		if (depth == 15)
-			fmt = DRM_FORMAT_XRGB1555;
-		else
-			fmt = DRM_FORMAT_RGB565;
-		break;
-	case 24:
-		fmt = DRM_FORMAT_RGB888;
-		break;
-	case 32:
-		if (depth == 24)
-			fmt = DRM_FORMAT_XRGB8888;
-		else if (depth == 30)
-			fmt = DRM_FORMAT_XRGB2101010;
-	default:
-		break;
-	}
-	return fmt;
+    switch (bpp) {
+    case 8:
+        fmt = DRM_FORMAT_C8;
+        break;
+    case 16:
+        if (depth == 15)
+            fmt = DRM_FORMAT_XRGB1555;
+        else
+            fmt = DRM_FORMAT_RGB565;
+        break;
+    case 24:
+        fmt = DRM_FORMAT_RGB888;
+        break;
+    case 32:
+        if (depth == 24)
+            fmt = DRM_FORMAT_XRGB8888;
+        else if (depth == 30)
+            fmt = DRM_FORMAT_XRGB2101010;
+    default:
+        break;
+    }
+    return fmt;
 }
 
 static Bool
@@ -1107,7 +1107,7 @@ viaPreInit(ScrnInfoPtr pScrn, int flags)
         return FALSE;
     }
 
-	/* Now handle the Display */
+    /* Now handle the Display */
     if (flags & PROBE_DETECT)
         return TRUE;
 
@@ -1576,7 +1576,7 @@ fail:
 
 static void
 LoadPalette(ScrnInfoPtr pScrn, int numColors, int *indices,
-		LOCO * colors, VisualPtr pVisual)
+            LOCO * colors, VisualPtr pVisual)
 {
     xf86CrtcConfigPtr xf86_config = XF86_CRTC_CONFIG_PTR(pScrn);
     CARD16 lut_r[256], lut_g[256], lut_b[256];
@@ -1632,7 +1632,7 @@ LoadPalette(ScrnInfoPtr pScrn, int numColors, int *indices,
 
 static void *
 viaShadowWindow(ScreenPtr pScreen, CARD32 row, CARD32 offset, int mode,
-				CARD32 *size, void *closure)
+                CARD32 *size, void *closure)
 {
     ScrnInfoPtr pScrn = xf86ScreenToScrn(pScreen);
     VIAPtr pVia = VIAPTR(pScrn);
