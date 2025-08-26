@@ -166,10 +166,11 @@ if test "$DRI" = yes; then
     CFLAGS="$save_CFLAGS"
 
     case "$host_cpu" in
-        i*86)
-            XVMC=yes ;;
-        amd64*|x86_64*)
-            XVMC=yes ;;
+# FIXME: XVMC support disabled because it does not compile (see issue #6)
+#        i*86)
+#            XVMC=yes ;;
+#        amd64*|x86_64*)
+#            XVMC=yes ;;
         *)
             XVMC=no ;;
     esac
